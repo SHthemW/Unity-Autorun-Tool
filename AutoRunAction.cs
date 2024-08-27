@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
+[System.Serializable]
 public sealed class AutoRunAction
 {
     public string buttonName = "button name";

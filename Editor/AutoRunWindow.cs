@@ -19,6 +19,7 @@ public class AutoRunWindow : EditorWindow
         GetWindow<AutoRunWindow>("Auto Run");
     }
 
+
     private void OnGUI()
     {   
         try
@@ -28,9 +29,10 @@ public class AutoRunWindow : EditorWindow
             if (GUILayout.Button("Go!"))
             {
                 ClearConsoleText();
+                CleanHandlerObjects();
 
                 EditorApplication.isPlaying = true;
-
+                
                 var handlerObject = new GameObject(HANDLER_OBJECT_NAME);
                 var handler = handlerObject.AddComponent<AutoRunHandler>();
 
@@ -41,8 +43,7 @@ public class AutoRunWindow : EditorWindow
 
             if (GUILayout.Button("Stop"))
             {
-                var handlerObject = GameObject.Find(HANDLER_OBJECT_NAME);
-                DestroyImmediate(handlerObject);
+                CleanHandlerObjects();
 
                 EditorApplication.isPlaying = false;
 
@@ -73,6 +74,7 @@ public class AutoRunWindow : EditorWindow
             if (GUILayout.Button("Clear"))
             {
                 ClearConsoleText();
+                CleanHandlerObjects();
             }
 
             scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Height(100));
@@ -85,6 +87,19 @@ public class AutoRunWindow : EditorWindow
         }
     }
 
+    private int CleanHandlerObjects()
+    {
+        var handlerObjects = FindObjectsOfType<AutoRunHandler>(true);
+        int count = 0;
+
+        for (int i = 0; i < handlerObjects.Length; i++)
+        {
+            DestroyImmediate(handlerObjects[i].gameObject);
+            count++;
+        }
+        return count;
+    }
+
     private void ClearConsoleText()
     {
         logText = string.Empty;
@@ -92,6 +107,12 @@ public class AutoRunWindow : EditorWindow
 
     private void AppendConsoleText(string text)
     {
+        if (string.IsNullOrEmpty(text))
+            return;
+        
+        if (!text.StartsWith("\n"))
+            text = "\n" + text;
+
         logText += text;
     }
 }

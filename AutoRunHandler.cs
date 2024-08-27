@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-
 public class AutoRunHandler : MonoBehaviour
 {
+    [SerializeField]
     private List<AutoRunAction> _autoActions;
     private Action<string> _msgHandler;
 
@@ -12,12 +12,12 @@ public class AutoRunHandler : MonoBehaviour
     {
         if (_autoActions != null)
         {
-            Debug.LogWarning("AutoRunHandler: AutoRunActions already set!");
+            Log("AutoRunHandler: AutoRunActions already set!");
         }
         _autoActions = autoActions ?? throw new ArgumentNullException(nameof(autoActions));
         _msgHandler = msgHandler ?? throw new ArgumentNullException(nameof(msgHandler));
 
-        _msgHandler.Invoke("\nAutoRunHandler is ready.");
+        Log($"AutoRunHandler is ready. {_autoActions.Count} actions.");
     }
 
     private void Awake()
@@ -34,7 +34,11 @@ public class AutoRunHandler : MonoBehaviour
             return;
 
         if (_currentActionIndex >= _autoActions.Count)
+        {
+            Log("AutoRunHandler: All actions completed.");
+            Destroy(gameObject);
             return;
+        }
 
         var action = _autoActions[_currentActionIndex];
 
@@ -43,10 +47,20 @@ public class AutoRunHandler : MonoBehaviour
             return;
 
         var msg = action.Execute();
-        if (msg != null)
-            _msgHandler.Invoke(msg);
+        Log(msg);
 
         _currentActionIndex++;
         _timer = 0f;
+    }
+
+    private void Log(string msg)
+    {
+        if (string.IsNullOrEmpty(msg))
+            return;
+
+        if (_msgHandler != null)
+            _msgHandler.Invoke(msg);
+        else
+            Debug.Log(msg);
     }
 }
