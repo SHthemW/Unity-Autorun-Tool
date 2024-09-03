@@ -7,9 +7,8 @@ public class AutoRunWindow : EditorWindow
     private string logText = "";
     private Vector2 scrollPosition;
     private readonly List<AutoRunAction> buttonActions = new() {
-        new() { buttonName = "a1", delay = 3f },
-        new() { buttonName = "a2", delay = 3f },
-        new() { buttonName = "a3", delay = 3f },
+        new() { buttonName = "btnEnterGame(Clone)", buttonText = "梦幻岛", delay = 3f },
+        new() { buttonName = "Btn_connectGameCenter", delay = 3f, isFairyGUI = true },
     };
     private const string HANDLER_OBJECT_NAME = "AutoRunHandler";
 
@@ -55,19 +54,23 @@ public class AutoRunWindow : EditorWindow
 
             // actions
             GUILayout.Label("Actions");
-            if (GUILayout.Button("Add Action"))
-            {
-                buttonActions.Add(new AutoRunAction());
-            }
 
             scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Height(100));
             foreach (var action in buttonActions)
             {
                 GUILayout.BeginHorizontal();
-                GUILayout.Label("Button Name:");
-                action.buttonName = GUILayout.TextField(action.buttonName, GUILayout.Width(80));
-                GUILayout.Label("Delay Second:");
-                action.delay = float.Parse(GUILayout.TextField(action.delay.ToString(), GUILayout.Width(30)));
+
+                GUILayout.Label("Name:");
+                action.buttonName = GUILayout.TextField(action.buttonName, GUILayout.Width(50));
+
+                GUILayout.Label("Text:");
+                action.buttonText = GUILayout.TextField(action.buttonText, GUILayout.Width(50));
+
+                GUILayout.Label("Delay:");
+                action.delay = float.Parse(GUILayout.TextField(action.delay.ToString(), GUILayout.Width(20)));
+
+                action.isFairyGUI = GUILayout.Toggle(action.isFairyGUI, "FUI");
+
                 GUILayout.EndHorizontal();
             }
             GUILayout.EndScrollView();
