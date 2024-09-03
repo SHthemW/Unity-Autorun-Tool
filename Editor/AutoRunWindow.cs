@@ -19,6 +19,9 @@ public class AutoRunWindow : EditorWindow
         GetWindow<AutoRunWindow>("Auto Run");
     }
 
+    private GameObject _handlerObject;
+    private AutoRunHandler _handler;
+
 
     private void OnGUI()
     {   
@@ -33,21 +36,21 @@ public class AutoRunWindow : EditorWindow
 
                 EditorApplication.isPlaying = true;
                 
-                var handlerObject = new GameObject(HANDLER_OBJECT_NAME);
-                var handler = handlerObject.AddComponent<AutoRunHandler>();
+                _handlerObject = new GameObject(HANDLER_OBJECT_NAME);
+                _handler = _handlerObject.AddComponent<AutoRunHandler>();
 
-                handler.Init(buttonActions, AppendConsoleText);
+                _handler.Init(buttonActions, AppendConsoleText);
 
                 AppendConsoleText("Game started...\n");
             }
 
             if (GUILayout.Button("Stop"))
             {
-                CleanHandlerObjects();
+                int cleanCount = CleanHandlerObjects();
 
                 EditorApplication.isPlaying = false;
 
-                AppendConsoleText("Game stopped.\n");
+                AppendConsoleText($"Game stopped. {cleanCount} handler objects cleaned.");
             }
 
             // actions
@@ -88,14 +91,21 @@ public class AutoRunWindow : EditorWindow
     }
 
     private int CleanHandlerObjects()
-    {
-        var handlerObjects = FindObjectsOfType<AutoRunHandler>(true);
+    {   
         int count = 0;
+
+        if (_handlerObject != null)
+        {
+            DestroyImmediate(_handlerObject);
+            count += 1;
+        }
+
+        var handlerObjects = FindObjectsOfType<AutoRunHandler>(true);
 
         for (int i = 0; i < handlerObjects.Length; i++)
         {
             DestroyImmediate(handlerObjects[i].gameObject);
-            count++;
+            count += 1;
         }
         return count;
     }

@@ -15,11 +15,25 @@ public sealed class AutoRunAction
             return $"testing {buttonName}.";
         }
 
-        var btn = GameObject.Find(buttonName);
-        if (!btn)
+        var btnObject = GameObject.Find(buttonName);
+        if (!btnObject)
+        {
             return $"err: button '{buttonName}' not found!";
+        }
 
-        btn.GetComponent<Button>().onClick?.Invoke();
+        var btnComponent = btnObject.GetComponent<Button>();
+        if (!btnComponent)
+        {
+            return $"err: button '{buttonName}' has no button component!";
+        }
+
+        var btnClickAction = btnComponent.onClick;
+        if (btnClickAction == null || btnClickAction.GetPersistentEventCount() == 0)
+        {
+            return $"err: button '{buttonName}' has no button click event!";
+        }
+
+        btnClickAction.Invoke();
 
         return $"btn {buttonName} is clicked.";
     }
