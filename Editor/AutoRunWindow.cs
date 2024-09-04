@@ -28,7 +28,7 @@ public class AutoRunWindow : EditorWindow
         {
             // main
             GUILayout.Label("Auto Run Game Utility");
-            if (GUILayout.Button("Go!"))
+            if (GUILayout.Button("Go!", GUILayout.Height(40)))
             {
                 ClearConsoleText();
                 CleanHandlerObjects();
@@ -43,7 +43,7 @@ public class AutoRunWindow : EditorWindow
                 AppendConsoleText("Game started...\n");
             }
 
-            if (GUILayout.Button("Stop"))
+            if (GUILayout.Button("Stop", GUILayout.Height(40)))
             {
                 int cleanCount = CleanHandlerObjects();
 
@@ -55,7 +55,7 @@ public class AutoRunWindow : EditorWindow
             // actions
             GUILayout.Label("Actions");
 
-            scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Height(100));
+            scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Height(80));
             foreach (var action in buttonActions)
             {
                 GUILayout.BeginHorizontal();
@@ -69,7 +69,7 @@ public class AutoRunWindow : EditorWindow
                 GUILayout.Label("Delay:");
                 action.delay = float.Parse(GUILayout.TextField(action.delay.ToString(), GUILayout.Width(20)));
 
-                action.isFairyGUI = GUILayout.Toggle(action.isFairyGUI, "FUI");
+                action.isFairyGUI = GUILayout.Toggle(action.isFairyGUI, "FGUI");
 
                 GUILayout.EndHorizontal();
             }
@@ -83,7 +83,7 @@ public class AutoRunWindow : EditorWindow
                 CleanHandlerObjects();
             }
 
-            scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Height(100));
+            scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Height(200));
             GUILayout.TextArea(logText);
             GUILayout.EndScrollView();
         }

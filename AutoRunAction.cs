@@ -2,6 +2,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using FairyGUI;
+using System.Collections.Generic;
 
 [System.Serializable]
 public sealed class AutoRunAction
@@ -73,10 +74,14 @@ public sealed class AutoRunAction
 
         GComponent view = GRoot.inst.asCom;
 
-        var nameMachedComponents = AllChildren(view).Where(c => c.displayObject.name == buttonName);
+        var allObjects = FairyGUIHelper.GetAllComponents(view);
+
+        var allButtons = allObjects.Where(c => c.asButton != null).Cast<GButton>();
+
+        var nameMachedComponents = allButtons.Where(c => c.name == buttonName);
         if (nameMachedComponents.Count() == 0)
         {
-            return $"err: button '{buttonName}' not found. view: {view.displayObject.name}, childlen: {view.GetChildren().Length}";
+            return $"err: button '{buttonName}' not found. view: {view.displayObject.name}, childlen: {allObjects.Count}";
         }
         if (nameMachedComponents.Count() > 1)
         {
@@ -95,33 +100,33 @@ public sealed class AutoRunAction
         
         return $"btn {buttonName} is clicked.";
     }
+}
 
-    private static GObject[] AllChildren(GObject parent)
+public static class FairyGUIHelper
+{
+    public static List<GObject> GetAllComponents(GObject root)
     {
-        if (parent == null)
+        List<GObject> components = new();
+        GetComponentsRecursive(root, components);
+        return components;
+    }
+
+    private static void GetComponentsRecursive(GObject obj, List<GObject> components)
+    {
+        var com = obj.asCom;
+        if (com == null)
         {
-            return null;
+            Debug.Log("Obj is not a component: " + obj.gameObjectName);
+            return;
         }
 
-        Debug.Log("err: msg: parent: " + parent.displayObject.name);
+        Debug.Log("Obj is a component: " + obj.gameObjectName);
 
-        if (parent is not GComponent && parent.asCom == null) 
+        components.Add(com);
+        for (int i = 0; i < com.numChildren; i++)
         {
-            return null;
+            GObject child = com.GetChildAt(i);
+            GetComponentsRecursive(child, components);
         }
-
-        var children = parent.asCom.GetChildren();
-
-        foreach (var child in children)
-        {
-            var newChildren = AllChildren(child);
-            if (newChildren == null)
-            {
-                continue;
-            }
-            children = children.Concat(newChildren).ToArray();
-        }
-
-        return children;
     }
 }
