@@ -1,15 +1,13 @@
 using UnityEditor;
 using UnityEngine;
 using System.Collections.Generic;
+using System.IO;
+using System;
 
 public class AutoRunWindow : EditorWindow
 {
     private string logText = "";
     private Vector2 scrollPosition;
-    private readonly List<AutoRunAction> buttonActions = new() {
-        new() { buttonName = "btnEnterGame(Clone)", buttonText = "梦幻岛", delay = 3f },
-        new() { buttonName = "Btn_connectGameCenter", delay = 3f, isFairyGUI = true },
-    };
     private const string HANDLER_OBJECT_NAME = "AutoRunHandler";
 
     [MenuItem("Window/Auto Run Window")]
@@ -21,6 +19,9 @@ public class AutoRunWindow : EditorWindow
     private GameObject _handlerObject;
     private AutoRunHandler _handler;
 
+    private const string ConfigPath = @"/Users/shenhanwen/Documents/Projects/Unity/_lib/AutoRunConfig.xml";
+    private AutoRunParamConfig currentLoadingConfig { get; set; } = new();
+    private AutoRunActionClass currentSelectingClass { get; set; }
 
     private void OnGUI()
     {   
@@ -38,9 +39,15 @@ public class AutoRunWindow : EditorWindow
                 _handlerObject = new GameObject(HANDLER_OBJECT_NAME);
                 _handler = _handlerObject.AddComponent<AutoRunHandler>();
 
-                _handler.Init(buttonActions, AppendConsoleText);
-
-                AppendConsoleText("Game started...\n");
+                if (!currentLoadingConfig.ParamsOf(currentSelectingClass, out var param))
+                {
+                    AppendConsoleText("Config not found. Press 'Add' to create one.");
+                }
+                else
+                {
+                    _handler.Init(param, AppendConsoleText);
+                    AppendConsoleText("Game started...\n");
+                }
             }
 
             if (GUILayout.Button("Stop", GUILayout.Height(40)))
@@ -55,24 +62,69 @@ public class AutoRunWindow : EditorWindow
             // actions
             GUILayout.Label("Actions");
 
-            scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Height(80));
-            foreach (var action in buttonActions)
+            currentSelectingClass = (AutoRunActionClass)EditorGUILayout.EnumPopup(currentSelectingClass);
+
+            GUILayout.BeginHorizontal();
+
+            if (GUILayout.Button("Add"))
             {
-                GUILayout.BeginHorizontal();
-
-                GUILayout.Label("Name:");
-                action.buttonName = GUILayout.TextField(action.buttonName, GUILayout.Width(50));
-
-                GUILayout.Label("Text:");
-                action.buttonText = GUILayout.TextField(action.buttonText, GUILayout.Width(50));
-
-                GUILayout.Label("Delay:");
-                action.delay = float.Parse(GUILayout.TextField(action.delay.ToString(), GUILayout.Width(20)));
-
-                action.isFairyGUI = GUILayout.Toggle(action.isFairyGUI, "FGUI");
-
-                GUILayout.EndHorizontal();
+                currentLoadingConfig.Append(currentSelectingClass, new());
             }
+
+            if (GUILayout.Button("Load"))
+            {
+                bool hasConfigFile = XmlHelper.TryLoadConfig<AutoRunParamConfig>(
+                    ConfigPath,
+                    out var config
+                );
+
+                if (hasConfigFile)
+                {
+                    currentLoadingConfig = config;
+                    AppendConsoleText($"Config loaded. Details: {config.Info()}");
+                }
+                else
+                {
+                    AppendConsoleText("Config not found. Press 'Add' to create one.");
+                }
+            }
+
+            if (GUILayout.Button("Save"))
+            {
+                XmlHelper.SaveConfig<AutoRunParamConfig>(currentLoadingConfig, ConfigPath);
+                AppendConsoleText($"Config saved. Details: {currentLoadingConfig.Info()}");
+            }
+
+            GUILayout.EndHorizontal();
+
+            scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Height(80));
+
+            if (currentLoadingConfig.ParamsOf(currentSelectingClass, out var selectingParams))
+            {
+                foreach (var param in selectingParams)
+                {
+                    GUILayout.BeginHorizontal();
+
+                    GUILayout.Label("Name:");
+                    param.buttonName = GUILayout.TextField(param.buttonName, GUILayout.Width(50));
+
+                    GUILayout.Label("Text:");
+                    param.buttonText = GUILayout.TextField(param.buttonText, GUILayout.Width(50));
+
+                    GUILayout.Label("Delay:");
+                    param.delay = float.Parse(GUILayout.TextField(param.delay.ToString(), GUILayout.Width(20)));
+
+                    param.isFairyGUI = GUILayout.Toggle(param.isFairyGUI, "FGUI");
+
+                    if (GUILayout.Button("-"))
+                    {
+                        
+                    }
+
+                    GUILayout.EndHorizontal();
+                }
+            }
+            
             GUILayout.EndScrollView();
 
             // console
@@ -89,7 +141,8 @@ public class AutoRunWindow : EditorWindow
         }
         catch (System.Exception e)
         {
-            AppendConsoleText("err: " + e.ToString() + "\n");
+            // AppendConsoleText("err: " + e.ToString() + "\n");
+            throw;
         }
     }
 

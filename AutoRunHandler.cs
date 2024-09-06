@@ -5,19 +5,19 @@ using UnityEngine;
 public class AutoRunHandler : MonoBehaviour
 {
     [SerializeField]
-    private List<AutoRunAction> _autoActions;
+    private List<AutoRunParam> _params;
     private Action<string> _msgHandler;
 
-    public void Init(List<AutoRunAction> autoActions, Action<string> msgHandler)
+    public void Init(List<AutoRunParam> actionParams, Action<string> msgHandler)
     {
-        if (_autoActions != null)
+        if (_params != null)
         {
             Log("AutoRunHandler: AutoRunActions already set!");
         }
-        _autoActions = autoActions ?? throw new ArgumentNullException(nameof(autoActions));
+        _params = actionParams ?? throw new ArgumentNullException(nameof(actionParams));
         _msgHandler = msgHandler ?? throw new ArgumentNullException(nameof(msgHandler));
 
-        Log($"AutoRunHandler is ready. {_autoActions.Count} actions.");
+        Log($"AutoRunHandler is ready. {_params.Count} actions.");
     }
 
     private void Awake()
@@ -30,20 +30,21 @@ public class AutoRunHandler : MonoBehaviour
 
     private void Update()
     {
-        if (_autoActions == null)
+        if (_params == null)
             return;
 
-        if (_currentActionIndex >= _autoActions.Count)
+        if (_currentActionIndex >= _params.Count)
         {
             Log("AutoRunHandler: All actions completed.");
             Destroy(gameObject);
             return;
         }
 
-        var action = _autoActions[_currentActionIndex];
+        var param = _params[_currentActionIndex];
+        var action = new AutoRunAction(param);
 
         _timer += Time.deltaTime;
-        if (_timer < action.delay)
+        if (_timer < param.delay)
             return;
 
         var msg = action.Execute();

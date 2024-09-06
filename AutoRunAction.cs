@@ -7,17 +7,18 @@ using System.Collections.Generic;
 [System.Serializable]
 public sealed class AutoRunAction
 {
-    const string DEFAULT_NAME = "unnamed";
-    const string DEFAULT_TEXT = "untitled";
+    public AutoRunParam Param { get; set; }
 
-    public string buttonName = DEFAULT_NAME;
-    public string buttonText = DEFAULT_TEXT;
-    /// <summary>
-    /// if true, it's a FGUI button
-    /// </summary>
-    public bool   isFairyGUI = false;
-    public float  delay = 0f;
-    public bool   isTest = false;
+    public string buttonName { get => Param.buttonName; set => Param.buttonName = value; }
+    public string buttonText { get => Param.buttonText; set => Param.buttonText = value; }
+    public float delay { get => Param.delay; set => Param.delay = value; }
+    public bool isTest { get => Param.isTest; set => Param.isTest = value; }
+    public bool isFairyGUI { get => Param.isFairyGUI; set => Param.isFairyGUI = value; }
+
+    public AutoRunAction(AutoRunParam param)
+    {
+        Param = param;
+    }
 
     public string Execute()
     {
@@ -67,7 +68,7 @@ public sealed class AutoRunAction
 
     private string ExecuteWithFGUI()
     {
-        if (buttonText != DEFAULT_TEXT)
+        if (buttonText != AutoRunParam.DEFAULT_TEXT)
         {
             return $"err: button text not supported on FGUI. use button name instead!";
         }
