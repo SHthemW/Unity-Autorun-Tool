@@ -74,7 +74,7 @@ public sealed class AutoRunAction
 
         GComponent view = GRoot.inst.asCom;
 
-        var allObjects = FairyGUIHelper.GetAllComponents(view);
+        var allObjects = view.AllComponentChildren();
 
         var allButtons = allObjects.Where(c => c.asButton != null).Cast<GButton>();
 
@@ -99,34 +99,5 @@ public sealed class AutoRunAction
         button.onClick.Call();
         
         return $"btn {buttonName} is clicked.";
-    }
-}
-
-public static class FairyGUIHelper
-{
-    public static List<GObject> GetAllComponents(GObject root)
-    {
-        List<GObject> components = new();
-        GetComponentsRecursive(root, components);
-        return components;
-    }
-
-    private static void GetComponentsRecursive(GObject obj, List<GObject> components)
-    {
-        var com = obj.asCom;
-        if (com == null)
-        {
-            Debug.Log("Obj is not a component: " + obj.gameObjectName);
-            return;
-        }
-
-        Debug.Log("Obj is a component: " + obj.gameObjectName);
-
-        components.Add(com);
-        for (int i = 0; i < com.numChildren; i++)
-        {
-            GObject child = com.GetChildAt(i);
-            GetComponentsRecursive(child, components);
-        }
     }
 }
