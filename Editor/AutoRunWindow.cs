@@ -29,13 +29,16 @@ public class AutoRunWindow : EditorWindow
         {
             // main
             GUILayout.Label("Auto Run Game Utility");
+
             if (GUILayout.Button("Go!", GUILayout.Height(40)))
             {
                 ClearConsoleText();
                 CleanHandlerObjects();
 
                 EditorApplication.isPlaying = true;
-                
+
+                LoadConfig();
+
                 _handlerObject = new GameObject(HANDLER_OBJECT_NAME);
                 _handler = _handlerObject.AddComponent<AutoRunHandler>();
 
@@ -73,20 +76,7 @@ public class AutoRunWindow : EditorWindow
 
             if (GUILayout.Button("Load"))
             {
-                bool hasConfigFile = XmlHelper.TryLoadConfig<AutoRunParamConfig>(
-                    ConfigPath,
-                    out var config
-                );
-
-                if (hasConfigFile)
-                {
-                    currentLoadingConfig = config;
-                    AppendConsoleText($"Config loaded. Details: {config.Info()}");
-                }
-                else
-                {
-                    AppendConsoleText("Config not found. Press 'Add' to create one.");
-                }
+                LoadConfig();
             }
 
             if (GUILayout.Button("Save"))
@@ -143,6 +133,24 @@ public class AutoRunWindow : EditorWindow
         {
             // AppendConsoleText("err: " + e.ToString() + "\n");
             throw;
+        }
+    }
+
+    private void LoadConfig()
+    {
+        bool hasConfigFile = XmlHelper.TryLoadConfig<AutoRunParamConfig>(
+            ConfigPath,
+            out var config
+        );
+
+        if (hasConfigFile)
+        {
+            currentLoadingConfig = config;
+            AppendConsoleText($"Config loaded. Details: {config.Info()}");
+        }
+        else
+        {
+            AppendConsoleText("Config not found. Press 'Add' to create one.");
         }
     }
 

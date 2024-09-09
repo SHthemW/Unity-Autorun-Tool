@@ -9,26 +9,28 @@ public sealed class AutoRunParam
     public const string DEFAULT_NAME = "unnamed";
     public const string DEFAULT_TEXT = "untitled";
 
-    [field: SerializeField]
-    public string buttonName { get; set; } = DEFAULT_NAME;
+    public string buttonName = DEFAULT_NAME;
 
-    [field: SerializeField]
-    public string buttonText { get; set; } = DEFAULT_TEXT;
+    public string buttonText = DEFAULT_TEXT;
 
-    [field: SerializeField]
-    public bool   isFairyGUI { get; set; } = false;
+    public bool   isFairyGUI = false;
 
-    [field: SerializeField]
-    public float  delay { get; set; } = 0f;
+    public float  delay = 0f;
 
-    [field: SerializeField]
-    public bool   isTest { get; set; } = false;
+    public bool   isTest = false;
+}
+
+[Serializable]
+public sealed class AutoRunParamClassPair
+{
+    public AutoRunActionClass Key;
+    public List<AutoRunParam> Value;
 }
 
 [Serializable]
 public sealed class AutoRunParamConfig
 {
-    private readonly Dictionary<AutoRunActionClass, List<AutoRunParam>> _classSeqDict = new();
+    public readonly List<AutoRunParamClassPair> _classSeqDict = new();
 
     public string Info()
     {
@@ -36,23 +38,41 @@ public sealed class AutoRunParamConfig
     }
 
     public bool ParamsOf(AutoRunActionClass c, out List<AutoRunParam> result)
-    {
-        bool success = _classSeqDict.TryGetValue(c, out var r);
-        result = r;
-        return success;
+    {   
+        var matches = _classSeqDict.FindAll(x => x.Key == c);
+
+        if (matches.Count > 1)
+        {
+            Debug.LogError($"class amount not 1: {c}, {matches.Count}");
+            result = null;
+            return false;
+        }
+
+        if (matches.Count == 0)
+        {
+            result = null;
+            return false;
+        }
+
+        result = matches[0].Value;
+        return true;
     }
 
     public void Append(AutoRunActionClass c, AutoRunParam p)
     {
-        if (!_classSeqDict.ContainsKey(c))
+        if (!ParamsOf(c, out var appendTarget))
         {
-            _classSeqDict.Add(c, new List<AutoRunParam>());
+            _classSeqDict.Add(new AutoRunParamClassPair() {
+                Key = c,
+                Value = new List<AutoRunParam>()
+            });
         }
 
-        _classSeqDict[c].Add(p);
+        appendTarget.Add(p);
     }
 }
 
+[Serializable]
 public enum AutoRunActionClass
 {
     NeverLand,
