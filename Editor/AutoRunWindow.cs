@@ -185,7 +185,7 @@ public class AutoRunWindow : EditorWindow
             return;
         
         if (!text.StartsWith("\n"))
-            text = "\n" + text;
+            text += "\n";
 
         logText += text;
     }
