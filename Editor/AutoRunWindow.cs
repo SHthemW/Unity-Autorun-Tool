@@ -85,6 +85,11 @@ public class AutoRunWindow : EditorWindow
                 AppendConsoleText($"Config saved. Details: {currentLoadingConfig.Info()}");
             }
 
+            if (GUILayout.Button("Open"))
+            {
+                XmlHelper.OpenWithDefaultEditor(ConfigPath);
+            }
+
             GUILayout.EndHorizontal();
 
             scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Height(80));
@@ -133,7 +138,7 @@ public class AutoRunWindow : EditorWindow
         }
         catch (System.Exception e)
         {
-            // AppendConsoleText("err: " + e.ToString() + "\n");
+            AppendConsoleText("err: " + e.ToString() + "\n");
             throw;
         }
     }
