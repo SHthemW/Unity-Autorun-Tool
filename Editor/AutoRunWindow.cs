@@ -91,8 +91,10 @@ public class AutoRunWindow : EditorWindow
 
             if (currentLoadingConfig.ParamsOf(currentSelectingClass, out var selectingParams))
             {
-                foreach (var param in selectingParams)
+                for (int i = 0; i < selectingParams.Count; i++)
                 {
+                    var param = selectingParams[i];
+
                     GUILayout.BeginHorizontal();
 
                     GUILayout.Label("Name:");
@@ -108,7 +110,7 @@ public class AutoRunWindow : EditorWindow
 
                     if (GUILayout.Button("-"))
                     {
-                        
+                        selectingParams.RemoveAt(i);
                     }
 
                     GUILayout.EndHorizontal();
