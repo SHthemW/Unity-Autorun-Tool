@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Xml.Serialization;
 
@@ -25,5 +26,10 @@ public static class XmlHelper
     
         config = (T)serializer.Deserialize(reader);
         return true;
+    }
+
+    public static void OpenWithDefaultEditor(string filePath)
+    {
+        Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true });
     }
 }
