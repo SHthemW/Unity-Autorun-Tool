@@ -58,14 +58,19 @@ public sealed class AutoRunParamConfig
         return true;
     }
 
-    public void Append(AutoRunActionClass c, AutoRunParam p)
+    public void Append(AutoRunActionClass actionClass, AutoRunParam p)
     {
-        if (!ParamsOf(c, out var appendTarget))
+        if (!ParamsOf(actionClass, out _))
         {
             _classSeqDict.Add(new AutoRunParamClassPair() {
-                Key = c,
+                Key = actionClass,
                 Value = new List<AutoRunParam>()
             });
+        }
+
+        if (!ParamsOf(actionClass, out var appendTarget))
+        {
+            throw new Exception($"{nameof(appendTarget)} still not found, althouth we tried to append new.");
         }
 
         appendTarget.Add(p);
