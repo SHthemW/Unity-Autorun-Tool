@@ -156,7 +156,7 @@ public class AutoRunWindow : EditorWindow
 
                 param.isFairyGUI = GUILayout.Toggle(param.isFairyGUI, "FGUI");
 
-                if (GUILayout.Button("-"))
+                if (GUILayout.Button("-", GUILayout.MaxWidth(20)))
                 {
                     selectingParams.RemoveAt(i);
                 }
