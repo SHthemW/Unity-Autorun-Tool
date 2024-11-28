@@ -4,13 +4,20 @@ using System.Xml.Serialization;
 
 public static class XmlHelper
 {
-    public static void SaveConfig<T>(T config, string filePath)
+    public static bool SaveConfig<T>(T config, string filePath)
     {
+        if (!Directory.Exists(Path.GetDirectoryName(filePath)))
+        {
+            return false;
+        }
+
         XmlSerializer serializer = new(typeof(T));
 
         using StreamWriter writer = new(filePath);
 
         serializer.Serialize(writer, config);
+
+        return true;
     }
 
     public static bool TryLoadConfig<T>(string filePath, out T config)

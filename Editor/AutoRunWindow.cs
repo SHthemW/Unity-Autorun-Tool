@@ -92,9 +92,21 @@ public class AutoRunWindow : EditorWindow
 
         if (hasFile)
         {
-            if (GUILayout.Button("+", GUILayout.MaxWidth(20)))
+            if (hasPreset)
             {
-                _currentLoadingConfig.AppendClass($"new preset {classNames.Length + 1} (change name in config file)");
+                if (GUILayout.Button("+", GUILayout.MaxWidth(20)))
+                {
+                    _currentLoadingConfig.AppendClass($"new preset {classNames.Length + 1} (change name in config file)");
+                }
+            }
+            else
+            {
+                // maybe first use, show a tutorial-style description.
+
+                if (GUILayout.Button("Then, press me to create a new action preset"))
+                {
+                    _currentLoadingConfig.AppendClass($"new preset {classNames.Length + 1} (you should save it before edit!)");
+                }
             }
         }
 
