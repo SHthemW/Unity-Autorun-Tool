@@ -4,7 +4,7 @@
 
 ## 简介 / Summary
 
-本程序可实现当在Unity编辑器中运行游戏时 (即`EditorApplication.isPlaying = true`), 按照你的设定, 自动地点击场景内的按钮, 帮助你完成一些项目启动时的初始化操作, 免去每次都需要手动操作的麻烦. 支持操作UGUI和FairyGUI两种按钮!
+本程序可实现当在Unity编辑器中运行游戏时 (即`EditorApplication.isPlaying = true`), 按照你的设定, 自动地点击场景内的按钮, 帮助你完成一些项目启动时的初始化操作, 免去每次都需要手动操作的麻烦. 支持操作UGUI和FairyGUI两种主流UI框架的按钮!
 
 This program can automatically click on the buttons in the scene according to your settings when running the game in the Unity editor (i.e. ` EditorApplication.isLayout = true `), helping you complete some initialization operations at project startup, eliminating the trouble of manual operations every time. Support operation of UGUI and FairyGUI buttons!
 
@@ -77,6 +77,6 @@ config.xml
 
 程序通过在场景内创建自动处理器`AutoRunHandler`游戏对象来实现自动运行. 该对象不会随游戏结束而摧毁, 因此在第一次执行`Go!`后, 通过传统方式运行游戏同样会执行你设定的自动流程. 你可以点击`Clear`按钮来清理`AutoRunHandler`游戏对象 (*和控制台文本!*).
 
-After completing the configuration, you can start using it Click on 'Go!' on the main panel` Button to run the process This button will simultaneously start the editor to play, so you can consider it as a playback button that encapsulates automated operations The 'Stop' button below is the same.
+After completing the configuration, you can start using it Click on 'Go!' on the main panel` Button to run the process. This button will simultaneously start the editor to play, so you can consider it as a playback button that encapsulates automated operations. The 'Stop' button below is the same.
 
-The program achieves automatic execution by creating an AutoRunHandler game object within the scene This object will not be destroyed with the end of the game, so it will not be destroyed during the first execution of  'Go!' Afterwards, running the game through traditional methods will also execute the automatic process you set You can click the 'Clear' button to clear the 'AutoRunHandler' game objects (*and console text!*).
+The program achieves automatic execution by creating an AutoRunHandler gameobject within the scene. This object will not be destroyed with the end of the game, so it will not be destroyed during the first execution of  'Go!'. Afterwards, running the game through traditional methods will also execute the automatic process you set. You can click the 'Clear' button to clear the 'AutoRunHandler' game objects (*and console text!*).
