@@ -38,11 +38,11 @@ config.xml
 		- ...
 ```
 
-5. 完成配置后记得保存你的配置文件! 默认的保存位置在Unity编辑器的安装目录下(注意, 不是项目目录下).
-6. 如果需要更改预设名称或配置内容, 可以直接打开配置文件的xml进行编辑. 我们提供了用于快速打开配置文件的`Open Config`按钮.
+4. 完成配置后记得保存你的配置文件! 默认的保存位置在Unity编辑器的安装目录下(注意, 不是项目目录下).
+5. 如果需要更改预设名称或配置内容, 可以直接打开配置文件的xml进行编辑. 我们提供了用于快速打开配置文件的`Open Config`按钮.
 
 1. Click on Window/AutoRunTool in the top menu bar of the editor to open the GUI window
-When using it for the first time, you should create an empty configuration file and configuration preset according to the button prompts.
+2. When using it for the first time, you should create an empty configuration file and configuration preset according to the button prompts.
 3. Subsequently, you can configure according to the following instructions:
 
 ```
@@ -61,8 +61,8 @@ config.xml
 		- ...
 ```
 
-5. Remember to save your configuration file after completing the configuration! The default save location is in the installation directory of the Unity editor (note, not in the project directory)
-If you need to change the preset name or configuration content, you can directly open the XML configuration file for editing We provide the 'Open Config' button for quickly opening configuration files
+4. Remember to save your configuration file after completing the configuration! The default save location is in the installation directory of the Unity editor (note, not in the project directory)
+5. If you need to change the preset name or configuration content, you can directly open the XML configuration file for editing We provide the 'Open Config' button for quickly opening configuration files
 
 ### 开始使用 / Go!
 
