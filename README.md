@@ -50,9 +50,9 @@ config.xml
 -Preset 1
 	-Step 1
 		-name: The name of the button to be clicked in the Unity scene
-		-text: If there are multiple buttons with the same name obj in the same interface, read their titles and use this field to filter them
-		-delay: the delay before executing the click operation * * *
-		-FGUI: Is it a button component of FairyGUI? (UGUI and FGUI have different ways of 		operating and clicking buttons)
+		-text: If there are multiple buttons with the same name obj in the same Unity scene, read their titles and use this field to filter them
+		-delay: the delay **before** executing the click operation
+		-FGUI: Is it a button component of FairyGUI? (UGUI and FGUI have different ways of operating and clicking buttons)
 		-Minus button: Delete current step
 	-Step 2
 		- ...
