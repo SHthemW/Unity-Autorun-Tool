@@ -41,6 +41,7 @@ config.xml
 4. 完成配置后记得保存你的配置文件! 默认的保存位置在Unity编辑器的安装目录下(注意, 不是项目目录下).
 5. 如果需要更改预设名称或配置内容, 可以直接打开配置文件的xml进行编辑. 我们提供了用于快速打开配置文件的`Open Config`按钮.
 
+  
 1. Click on Window/AutoRunTool in the top menu bar of the editor to open the GUI window
 2. When using it for the first time, you should create an empty configuration file and configuration preset according to the button prompts.
 3. Subsequently, you can configure according to the following instructions:
