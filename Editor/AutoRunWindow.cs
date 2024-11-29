@@ -25,6 +25,10 @@ public class AutoRunWindow : EditorWindow
     private string _currentSelectingClassName;
     private int _currentSelectingClassIndex = 0;
 
+    private string[] LoadedPresetNames => _currentLoadingConfig.GetClassNames();
+    private bool HasPreset => LoadedPresetNames.Length > 0;
+    private bool IsConfigFileExists => File.Exists(ConfigPath);
+
     private void OnFocus()
     {
         LoadConfig();
@@ -78,25 +82,19 @@ public class AutoRunWindow : EditorWindow
 
         GUILayout.BeginHorizontal();
 
-        var classNames = _currentLoadingConfig.GetClassNames();
-
-        var hasPreset = classNames.Length > 0;
-
-        var hasFile = File.Exists(ConfigPath);
-
-        if (hasPreset)
+        if (HasPreset)
         {
-            _currentSelectingClassIndex = EditorGUILayout.Popup(_currentSelectingClassIndex, classNames);
-            _currentSelectingClassName = classNames[_currentSelectingClassIndex];
+            _currentSelectingClassIndex = EditorGUILayout.Popup(_currentSelectingClassIndex, LoadedPresetNames);
+            _currentSelectingClassName = LoadedPresetNames[_currentSelectingClassIndex];
         }
 
-        if (hasFile)
+        if (IsConfigFileExists)
         {
-            if (hasPreset)
+            if (HasPreset)
             {
                 if (GUILayout.Button("+", GUILayout.MaxWidth(20)))
                 {
-                    _currentLoadingConfig.AppendClass($"new preset {classNames.Length + 1} (change name in config file)");
+                    _currentLoadingConfig.AppendClass($"new preset {LoadedPresetNames.Length + 1} (change name in config file)");
                 }
             }
             else
@@ -105,20 +103,27 @@ public class AutoRunWindow : EditorWindow
 
                 if (GUILayout.Button("Then, press me to create a new action preset"))
                 {
-                    _currentLoadingConfig.AppendClass($"new preset {classNames.Length + 1} (you should save it before edit!)");
+                    _currentLoadingConfig.AppendClass($"new preset {LoadedPresetNames.Length + 1} (you should save it before edit!)");
                 }
             }
+        }
+        else
+        {
+            _currentLoadingConfig = new();
         }
 
         GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal();
 
-        if (hasFile)
+        if (IsConfigFileExists)
         {
-            if (GUILayout.Button("Add action"))
+            if (HasPreset)
             {
-                _currentLoadingConfig.Append(_currentSelectingClassName, new AutoRunParam());
+                if (GUILayout.Button("Add action"))
+                {
+                    _currentLoadingConfig.Append(_currentSelectingClassName, new AutoRunParam());
+                }
             }
 
             if (GUILayout.Button("Open config"))
