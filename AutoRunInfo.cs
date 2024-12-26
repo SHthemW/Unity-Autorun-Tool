@@ -13,18 +13,26 @@ public sealed class AutoRunParam
 
     public string buttonText = DEFAULT_TEXT;
 
-    public bool   isFairyGUI = false;
+    public bool isFairyGUI = false;
 
-    public float  delay = 0f;
+    public float delay = 0f;
 
-    public bool   isTest = false;
+    public bool isTest = false;
+}
+
+public enum HandlerStatus
+{
+    None = 0,
+    Go = 1,
+    Stop = 2,
 }
 
 [Serializable]
 public sealed class AutoRunParamClassPair
 {
     public string Key;
-    public List<AutoRunParam> Value;
+    public List<AutoRunParam> GoActionParams;
+    public List<AutoRunParam> StopActionParams;
 }
 
 [Serializable]
@@ -34,7 +42,9 @@ public sealed class AutoRunParamConfig
 
     public string Info()
     {
-        return $"{_classSeqDict.Count} classes, total {_classSeqDict.Sum(x => x.Value.Count)} params";
+        return $"{_classSeqDict.Count} classes, total "
+             + $"{_classSeqDict.Sum(x => x.GoActionParams.Count)} go action params, "
+             + $"{_classSeqDict.Sum(x => x.StopActionParams.Count)} stop action params. ";
     }
 
     public string[] GetClassNames()
@@ -42,50 +52,53 @@ public sealed class AutoRunParamConfig
         return _classSeqDict.Select(x => x.Key.ToString()).ToArray();
     }
 
-    public bool ParamsOf(string className, out List<AutoRunParam> result)
+    public bool GetActions(string className, out List<AutoRunParam> goActions, out List<AutoRunParam> stopActions)
     {   
         var matches = _classSeqDict.FindAll(x => x.Key == className);
 
         if (matches.Count > 1)
         {
             Debug.LogError($"class amount not 1: {className}, {matches.Count}");
-            result = null;
+            goActions = null;
+            stopActions = null;
             return false;
         }
 
         if (matches.Count == 0)
         {
-            result = null;
+            goActions = null;
+            stopActions = null;
             return false;
         }
 
-        result = matches[0].Value;
+        goActions = matches[0].GoActionParams;
+        stopActions = matches[0].StopActionParams;
         return true;
     }
 
-    public void Append(string className, AutoRunParam p)
+    public void AppendAction(string className, AutoRunParam p, HandlerStatus moment)
     {
-        if (!ParamsOf(className, out _))
+        if (!GetActions(className, out var goActions, out var stopActions))
         {
-            _classSeqDict.Add(new AutoRunParamClassPair() {
-                Key = className,
-                Value = new List<AutoRunParam>()
-            });
+            throw new Exception($"Error: Action in class {nameof(className)} not found. Try create class first.");
         }
 
-        if (!ParamsOf(className, out var appendTarget))
+        if (moment == HandlerStatus.Go)
         {
-            throw new Exception($"{nameof(appendTarget)} still not found, althouth we tried to append new.");
+            goActions.Add(p);
         }
-
-        appendTarget.Add(p);
+        else if (moment == HandlerStatus.Stop)
+        {
+            stopActions.Add(p);
+        }
     }
 
     public void AppendClass(string className)
     {
         _classSeqDict.Add(new AutoRunParamClassPair() {
             Key = className,
-            Value = new List<AutoRunParam>()
+            GoActionParams = new List<AutoRunParam>(),
+            StopActionParams = new List<AutoRunParam>(),
         });
     }
 }

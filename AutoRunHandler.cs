@@ -5,19 +5,51 @@ using UnityEngine;
 public class AutoRunHandler : MonoBehaviour
 {
     [SerializeField]
-    private List<AutoRunParam> _params;
+    private List<AutoRunParam> _goActionParams;
+
+    [SerializeField]
+    private List<AutoRunParam> _stopActionParams;
+
+    private Action _goActionCallback;
+    private Action _stopActionCallback;
     private Action<string> _msgHandler;
 
-    public void Init(List<AutoRunParam> actionParams, Action<string> msgHandler)
+    public void Init(
+        List<AutoRunParam> goActionParams,
+        List<AutoRunParam> stopActionParams = null,
+        Action goActionCallback = null,
+        Action stopActionCallback = null,
+        Action<string> msgHandler = null
+    )
     {
-        if (_params != null)
-        {
-            Log("AutoRunHandler: AutoRunActions already set!");
-        }
-        _params = actionParams ?? throw new ArgumentNullException(nameof(actionParams));
-        _msgHandler = msgHandler ?? throw new ArgumentNullException(nameof(msgHandler));
+        _goActionParams = goActionParams ?? throw new ArgumentNullException(nameof(goActionParams));
+        _stopActionParams = stopActionParams;
 
-        Log($"AutoRunHandler is ready. {_params.Count} actions.");
+        _goActionCallback = goActionCallback;
+        _stopActionCallback = stopActionCallback;
+
+        _msgHandler = msgHandler;
+
+        Log($"AutoRunHandler is ready. {_goActionParams.Count} go actions, {_stopActionParams.Count} stop actions.");
+    }
+
+    public void SetStatus(HandlerStatus status)
+    {
+        Log("Status setted to: " + status);
+
+        _currentStatus = status;
+        _currentActionIndex = 0;
+        _timer = 0f;
+    }
+
+    public void Clear()
+    {
+        SetStatus(HandlerStatus.None);
+        _goActionParams = null;
+        _stopActionParams = null;
+        _goActionCallback = null;
+        _stopActionCallback = null;
+        _msgHandler = null;
     }
 
     private void Awake()
@@ -25,27 +57,53 @@ public class AutoRunHandler : MonoBehaviour
         DontDestroyOnLoad(this);
     }
 
+    [SerializeField]
+    private HandlerStatus _currentStatus = HandlerStatus.None;
+
+    [SerializeField]
     private int _currentActionIndex = 0;
+
+    [SerializeField]
     private float _timer = 0f;
 
     private void Update()
     {
-        if (_params == null)
-            return;
-
-        if (_currentActionIndex >= _params.Count)
+        if (_currentStatus == HandlerStatus.None)
         {
-            Log("AutoRunHandler: All actions completed.");
-            Destroy(gameObject);
             return;
         }
 
-        var param = _params[_currentActionIndex];
+        var executingActionParams = _currentStatus switch
+        {
+            HandlerStatus.Go => _goActionParams,
+            HandlerStatus.Stop => _stopActionParams,
+            _ => throw new Exception("Unknown handler status: " + _currentStatus),
+        };
+
+        if (_currentActionIndex >= executingActionParams.Count)
+        {
+            var callback = _currentStatus switch
+            {
+                HandlerStatus.Go => _goActionCallback,
+                HandlerStatus.Stop => _stopActionCallback,
+                _ => throw new Exception("Unknown handler status: " + _currentStatus),
+            };
+
+            callback?.Invoke();
+            SetStatus(HandlerStatus.None);
+
+            Log("AutoRunHandler: All actions completed.");
+            return;
+        }
+
+        var param = executingActionParams[_currentActionIndex];
         var action = new AutoRunAction(param);
 
         _timer += Time.deltaTime;
         if (_timer < param.delay)
+        {
             return;
+        }
 
         var msg = action.Execute();
         Log(msg);
@@ -56,12 +114,6 @@ public class AutoRunHandler : MonoBehaviour
 
     private void Log(string msg)
     {
-        if (string.IsNullOrEmpty(msg))
-            return;
-
-        if (_msgHandler != null)
-            _msgHandler.Invoke(msg);
-        else
-            Debug.Log(msg);
+        _msgHandler?.Invoke(msg);
     }
 }

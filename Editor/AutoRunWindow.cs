@@ -17,9 +17,6 @@ public class AutoRunWindow : EditorWindow
         GetWindow<AutoRunWindow>("Auto Run");
     }
 
-    private GameObject _handlerObject;
-    private AutoRunHandler _handler;
-
     private string ConfigPath => AppDomain.CurrentDomain.BaseDirectory + @"\AutorunToolData\config.xml";
     private AutoRunParamConfig _currentLoadingConfig = new();
     private string _currentSelectingClassName;
@@ -32,11 +29,9 @@ public class AutoRunWindow : EditorWindow
     private void OnFocus()
     {
         LoadConfig();
-    }
 
-    private void OnLostFocus()
-    {
-        LoadConfig();
+        var handler = GetHandler();
+        handler.Clear();
     }
 
     private void OnGUI()
@@ -47,38 +42,24 @@ public class AutoRunWindow : EditorWindow
         if (GUILayout.Button("Go!", GUILayout.Height(40)))
         {
             ClearConsoleText();
-            CleanHandlerObjects();
 
             EditorApplication.isPlaying = true;
 
             LoadConfig();
 
-            _handlerObject = new GameObject(HANDLER_OBJECT_NAME);
-            _handler = _handlerObject.AddComponent<AutoRunHandler>();
-
-            if (!_currentLoadingConfig.ParamsOf(_currentSelectingClassName, out var param))
-            {
-                AppendConsoleText("Config not found. Press 'Add' to create one.");
-            }
-            else
-            {
-                _handler.Init(param, AppendConsoleText);
-                AppendConsoleText("Game started...\n");
-            }
+            var handler = GetHandler();
+            handler.SetStatus(HandlerStatus.Go);
         }
 
         if (GUILayout.Button("Stop", GUILayout.Height(40)))
         {
-            int cleanCount = CleanHandlerObjects();
-
-            EditorApplication.isPlaying = false;
-
-            AppendConsoleText($"Game stopped. {cleanCount} handler objects cleaned.");
+            var handler = GetHandler();
+            handler.SetStatus(HandlerStatus.Stop);
         }
 
         // actions
 
-        GUILayout.Label("Actions");
+        GUILayout.Label("Config");
 
         GUILayout.BeginHorizontal();
 
@@ -118,14 +99,6 @@ public class AutoRunWindow : EditorWindow
 
         if (IsConfigFileExists)
         {
-            if (HasPreset)
-            {
-                if (GUILayout.Button("Add action"))
-                {
-                    _currentLoadingConfig.Append(_currentSelectingClassName, new AutoRunParam());
-                }
-            }
-
             if (GUILayout.Button("Open config"))
             {
                 XmlHelper.OpenWithDefaultEditor(ConfigPath);
@@ -150,33 +123,58 @@ public class AutoRunWindow : EditorWindow
 
         GUILayout.EndHorizontal();
 
-        _scrollPosition = GUILayout.BeginScrollView(_scrollPosition, GUILayout.Height(80));
+        _scrollPosition = GUILayout.BeginScrollView(_scrollPosition, GUILayout.Height(120));
 
-        if (_currentLoadingConfig.ParamsOf(_currentSelectingClassName, out var selectingParams))
+        if (_currentLoadingConfig.GetActions(_currentSelectingClassName, out var goParams, out var stopParams))
         {
-            for (int i = 0; i < selectingParams.Count; i++)
-            {
-                var param = selectingParams[i];
+            GUILayout.BeginHorizontal();
 
+            GUILayout.Label("Action - Go");
+
+            if (HasPreset)
+            {
+                if (GUILayout.Button("+", GUILayout.MaxWidth(20)))
+                {
+                    _currentLoadingConfig.AppendAction(_currentSelectingClassName, new AutoRunParam(), HandlerStatus.Go);
+                }
+            }
+
+            GUILayout.EndHorizontal();
+
+            for (int i = 0; i < goParams.Count; i++)
+            {
                 GUILayout.BeginHorizontal();
 
-                GUILayout.Label("name");
-                param.buttonName = GUILayout.TextField(param.buttonName, GUILayout.Width(50));
+                RenderActionParam(
+                    goParams[i],
+                    () => goParams.RemoveAt(i)
+                );
 
-                GUILayout.Label("text");
-                param.buttonText = GUILayout.TextField(param.buttonText, GUILayout.Width(50));
+                GUILayout.EndHorizontal();
+            }
 
-                GUILayout.Label("delay");
-                param.delay = float.Parse(GUILayout.TextField(param.delay.ToString(), GUILayout.Width(20)));
+            GUILayout.BeginHorizontal();
 
-                GUILayout.Space(10);
+            GUILayout.Label("Action - Stop");
 
-                param.isFairyGUI = GUILayout.Toggle(param.isFairyGUI, "FGUI");
-
-                if (GUILayout.Button("-", GUILayout.MaxWidth(20)))
+            if (HasPreset)
+            {
+                if (GUILayout.Button("+", GUILayout.MaxWidth(20)))
                 {
-                    selectingParams.RemoveAt(i);
+                    _currentLoadingConfig.AppendAction(_currentSelectingClassName, new AutoRunParam(), HandlerStatus.Stop);
                 }
+            }
+
+            GUILayout.EndHorizontal();
+
+            for (int i = 0; i < stopParams.Count; i++)
+            {
+                GUILayout.BeginHorizontal();
+
+                RenderActionParam(
+                    stopParams[i],
+                    () => stopParams.RemoveAt(i)
+                );
 
                 GUILayout.EndHorizontal();
             }
@@ -189,12 +187,32 @@ public class AutoRunWindow : EditorWindow
         if (GUILayout.Button("Clear"))
         {
             ClearConsoleText();
-            CleanHandlerObjects();
         }
 
-        _scrollPosition = GUILayout.BeginScrollView(_scrollPosition, GUILayout.Height(200));
+        _scrollPosition = GUILayout.BeginScrollView(_scrollPosition, GUILayout.Height(100));
         GUILayout.TextArea(_logText);
         GUILayout.EndScrollView();
+    }
+
+    private void RenderActionParam(AutoRunParam param, Action onRemove)
+    {
+        GUILayout.Label("- name");
+        param.buttonName = GUILayout.TextField(param.buttonName, GUILayout.Width(50));
+
+        GUILayout.Label("text");
+        param.buttonText = GUILayout.TextField(param.buttonText, GUILayout.Width(50));
+
+        GUILayout.Label("delay");
+        param.delay = float.Parse(GUILayout.TextField(param.delay.ToString(), GUILayout.Width(20)));
+
+        GUILayout.Space(10);
+
+        param.isFairyGUI = GUILayout.Toggle(param.isFairyGUI, "FGUI");
+
+        if (GUILayout.Button("-", GUILayout.MaxWidth(20)))
+        {
+            onRemove();
+        }
     }
 
     private void LoadConfig()
@@ -207,28 +225,38 @@ public class AutoRunWindow : EditorWindow
         if (hasConfigFile)
         {
             _currentLoadingConfig = config;
-            AppendConsoleText($"Config loaded. Details: {config.Info()}");
+            AppendConsoleText($"Config loaded.");
         }
     }
 
-    private int CleanHandlerObjects()
-    {   
-        int count = 0;
-
-        if (_handlerObject != null)
+    private AutoRunHandler GetHandler()
+    {
+        if (!_currentLoadingConfig.GetActions(_currentSelectingClassName, out var goActionParams, out var stopActionParams))
         {
-            DestroyImmediate(_handlerObject);
-            count += 1;
+            AppendConsoleText("Config not found. Press 'Add' to create one.");
+            return null;
         }
 
-        var handlerObjects = FindObjectsOfType<AutoRunHandler>(true);
+        var handler = FindObjectOfType<AutoRunHandler>();
 
-        for (int i = 0; i < handlerObjects.Length; i++)
+        if (handler == null)
         {
-            DestroyImmediate(handlerObjects[i].gameObject);
-            count += 1;
+            handler = new GameObject(HANDLER_OBJECT_NAME).AddComponent<AutoRunHandler>();
         }
-        return count;
+
+        handler.Init(
+            goActionParams: goActionParams,
+            stopActionParams: stopActionParams,
+            stopActionCallback: () => 
+            {
+                handler.SetStatus(HandlerStatus.None);
+                EditorApplication.isPlaying = false;
+                AppendConsoleText($"Progress done.");
+            },
+            msgHandler: AppendConsoleText
+        );
+
+        return handler;
     }
 
     private void ClearConsoleText()
