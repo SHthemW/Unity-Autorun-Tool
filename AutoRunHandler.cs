@@ -42,16 +42,6 @@ public class AutoRunHandler : MonoBehaviour
         _timer = 0f;
     }
 
-    public void Clear()
-    {
-        SetStatus(HandlerStatus.None);
-        _goActionParams = null;
-        _stopActionParams = null;
-        _goActionCallback = null;
-        _stopActionCallback = null;
-        _msgHandler = null;
-    }
-
     private void Awake()
     {
         DontDestroyOnLoad(this);

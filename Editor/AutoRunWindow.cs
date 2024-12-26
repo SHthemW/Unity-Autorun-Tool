@@ -29,9 +29,6 @@ public class AutoRunWindow : EditorWindow
     private void OnFocus()
     {
         LoadConfig();
-
-        var handler = GetHandler();
-        handler.Clear();
     }
 
     private void OnGUI()
