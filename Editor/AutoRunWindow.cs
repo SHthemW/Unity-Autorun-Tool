@@ -8,7 +8,8 @@ using System.Xml;
 public class AutoRunWindow : EditorWindow
 {
     private string _logText = "";
-    private Vector2 _scrollPosition;
+    private Vector2 _actionScrollPosition;
+    private Vector2 _consoleScrollPosition;
     private const string HANDLER_OBJECT_NAME = "AutoRunHandler";
 
     [MenuItem("Window/Auto Run Window")]
@@ -28,6 +29,12 @@ public class AutoRunWindow : EditorWindow
 
     private void OnFocus()
     {
+        // Do not load config when in play mode
+        if (EditorApplication.isPlaying)
+        {
+            return;
+        }
+
         LoadConfig();
     }
 
@@ -120,7 +127,7 @@ public class AutoRunWindow : EditorWindow
 
         GUILayout.EndHorizontal();
 
-        _scrollPosition = GUILayout.BeginScrollView(_scrollPosition, GUILayout.Height(120));
+        _actionScrollPosition = GUILayout.BeginScrollView(_actionScrollPosition, GUILayout.Height(120));
 
         if (_currentLoadingConfig.GetActions(_currentSelectingClassName, out var goParams, out var stopParams))
         {
@@ -186,7 +193,7 @@ public class AutoRunWindow : EditorWindow
             ClearConsoleText();
         }
 
-        _scrollPosition = GUILayout.BeginScrollView(_scrollPosition, GUILayout.Height(100));
+        _consoleScrollPosition = GUILayout.BeginScrollView(_consoleScrollPosition, GUILayout.Height(100));
         GUILayout.TextArea(_logText);
         GUILayout.EndScrollView();
     }
@@ -222,7 +229,7 @@ public class AutoRunWindow : EditorWindow
         if (hasConfigFile)
         {
             _currentLoadingConfig = config;
-            AppendConsoleText($"Config loaded.");
+            AppendConsoleText($"Config loaded. Details: " + config.Info());
         }
     }
 
@@ -259,6 +266,7 @@ public class AutoRunWindow : EditorWindow
     private void ClearConsoleText()
     {
         _logText = string.Empty;
+        _consoleScrollPosition = Vector2.zero;
     }
 
     private void AppendConsoleText(string text)
@@ -270,5 +278,6 @@ public class AutoRunWindow : EditorWindow
             text += "\n";
 
         _logText += text;
+        _consoleScrollPosition.y += 100; // Keep scroll at the bottom
     }
 }
