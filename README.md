@@ -59,7 +59,7 @@
 
 ## Introduction
 
-This program can automatically click on the buttons in the scene according to your settings when running the game in the Unity editor (i.e. ` EditorApplication. isLayout=true `), helping you complete some initialization operations at project startup and avoiding the trouble of manual operations every time Support buttons for operating two mainstream UI frameworks, UGUI and FairyGUI!
+This program can automatically click on the buttons in the scene according to your settings when running the game in the Unity editor (i.e. `EditorApplication.isLayout = true`), helping you complete some initialization operations at project startup and avoiding the trouble of manual operations every time Support buttons for operating two mainstream UI frameworks, UGUI and FairyGUI!
 
 ## Tutorial
 
