@@ -43,22 +43,39 @@ public class AutoRunWindow : EditorWindow
         // main
         GUILayout.Label("Auto Run Game Utility");
 
-        if (GUILayout.Button("Go!", GUILayout.Height(40)))
+        if (IsConfigFileExists)
         {
-            ClearConsoleText();
+            if (GUILayout.Button("Go!", GUILayout.Height(40)))
+            {
+                ClearConsoleText();
 
-            EditorApplication.isPlaying = true;
+                EditorApplication.isPlaying = true;
 
-            LoadConfig();
+                LoadConfig();
 
-            var handler = GetHandler();
-            handler.SetStatus(HandlerStatus.Go);
+                var handler = GetHandler();
+                handler.SetStatus(HandlerStatus.Go);
+            }
+
+            if (GUILayout.Button("Stop", GUILayout.Height(40)))
+            {
+                var handler = GetHandler();
+                handler.SetStatus(HandlerStatus.Stop);
+            }
         }
-
-        if (GUILayout.Button("Stop", GUILayout.Height(40)))
+        else
         {
-            var handler = GetHandler();
-            handler.SetStatus(HandlerStatus.Stop);
+            GUILayout.Label(
+                  "\n"
+                + "Follow the instructions on bottons to use this tool.\n"
+                + "\n"
+                + "View full document on my Github:"
+            );
+
+            if (GUILayout.Button("more info"))
+            {
+                Application.OpenURL("https://github.com/SHthemW/Unity-Autorun-Tool");
+            }
         }
 
         // actions
