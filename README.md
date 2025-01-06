@@ -71,17 +71,17 @@ This program can automatically click on the buttons in the scene according to yo
 
 1. Click on Window/AutoRunTool in the top menu bar of the editor to open the GUI window.
 
-2. When using it for the first time, you should follow the prompts on the UI interface and click the button to create an empty configuration file Only one configuration file can exist If your configuration file is not empty, the button to create the configuration file will be hidden.
+2. When using it for the first time, you should follow the prompts on the UI interface and click the button to create an empty configuration file. Only one configuration file can exist If your configuration file is not empty, the button to create the configuration file will be hidden.
 
-3. At this point, more buttons will appear on the screen Click the "Save" button to save this empty configuration file Please make sure to save before proceeding with the next steps.
+3. At this point, more buttons will appear on the screen. Click the "Save" button to save this empty configuration file Please make sure to save before proceeding with the next steps.
 
-4. The default save location for configuration files is in the installation directory of the Unity editor (Note that this directory is not located in your project and will not interfere with version management).
+   The default save location for configuration files is in the installation directory of the Unity editor (Note that this directory is not located in your project and will not interfere with version management).
 
-5. Subsequently, click on "Create Preset" to create an auto run preset for your profile. You can create multiple presets to quickly switch between different operating modes.
+4. Subsequently, click on "Create Preset" to create an auto run preset for your profile. You can create multiple presets to quickly switch between different operating modes.
 
-6. After creating the first preset, The UI style will change, after which you can click the "+" button on the right side of the preset drop-down menu to create more presets.
+   After creating the first preset, The UI style will change, after which you can click the "+" button on the right side of the preset drop-down menu to create more presets.
 
-7. In a preset, you can create two actions: Action Go and Action Stop, simply click the "+" button to the right of the corresponding name The data structure and execution logic of these two Actions are completely the same, except for the timing of execution:
+7. In a preset, you can create two actions: Action Go and Action Stop, simply click the "+" button to the right of the corresponding name. The data structure and execution logic of these two Actions are completely the same, except for the timing of execution:
    - Action-Go will start sequential execution after clicking the Go button. GoAction is generally used for game initialization operations, such as automatically clicking the start game button after entering the scene, automatically selecting levels, etc.
    - Action-Stop will be executed sequentially after clicking the Stop button, and the game will not stop running until it is completed. StopAction is generally used to automatically exit the room before the end of the game.
 
@@ -98,7 +98,7 @@ This program can automatically click on the buttons in the scene according to yo
  |- Minus button: Delete current step
 ```
 
-9. Remember to save your configuration file again after completing the configuration! If you need to change the preset name or configuration content in the future, you can directly open the XML configuration file for editing We provide the "Open Config" button for quickly opening configuration files.
+7. Remember to save your configuration file again after completing the configuration! If you need to change the preset name or configuration content in the future, you can directly open the XML configuration file for editing We provide the "Open Config" button for quickly opening configuration files.
 
 ### Go!
 
