@@ -18,7 +18,7 @@ public class AutoRunWindow : EditorWindow
         GetWindow<AutoRunWindow>("Auto Run");
     }
 
-    private string ConfigPath => AppDomain.CurrentDomain.BaseDirectory + @"\AutorunToolData\config.xml";
+    private string ConfigPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AutorunToolData", "config.xml");
     private AutoRunParamConfig _currentLoadingConfig = new();
     private string _currentSelectingClassName;
     private int _currentSelectingClassIndex = 0;
@@ -135,8 +135,15 @@ public class AutoRunWindow : EditorWindow
         {
             if (GUILayout.Button("First use? Press me to create an autorun action config :)", GUILayout.Height(30)))
             {
-                XmlHelper.SaveConfig(_currentLoadingConfig, ConfigPath);
-                XmlHelper.OpenWithDefaultEditor(ConfigPath);
+                if (!Directory.Exists(Path.GetDirectoryName(ConfigPath)))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(ConfigPath));
+                }
+
+                if (!XmlHelper.SaveConfig(_currentLoadingConfig, ConfigPath))
+                {
+                    Debug.LogError("Failed to create config file.");
+                }
 
                 AppendConsoleText("Config is created on: " + ConfigPath);
             }
