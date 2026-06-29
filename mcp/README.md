@@ -1,18 +1,19 @@
-# Unity AutoRun MCP
+﻿# Unity AutoRun MCP
 
 Start the Unity bridge from `Window/Auto Run MCP Bridge/Start`, then use the CLI or MCP server.
 
 ## CLI
 
 ```powershell
-node mcp/unity-autorun-cli.js help
-node mcp/unity-autorun-cli.js status
-node mcp/unity-autorun-cli.js list-buttons --framework all
-node mcp/unity-autorun-cli.js click --name StartButton --framework ugui
-node mcp/unity-autorun-cli.js run-sequence --json-file sequence.json
-node mcp/unity-autorun-cli.js routes --map mcp/ui-nav-map.example.json
-node mcp/unity-autorun-cli.js route --map mcp/ui-nav-map.example.json --from A --to C
-node mcp/unity-autorun-cli.js run-route --map mcp/ui-nav-map.example.json --from A --to C
+dotnet run --project mcp~/UnityAutorun.Mcp -- help
+dotnet run --project mcp~/UnityAutorun.Mcp -- status
+dotnet run --project mcp~/UnityAutorun.Mcp -- list-buttons --framework all
+dotnet run --project mcp~/UnityAutorun.Mcp -- click --name StartButton --framework ugui
+dotnet run --project mcp~/UnityAutorun.Mcp -- run-sequence --json-file sequence.json
+dotnet run --project mcp~/UnityAutorun.Mcp -- routes --map mcp/ui-nav-map.example.json
+dotnet run --project mcp~/UnityAutorun.Mcp -- route --map mcp/ui-nav-map.example.json --from A --to C
+dotnet run --project mcp~/UnityAutorun.Mcp -- run-route --map mcp/ui-nav-map.example.json --from A --to C
+dotnet run --project mcp~/UnityAutorun.Mcp -- mock-bridge
 ```
 
 Environment variables:
@@ -22,7 +23,15 @@ Environment variables:
 
 ## MCP Server
 
-Use `node mcp/unity-autorun-mcp.js` as a stdio MCP server command.
+Use `dotnet run --project mcp~/UnityAutorun.Mcp -- mcp` as a stdio MCP server command.
+
+For a release binary:
+
+```powershell
+dotnet publish mcp~/UnityAutorun.Mcp -c Release
+```
+
+The publish output is also archived under `mcp~/UnityAutorun.Mcp/bin/Release-Archives/`.
 
 The server exposes:
 
@@ -55,3 +64,4 @@ Invoke-RestMethod http://127.0.0.1:17331/rpc `
   -ContentType application/json `
   -Body '{"id":"1","command":"click_button","payload":{"name":"StartButton","framework":"ugui"}}'
 ```
+
