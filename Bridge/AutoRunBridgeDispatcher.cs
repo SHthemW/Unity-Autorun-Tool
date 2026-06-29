@@ -4,7 +4,7 @@ using System.Threading;
 using UnityEditor;
 using UnityEngine;
 
-public sealed class AutoRunBridgeDispatcher
+public sealed partial class AutoRunBridgeDispatcher
 {
     private readonly Queue<AutoRunBridgeJob> _jobs = new();
     private readonly object _lock = new();
@@ -52,6 +52,11 @@ public sealed class AutoRunBridgeDispatcher
 
     public void Pump()
     {
+        if (_sequenceJob != null)
+        {
+            PumpSequence();
+        }
+
         AutoRunBridgeJob job = null;
         lock (_lock)
         {
@@ -66,9 +71,10 @@ public sealed class AutoRunBridgeDispatcher
             return;
         }
 
+        bool shouldComplete = true;
         try
         {
-            job.Response = Execute(job.Request);
+            job.Response = Execute(job.Request, job, out shouldComplete);
         }
         catch (Exception ex)
         {
@@ -76,12 +82,16 @@ public sealed class AutoRunBridgeDispatcher
         }
         finally
         {
-            job.WaitHandle.Set();
+            if (shouldComplete)
+            {
+                job.WaitHandle.Set();
+            }
         }
     }
 
-    private AutoRunBridgeResponse Execute(AutoRunBridgeRequest request)
+    private AutoRunBridgeResponse Execute(AutoRunBridgeRequest request, AutoRunBridgeJob job, out bool shouldComplete)
     {
+        shouldComplete = true;
         switch (request.command)
         {
             case "status":
@@ -97,7 +107,8 @@ public sealed class AutoRunBridgeDispatcher
             case "click_button":
                 return ClickButton(request);
             case "run_sequence":
-                return RunSequence(request);
+                shouldComplete = StartSequence(job);
+                return job.Response;
             default:
                 return AutoRunBridgeResponses.Fail(request.id, "unknown_command", $"Unknown command: {request.command}");
         }
@@ -120,29 +131,6 @@ public sealed class AutoRunBridgeDispatcher
         AutoRunParam param = ToParam(request.payload);
         AutoRunButtonResult result = AutoRunButtonService.Click(param);
         return AutoRunBridgeResponses.FromButtonResult(request.id, result);
-    }
-
-    private static AutoRunBridgeResponse RunSequence(AutoRunBridgeRequest request)
-    {
-        var messages = new List<string>();
-        AutoRunBridgePayload payload = request.payload ?? new AutoRunBridgePayload();
-        List<AutoRunParam> actions = payload.actions ?? new List<AutoRunParam>();
-        foreach (AutoRunParam action in actions)
-        {
-            AutoRunButtonResult result = AutoRunButtonService.Click(action);
-            messages.Add(result.message);
-            if (!result.ok)
-            {
-                var failed = AutoRunBridgeResponses.FromButtonResult(request.id, result);
-                failed.data.messages = messages;
-                return failed;
-            }
-        }
-
-        return AutoRunBridgeResponses.Success(request.id, $"Executed {messages.Count} actions.", new AutoRunBridgeData
-        {
-            messages = messages,
-        });
     }
 
     private static AutoRunParam ToParam(AutoRunBridgePayload payload)

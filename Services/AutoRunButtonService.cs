@@ -29,19 +29,7 @@ public static class AutoRunButtonService
 
     private static AutoRunButtonResult ClickUGUI(AutoRunParam param)
     {
-        Button[] allButtons = Object.FindObjectsOfType<Button>();
-        var nameMatchedBtns = FindButtonsByName(allButtons, param.buttonName);
-        var textMatchedBtns = allButtons
-            .Where(b => GetButtonText(b) == param.buttonText)
-            .ToList();
-
-        Button btnObject = (nameMatchedBtns.Count, textMatchedBtns.Count) switch
-        {
-            (1, _) => nameMatchedBtns.First(),
-            (_, 1) => textMatchedBtns.First(),
-            _ => null
-        };
-
+        Button btnObject = FindUGUIButton(param);
         if (!btnObject)
         {
             return AutoRunButtonResult.Fail("button_not_found", $"err: button '{param.buttonName}' not found!");
@@ -54,6 +42,27 @@ public static class AutoRunButtonService
 
         btnObject.onClick.Invoke();
         return AutoRunButtonResult.Success($"btn {param.buttonName} is clicked. Text: {GetButtonText(btnObject)}");
+    }
+
+    public static bool HasButton(AutoRunParam param)
+    {
+        return param.isFairyGUI || FindUGUIButton(param) != null;
+    }
+
+    private static Button FindUGUIButton(AutoRunParam param)
+    {
+        Button[] allButtons = Object.FindObjectsOfType<Button>();
+        var nameMatchedBtns = FindButtonsByName(allButtons, param.buttonName);
+        var textMatchedBtns = allButtons
+            .Where(b => GetButtonText(b) == param.buttonText)
+            .ToList();
+
+        return (nameMatchedBtns.Count, textMatchedBtns.Count) switch
+        {
+            (1, _) => nameMatchedBtns.First(),
+            (_, 1) => textMatchedBtns.First(),
+            _ => null
+        };
     }
 
     private static List<Button> FindButtonsByName(IEnumerable<Button> buttons, string buttonName)
