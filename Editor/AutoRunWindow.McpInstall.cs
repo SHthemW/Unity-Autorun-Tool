@@ -42,6 +42,20 @@ public partial class AutoRunWindow
             }
         }
 
+        if (GUILayout.Button("Open Terminal", GUILayout.Width(110)))
+        {
+            string message;
+            if (McpTerminalService.OpenToolRootTerminal(out message))
+            {
+                AppendConsoleText(message);
+            }
+            else
+            {
+                AppendConsoleText(message);
+                EditorUtility.DisplayDialog("Open Terminal Failed", message, "OK");
+            }
+        }
+
         GUILayout.EndHorizontal();
         GUILayout.Label("Select a .codex folder for Codex or a .claude folder for Claude.");
     }

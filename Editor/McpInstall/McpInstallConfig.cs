@@ -15,7 +15,7 @@ public sealed class McpInstallConfig
 
     public static McpInstallConfig Create()
     {
-        string projectPath = FindMcpProjectPath();
+        string projectPath = GetMcpProjectPath();
         string projectDirectory = Path.GetDirectoryName(projectPath);
 
         return new McpInstallConfig
@@ -26,6 +26,24 @@ public sealed class McpInstallConfig
             Host = "127.0.0.1",
             Port = AutoRunBridgeServer.DefaultPort.ToString()
         };
+    }
+
+    public static string GetMcpProjectPath()
+    {
+        return FindMcpProjectPath();
+    }
+
+    public static string GetToolRootDirectory()
+    {
+        string projectPath = GetMcpProjectPath();
+        string projectDirectory = Path.GetDirectoryName(projectPath);
+        DirectoryInfo mcpFolder = Directory.GetParent(projectDirectory);
+        if (mcpFolder == null || mcpFolder.Parent == null)
+        {
+            throw new InvalidOperationException("Cannot resolve Unity AutoRun tool root directory.");
+        }
+
+        return mcpFolder.Parent.FullName;
     }
 
     public string ToCodexTomlBlock()
