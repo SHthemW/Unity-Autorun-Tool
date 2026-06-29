@@ -10,6 +10,9 @@ node mcp/unity-autorun-cli.js status
 node mcp/unity-autorun-cli.js list-buttons --framework all
 node mcp/unity-autorun-cli.js click --name StartButton --framework ugui
 node mcp/unity-autorun-cli.js run-sequence --json-file sequence.json
+node mcp/unity-autorun-cli.js routes --map mcp/ui-nav-map.example.json
+node mcp/unity-autorun-cli.js route --map mcp/ui-nav-map.example.json --from A --to C
+node mcp/unity-autorun-cli.js run-route --map mcp/ui-nav-map.example.json --from A --to C
 ```
 
 Environment variables:
@@ -29,6 +32,17 @@ The server exposes:
 - `list_buttons`
 - `click_button`
 - `run_sequence`
+- `list_ui_routes`
+- `resolve_ui_route`
+- `run_ui_route`
+
+## UI Navigation Map
+
+AI agents can generate a `ui-nav-map.json` file from prefab and code analysis.
+
+The CLI and MCP server can then resolve routes from that map and convert them into AutoRun actions.
+
+Use `mcp/ui-nav-map.example.json` as the reference shape.
 
 ## Unity Bridge Protocol
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const { callUnity, getStatus } = require("./unity-bridge-client");
+const { listRoutes, loadNavMap, resolveRoute } = require("./ui-nav-map");
 const fs = require("node:fs");
 
 function readOption(args, name, fallback = undefined) {
@@ -29,6 +30,9 @@ function printUsage() {
     "  node mcp/unity-autorun-cli.js click --name ButtonName [--text Text] [--framework ugui|fairygui]",
     "  node mcp/unity-autorun-cli.js run-sequence --json '[{\"buttonName\":\"Start\"}]'",
     "  node mcp/unity-autorun-cli.js run-sequence --json-file sequence.json",
+    "  node mcp/unity-autorun-cli.js routes --map ui-nav-map.json",
+    "  node mcp/unity-autorun-cli.js route --map ui-nav-map.json --from A --to C",
+    "  node mcp/unity-autorun-cli.js run-route --map ui-nav-map.json --from A --to C",
     "",
     "Commands:",
     "  help          Show this help.",
@@ -38,6 +42,9 @@ function printUsage() {
     "  list-buttons  List UGUI/FairyGUI buttons in the current scene.",
     "  click         Click one button by name or text.",
     "  run-sequence  Run a JSON array of AutoRunParam actions.",
+    "  routes        List routes in a UI navigation map.",
+    "  route         Resolve one route and print its AutoRun sequence.",
+    "  run-route     Resolve one route and execute its AutoRun sequence.",
     "",
     "Environment:",
     "  UNITY_AUTORUN_HOST  Bridge host, default 127.0.0.1",
@@ -75,6 +82,23 @@ async function main() {
     result = await callUnity("run_sequence", {
       actions: JSON.parse(rawJson),
     });
+  } else if (command === "routes") {
+    const { map, path } = loadNavMap(readOption(args, "--map"));
+    result = { ok: true, path, routes: listRoutes(map) };
+  } else if (command === "route") {
+    const { map, path } = loadNavMap(readOption(args, "--map"));
+    result = {
+      ok: true,
+      path,
+      route: resolveRoute(map, readRouteOptions(args)),
+    };
+  } else if (command === "run-route") {
+    const { map, path } = loadNavMap(readOption(args, "--map"));
+    const route = resolveRoute(map, readRouteOptions(args));
+    result = await callUnity("run_sequence", {
+      actions: route.autoRunSequence,
+    });
+    result.route = { path, id: route.id, fromViewId: route.fromViewId, toViewId: route.toViewId };
   } else {
     printUsage();
     process.exitCode = 1;
@@ -85,6 +109,14 @@ async function main() {
   if (result && result.ok === false) {
     process.exitCode = 2;
   }
+}
+
+function readRouteOptions(args) {
+  return {
+    route: readOption(args, "--route"),
+    from: readOption(args, "--from"),
+    to: readOption(args, "--to"),
+  };
 }
 
 main().catch(error => {

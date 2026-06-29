@@ -1,58 +1,8 @@
 #!/usr/bin/env node
 
 const { callUnity, getStatus } = require("./unity-bridge-client");
-
-const tools = [
-  {
-    name: "unity_status",
-    description: "Check the Unity AutoRun bridge status.",
-    inputSchema: { type: "object", properties: {} },
-  },
-  {
-    name: "unity_play",
-    description: "Request Unity Editor to enter Play Mode.",
-    inputSchema: { type: "object", properties: {} },
-  },
-  {
-    name: "unity_stop",
-    description: "Request Unity Editor to exit Play Mode.",
-    inputSchema: { type: "object", properties: {} },
-  },
-  {
-    name: "list_buttons",
-    description: "List current Unity UI buttons.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        framework: { type: "string", enum: ["ugui", "fairygui", "all"] },
-      },
-    },
-  },
-  {
-    name: "click_button",
-    description: "Click a Unity UI button by name or text.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        name: { type: "string" },
-        text: { type: "string" },
-        framework: { type: "string", enum: ["ugui", "fairygui"] },
-      },
-      required: ["name"],
-    },
-  },
-  {
-    name: "run_sequence",
-    description: "Run a sequence of AutoRun button actions.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        actions: { type: "array", items: { type: "object" } },
-      },
-      required: ["actions"],
-    },
-  },
-];
+const { tools } = require("./mcp-tools");
+const { listRoutes, loadNavMap, resolveRoute } = require("./ui-nav-map");
 
 let inputBuffer = "";
 process.stdin.setEncoding("utf8");
@@ -156,6 +106,17 @@ async function callTool(params) {
     result = await callUnity("run_sequence", {
       actions: args.actions || [],
     });
+  } else if (toolName === "list_ui_routes") {
+    const { map, path } = loadNavMap(args.mapPath);
+    result = { ok: true, path, routes: listRoutes(map) };
+  } else if (toolName === "resolve_ui_route") {
+    const { map, path } = loadNavMap(args.mapPath);
+    result = { ok: true, path, route: resolveRoute(map, args) };
+  } else if (toolName === "run_ui_route") {
+    const { map, path } = loadNavMap(args.mapPath);
+    const route = resolveRoute(map, args);
+    result = await callUnity("run_sequence", { actions: route.autoRunSequence });
+    result.route = { path, id: route.id, fromViewId: route.fromViewId, toViewId: route.toViewId };
   } else {
     throw new Error(`Unknown tool: ${toolName}`);
   }
