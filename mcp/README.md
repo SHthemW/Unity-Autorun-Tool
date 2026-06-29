@@ -25,6 +25,15 @@ Environment variables:
 
 Use `dotnet run --project mcp~/UnityAutorun.Mcp -- mcp` as a stdio MCP server command.
 
+## One-click install
+
+Open `Window/Auto Run Window`, select the MCP install target folder, then press `Install MCP`.
+
+- Select a `.codex` folder to update `config.toml` with a `[mcp_servers.unity_autorun]` entry.
+- Select a `.claude` folder to update `.mcp.json` with a `unity-autorun` entry under `mcpServers`.
+
+Installing an MCP means registering a server command with the AI client. The protocol is common, but each client stores the server configuration in its own format.
+
 For a release binary:
 
 ```powershell

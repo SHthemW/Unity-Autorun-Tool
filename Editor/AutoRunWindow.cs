@@ -43,6 +43,7 @@ public partial class AutoRunWindow : EditorWindow
         // main
         GUILayout.Label("Auto Run Game Utility");
         RenderBridgeControls();
+        RenderMcpInstallControls();
 
         if (IsConfigFileExists)
         {
