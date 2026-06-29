@@ -5,7 +5,6 @@ public partial class AutoRunWindow
 {
     private void RenderBridgeControls()
     {
-        GUILayout.Label("MCP Bridge");
         GUILayout.BeginHorizontal();
 
         string status = AutoRunBridgeController.IsRunning ? "Running" : "Stopped";

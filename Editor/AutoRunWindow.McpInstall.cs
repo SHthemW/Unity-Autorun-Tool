@@ -13,7 +13,6 @@ public partial class AutoRunWindow
             _mcpInstallTargetPath = EditorPrefs.GetString(McpInstallTargetKey, "");
         }
 
-        GUILayout.Label("MCP Install");
         GUILayout.BeginHorizontal();
         _mcpInstallTargetPath = GUILayout.TextField(_mcpInstallTargetPath);
 
@@ -42,7 +41,15 @@ public partial class AutoRunWindow
             }
         }
 
-        if (GUILayout.Button("Open Terminal", GUILayout.Width(110)))
+        GUILayout.EndHorizontal();
+        GUILayout.Label("Select a .codex folder for Codex or a .claude folder for Claude.");
+    }
+
+    private void RenderMcpTools()
+    {
+        GUILayout.BeginHorizontal();
+
+        if (GUILayout.Button("Open Terminal", GUILayout.Width(120)))
         {
             string message;
             if (McpTerminalService.OpenToolRootTerminal(out message))
@@ -56,7 +63,21 @@ public partial class AutoRunWindow
             }
         }
 
+        GUILayout.Label("Open a terminal at the Unity AutoRun tool root.");
         GUILayout.EndHorizontal();
-        GUILayout.Label("Select a .codex folder for Codex or a .claude folder for Claude.");
+    }
+
+    private void RenderMcpPanel()
+    {
+        BeginPanel("MCP");
+        GUILayout.Label("Bridge");
+        RenderBridgeControls();
+        GUILayout.Space(4);
+        GUILayout.Label("Install");
+        RenderMcpInstallControls();
+        GUILayout.Space(4);
+        GUILayout.Label("Tools");
+        RenderMcpTools();
+        EndPanel();
     }
 }
