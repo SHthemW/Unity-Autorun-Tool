@@ -27,6 +27,7 @@ public sealed class NavMapEdge
     public string FromViewId;
     public string ToViewId;
     public string ControlId;
+    public string Kind;
     public string Label;
 }
 
@@ -59,4 +60,5 @@ public sealed class NavMapTransition
     public string fromViewId;
     public string toViewId;
     public string controlId;
+    public string kind;
 }

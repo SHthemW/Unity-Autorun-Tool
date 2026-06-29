@@ -6,7 +6,7 @@ using System.Text.Json.Nodes;
 
 namespace UnityAutorun.Mcp
 {
-    public sealed class UiNavMap
+    public sealed partial class UiNavMap
     {
         private readonly JsonObject _map;
 
@@ -34,12 +34,16 @@ namespace UnityAutorun.Mcp
             var routes = new JsonArray();
             foreach (JsonObject route in Objects("routes"))
             {
+                JsonArray autoRunSequence = ResolveAutoRunSequence(route);
+                JsonArray automationSequence = ResolveAutomationSequence(route);
                 routes.Add(JsonUtil.Obj(
                     ("id", Text(route, "id")),
                     ("fromViewId", Text(route, "fromViewId")),
                     ("toViewId", Text(route, "toViewId")),
                     ("steps", Steps(route).Count),
-                    ("autoRunSteps", ResolveAutoRunSequence(route).Count)
+                    ("autoRunSteps", autoRunSequence.Count),
+                    ("automationSteps", automationSequence.Count),
+                    ("isFullyAutoRunnable", IsFullyAutoRunnable(route, autoRunSequence))
                 ));
             }
 
@@ -72,87 +76,17 @@ namespace UnityAutorun.Mcp
             }
 
             JsonArray autoRunSequence = ResolveAutoRunSequence(route);
-            if (autoRunSequence.Count == 0)
-            {
-                throw new InvalidOperationException($"Route '{Text(route, "id")}' has no AutoRun actions.");
-            }
+            JsonArray automationSequence = ResolveAutomationSequence(route);
 
             return JsonUtil.Obj(
                 ("id", Text(route, "id")),
                 ("fromViewId", Text(route, "fromViewId")),
                 ("toViewId", Text(route, "toViewId")),
                 ("steps", CloneSteps(route)),
+                ("automationSequence", automationSequence),
+                ("isFullyAutoRunnable", IsFullyAutoRunnable(route, autoRunSequence)),
                 ("autoRunSequence", autoRunSequence)
             );
-        }
-
-        private JsonObject BuildRoute(string fromViewId, string toViewId)
-        {
-            var queue = new Queue<Tuple<string, List<JsonObject>>>();
-            var visited = new HashSet<string> { fromViewId };
-            queue.Enqueue(Tuple.Create(fromViewId, new List<JsonObject>()));
-
-            while (queue.Count > 0)
-            {
-                Tuple<string, List<JsonObject>> current = queue.Dequeue();
-                if (current.Item1 == toViewId)
-                {
-                    var routeSteps = new JsonArray();
-                    foreach (JsonObject step in current.Item2)
-                    {
-                        routeSteps.Add(step.DeepClone());
-                    }
-
-                    return JsonUtil.Obj(("id", $"computed.{fromViewId}.to.{toViewId}"), ("fromViewId", fromViewId), ("toViewId", toViewId), ("steps", routeSteps));
-                }
-
-                foreach (JsonObject transition in Objects("transitions").Where(item => Text(item, "fromViewId") == current.Item1))
-                {
-                    string next = Text(transition, "toViewId");
-                    if (next == null || !visited.Add(next))
-                    {
-                        continue;
-                    }
-
-                    var nextSteps = new List<JsonObject>(current.Item2)
-                    {
-                        JsonUtil.Obj(("transitionId", Text(transition, "id")), ("controlId", Text(transition, "controlId"))),
-                    };
-                    queue.Enqueue(Tuple.Create(next, nextSteps));
-                }
-            }
-
-            return null;
-        }
-
-        private JsonArray ResolveAutoRunSequence(JsonObject route)
-        {
-            if (route["autoRunSequence"] is JsonArray explicitSequence && explicitSequence.Count > 0)
-            {
-                return JsonUtil.CloneArray(explicitSequence);
-            }
-
-            var sequence = new JsonArray();
-            foreach (JsonObject step in Steps(route))
-            {
-                JsonObject control = FindStepControl(step)
-                    ?? throw new InvalidOperationException($"Step '{step.ToJsonString()}' has no control.");
-                sequence.Add(control["autoRun"]?.DeepClone()
-                    ?? throw new InvalidOperationException($"Control '{Text(control, "id")}' has no AutoRun action."));
-            }
-
-            return sequence;
-        }
-
-        private JsonObject FindStepControl(JsonObject step)
-        {
-            string controlId = Text(step, "controlId");
-            if (controlId == null && Text(step, "transitionId") is string transitionId)
-            {
-                controlId = Objects("transitions").FirstOrDefault(item => Text(item, "id") == transitionId)?["controlId"]?.GetValue<string>();
-            }
-
-            return Objects("controls").FirstOrDefault(item => Text(item, "id") == controlId);
         }
 
         private string ResolveViewId(string value)
@@ -166,7 +100,7 @@ namespace UnityAutorun.Mcp
             return view?["id"]?.GetValue<string>() ?? value;
         }
 
-        private JsonArray CloneSteps(JsonObject route)
+        private static JsonArray CloneSteps(JsonObject route)
         {
             return JsonUtil.CloneArray(route["steps"]?.AsArray() ?? new JsonArray());
         }
@@ -183,7 +117,7 @@ namespace UnityAutorun.Mcp
 
         private static string Text(JsonObject obj, string key)
         {
-            return obj[key]?.GetValue<string>();
+            return obj?[key]?.GetValue<string>();
         }
     }
 }

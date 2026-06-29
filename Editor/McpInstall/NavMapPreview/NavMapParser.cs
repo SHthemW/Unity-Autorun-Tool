@@ -55,10 +55,26 @@ public static class NavMapParser
             {
                 FromViewId = transition.fromViewId,
                 ToViewId = transition.toViewId,
-                ControlId = transition.controlId
+                ControlId = transition.controlId,
+                Kind = transition.kind
             };
-            edge.Label = string.IsNullOrEmpty(edge.ControlId) ? "click" : edge.ControlId;
+            edge.Label = BuildEdgeLabel(edge);
             graph.Edges.Add(edge);
         }
+    }
+
+    private static string BuildEdgeLabel(NavMapEdge edge)
+    {
+        if (!string.IsNullOrEmpty(edge.ControlId))
+        {
+            return edge.ControlId;
+        }
+
+        if (!string.IsNullOrEmpty(edge.Kind))
+        {
+            return edge.Kind;
+        }
+
+        return "transition";
     }
 }

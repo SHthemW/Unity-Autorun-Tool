@@ -154,6 +154,16 @@ namespace UnityAutorun.Mcp
         {
             UiNavMap map = UiNavMap.Load(Text(args, "mapPath"));
             JsonObject route = Resolve(map, args);
+            if (route["isFullyAutoRunnable"]?.GetValue<bool>() != true)
+            {
+                return JsonUtil.Obj(
+                    ("ok", false),
+                    ("code", "route_not_fully_autorunnable"),
+                    ("message", "Route contains app-driven or manual transitions. Use resolve_ui_route and advance/wait for those steps outside AutoRun."),
+                    ("route", route)
+                );
+            }
+
             JsonNode result = await _bridge.CallUnityAsync("run_sequence", JsonUtil.Obj(("actions", route["autoRunSequence"]?.DeepClone())));
             if (result != null)
             {

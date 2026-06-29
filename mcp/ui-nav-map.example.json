@@ -66,7 +66,19 @@
       "fromViewId": "view.a",
       "controlId": "control.a.aa",
       "toViewId": "view.b",
-      "kind": "button-click",
+      "kind": "interaction",
+      "trigger": {
+        "type": "user-action",
+        "action": "click",
+        "controlId": "control.a.aa"
+      },
+      "effect": {
+        "type": "open-view",
+        "targetViewId": "view.b"
+      },
+      "automation": {
+        "mode": "click"
+      },
       "confidence": 0.95,
       "source": {
         "type": "code",
@@ -77,14 +89,26 @@
     {
       "id": "transition.b.ba.to.c",
       "fromViewId": "view.b",
-      "controlId": "control.b.ba",
       "toViewId": "view.c",
-      "kind": "button-click",
-      "confidence": 0.95,
+      "kind": "flow",
+      "trigger": {
+        "type": "event",
+        "name": "DataReady"
+      },
+      "effect": {
+        "type": "open-view",
+        "targetViewId": "view.c"
+      },
+      "automation": {
+        "mode": "wait",
+        "waitForViewId": "view.c",
+        "timeout": 10
+      },
+      "confidence": 0.85,
       "source": {
-        "type": "code",
-        "path": "Assets/Scripts/UI/BController.cs",
-        "symbol": "BController.OnBAClick"
+        "type": "code-flow",
+        "path": "Assets/Scripts/AppFlow.cs",
+        "symbol": "OpenCWhenDataReady"
       }
     }
   ],
@@ -99,8 +123,7 @@
           "controlId": "control.a.aa"
         },
         {
-          "transitionId": "transition.b.ba.to.c",
-          "controlId": "control.b.ba"
+          "transitionId": "transition.b.ba.to.c"
         }
       ]
     }
