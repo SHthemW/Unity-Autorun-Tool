@@ -8,24 +8,38 @@ public static class FairyGUIHelper
 {
     public static bool IsInstalled => FindType("FairyGUI.GRoot") != null;
 
-    public static string ClickButton(string buttonName, string buttonText)
+    public static List<AutoRunButtonInfo> ListButtons()
+    {
+        if (!TryGetRootView(out var view, out _))
+        {
+            return new List<AutoRunButtonInfo>();
+        }
+
+        return AllComponentChildren(view)
+            .Where(obj => GetMemberValue(obj, "asButton") != null)
+            .Select(obj => new AutoRunButtonInfo
+            {
+                name = GetMemberValue(obj, "name") as string,
+                text = GetMemberValue(GetMemberValue(obj, "asButton"), "text") as string,
+                framework = "fairygui",
+                interactable = true,
+            })
+            .ToList();
+    }
+
+    public static AutoRunButtonResult ClickButton(string buttonName, string buttonText)
     {
         if (buttonText != AutoRunParam.DEFAULT_TEXT)
         {
-            return $"err: button text not supported on FGUI. use button name instead!";
+            return AutoRunButtonResult.Fail(
+                "unsupported_text",
+                "err: button text not supported on FGUI. use button name instead!"
+            );
         }
 
-        Type gRootType = FindType("FairyGUI.GRoot");
-        if (gRootType == null)
+        if (!TryGetRootView(out var view, out var error))
         {
-            return "err: FairyGUI is not installed. Disable FGUI or install FairyGUI.";
-        }
-
-        var root = GetStaticMemberValue(gRootType, "inst");
-        var view = GetMemberValue(root, "asCom");
-        if (view == null)
-        {
-            return "err: FairyGUI root view not found.";
+            return error;
         }
 
         var allObjects = AllComponentChildren(view);
@@ -34,28 +48,56 @@ public static class FairyGUIHelper
 
         if (nameMatchedComponents.Count == 0)
         {
-            return $"err: button '{buttonName}' not found. view: {GetDisplayName(view)}, childlen: {allObjects.Count}";
+            return AutoRunButtonResult.Fail(
+                "button_not_found",
+                $"err: button '{buttonName}' not found. view: {GetDisplayName(view)}, childlen: {allObjects.Count}"
+            );
         }
 
         if (nameMatchedComponents.Count > 1)
         {
-            return $"err: button '{buttonName}' not unique!";
+            return AutoRunButtonResult.Fail("button_not_unique", $"err: button '{buttonName}' not unique!");
         }
 
         var button = GetMemberValue(nameMatchedComponents[0], "asButton");
         if (button == null)
         {
-            return $"err: button '{buttonName}' is not a button!";
+            return AutoRunButtonResult.Fail("not_button", $"err: button '{buttonName}' is not a button!");
         }
 
         var onClick = GetMemberValue(button, "onClick");
         if (onClick == null)
         {
-            return $"err: button '{buttonName}' has no button click event!";
+            return AutoRunButtonResult.Fail("no_click_event", $"err: button '{buttonName}' has no button click event!");
         }
 
         InvokeMember(onClick, "Call");
-        return $"btn {buttonName} is clicked.";
+        return AutoRunButtonResult.Success($"btn {buttonName} is clicked.");
+    }
+
+    private static bool TryGetRootView(out object view, out AutoRunButtonResult error)
+    {
+        Type gRootType = FindType("FairyGUI.GRoot");
+        if (gRootType == null)
+        {
+            view = null;
+            error = AutoRunButtonResult.Fail(
+                "framework_missing",
+                "err: FairyGUI is not installed. Disable FGUI or install FairyGUI."
+            );
+            return false;
+        }
+
+        var root = GetStaticMemberValue(gRootType, "inst");
+        view = GetMemberValue(root, "asCom");
+        if (view == null)
+        {
+            error = AutoRunButtonResult.Fail("root_not_found", "err: FairyGUI root view not found.");
+            return false;
+        }
+
+        error = null;
+        return true;
     }
 
     private static List<object> AllComponentChildren(object root)
