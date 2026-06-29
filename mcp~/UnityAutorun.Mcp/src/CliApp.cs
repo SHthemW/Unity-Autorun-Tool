@@ -38,6 +38,10 @@ namespace UnityAutorun.Mcp
             {
                 result = await bridge.CallUnityAsync("run_sequence", JsonUtil.Obj(("actions", ReadActions(args))));
             }
+            else if (command == "nav-guidance")
+            {
+                result = UiNavMapGuidance.Get();
+            }
             else if (command == "routes")
             {
                 result = Routes(args);
@@ -123,6 +127,7 @@ namespace UnityAutorun.Mcp
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- list-buttons [--framework ugui|fairygui|all]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- click --name ButtonName [--text Text] [--framework ugui|fairygui]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- run-sequence --json-file sequence.json\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- nav-guidance\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- routes --map mcp/ui-nav-map.example.json\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- route --map mcp/ui-nav-map.example.json --from A --to C\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- run-route --map mcp/ui-nav-map.example.json --from A --to C\n"

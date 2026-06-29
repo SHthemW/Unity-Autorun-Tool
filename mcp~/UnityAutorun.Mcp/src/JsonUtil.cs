@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization.Metadata;
 
 namespace UnityAutorun.Mcp
 {
@@ -8,6 +9,7 @@ namespace UnityAutorun.Mcp
         public static readonly JsonSerializerOptions PrettyOptions = new JsonSerializerOptions
         {
             WriteIndented = true,
+            TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
         };
 
         public static string Pretty(JsonNode node)

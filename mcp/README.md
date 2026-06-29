@@ -50,9 +50,31 @@ The server exposes:
 - `list_buttons`
 - `click_button`
 - `run_sequence`
+- `get_nav_map_guidance`
 - `list_ui_routes`
 - `resolve_ui_route`
 - `run_ui_route`
+
+## Prompting AI to build a nav map
+
+Use this prompt after the MCP server is installed:
+
+```text
+Use the unity-autorun MCP tool get_nav_map_guidance first.
+Then analyze this Unity project's UI prefabs and related C# UI scripts.
+Generate mcp/ui-nav-map.json with views, controls, transitions, routes, and unresolved links.
+Use evidence from prefab events, AddListener calls, FairyGUI callbacks, and UI router/window manager APIs.
+After writing the file, call list_ui_routes and resolve_ui_route to validate the route from <start view> to <target view>.
+If Unity is open and the AutoRun bridge is running, call run_ui_route to navigate to <target view>.
+```
+
+For bug investigation:
+
+```text
+I need to debug <target view>.
+Use get_nav_map_guidance, generate or update mcp/ui-nav-map.json, resolve the route to <target view>, then use run_ui_route if the Unity bridge is running.
+Do not invent uncertain transitions; put them in unresolved with source evidence.
+```
 
 ## UI Navigation Map
 
