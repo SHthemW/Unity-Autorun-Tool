@@ -8,16 +8,26 @@ function getBridgeUrl(pathname) {
 }
 
 async function callUnity(command, payload = {}) {
-  const response = await fetch(getBridgeUrl("/rpc"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      id: `cli-${Date.now()}`,
-      command,
-      payload,
-    }),
-  });
+  return withBridgeRetry(async () => {
+    const response = await fetch(getBridgeUrl("/rpc"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        id: `cli-${Date.now()}`,
+        command,
+        payload,
+      }),
+    });
 
+    return parseBridgeResponse(response);
+  });
+}
+
+async function getStatus() {
+  return withBridgeRetry(async () => parseBridgeResponse(await fetch(getBridgeUrl("/status"))));
+}
+
+async function parseBridgeResponse(response) {
   if (!response.ok) {
     throw new Error(`Bridge HTTP ${response.status}: ${await response.text()}`);
   }
@@ -25,13 +35,31 @@ async function callUnity(command, payload = {}) {
   return response.json();
 }
 
-async function getStatus() {
-  const response = await fetch(getBridgeUrl("/status"));
-  if (!response.ok) {
-    throw new Error(`Bridge HTTP ${response.status}: ${await response.text()}`);
+async function withBridgeRetry(operation) {
+  const attempts = Number(process.env.UNITY_AUTORUN_RETRIES || 10);
+  const delayMs = Number(process.env.UNITY_AUTORUN_RETRY_DELAY_MS || 500);
+  let lastError;
+
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (i < attempts - 1) {
+        await delay(delayMs);
+      }
+    }
   }
 
-  return response.json();
+  throw new Error([
+    `Unity AutoRun bridge is not reachable at ${getBridgeUrl("")}.`,
+    "Start it from Unity: Window/Auto Run MCP Bridge/Start.",
+    `Last error: ${lastError.message}`,
+  ].join(" "));
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 module.exports = {

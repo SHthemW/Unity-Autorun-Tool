@@ -37,6 +37,7 @@ public sealed class AutoRunBridgeServer
 
     public void Stop()
     {
+        bool wasRunning = false;
         lock (_lock)
         {
             if (_listener == null)
@@ -44,6 +45,7 @@ public sealed class AutoRunBridgeServer
                 return;
             }
 
+            wasRunning = _listener.IsListening;
             _listener.Stop();
             _listener.Close();
             _listener = null;
@@ -55,7 +57,10 @@ public sealed class AutoRunBridgeServer
             _dispatcher = null;
         }
 
-        Debug.Log("AutoRun MCP bridge stopped.");
+        if (wasRunning)
+        {
+            Debug.Log("AutoRun MCP bridge stopped.");
+        }
     }
 
     private void ListenLoop()
