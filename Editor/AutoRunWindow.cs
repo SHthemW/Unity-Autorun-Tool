@@ -42,6 +42,7 @@ public partial class AutoRunWindow : EditorWindow
     {   
         // main
         GUILayout.Label("Auto Run Game Utility");
+        RenderBridgeControls();
 
         if (IsConfigFileExists)
         {
