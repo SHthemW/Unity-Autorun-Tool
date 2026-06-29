@@ -1,8 +1,6 @@
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
-using FairyGUI;
-using System.Collections.Generic;
 
 [System.Serializable]
 public sealed class AutoRunAction
@@ -68,37 +66,6 @@ public sealed class AutoRunAction
 
     private string ExecuteWithFGUI()
     {
-        if (buttonText != AutoRunParam.DEFAULT_TEXT)
-        {
-            return $"err: button text not supported on FGUI. use button name instead!";
-        }
-
-        GComponent view = GRoot.inst.asCom;
-
-        var allObjects = view.AllComponentChildren();
-
-        var allButtons = allObjects.Where(c => c.asButton != null).Cast<GButton>();
-
-        var nameMachedComponents = allButtons.Where(c => c.name == buttonName);
-        if (nameMachedComponents.Count() == 0)
-        {
-            return $"err: button '{buttonName}' not found. view: {view.displayObject.name}, childlen: {allObjects.Count}";
-        }
-        if (nameMachedComponents.Count() > 1)
-        {
-            return $"err: button '{buttonName}' not unique!";
-        }
-
-        var selectedComponent = nameMachedComponents.First();
-
-        var button = selectedComponent.asButton;
-        if (button == null)
-        {
-            return $"err: button '{buttonName}' is not a button!";
-        }
-        
-        button.onClick.Call();
-        
-        return $"btn {buttonName} is clicked.";
+        return FairyGUIHelper.ClickButton(buttonName, buttonText);
     }
 }

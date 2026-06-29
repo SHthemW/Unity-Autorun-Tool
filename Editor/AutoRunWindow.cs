@@ -5,7 +5,7 @@ using System.IO;
 using System;
 using System.Xml;
 
-public class AutoRunWindow : EditorWindow
+public partial class AutoRunWindow : EditorWindow
 {
     private string _logText = "";
     private Vector2 _actionScrollPosition;
@@ -220,27 +220,6 @@ public class AutoRunWindow : EditorWindow
         _consoleScrollPosition = GUILayout.BeginScrollView(_consoleScrollPosition, GUILayout.Height(100));
         GUILayout.TextArea(_logText);
         GUILayout.EndScrollView();
-    }
-
-    private void RenderActionParam(AutoRunParam param, Action onRemove)
-    {
-        GUILayout.Label("- name");
-        param.buttonName = GUILayout.TextField(param.buttonName, GUILayout.Width(50));
-
-        GUILayout.Label("text");
-        param.buttonText = GUILayout.TextField(param.buttonText, GUILayout.Width(50));
-
-        GUILayout.Label("delay");
-        param.delay = float.Parse(GUILayout.TextField(param.delay.ToString(), GUILayout.Width(20)));
-
-        GUILayout.Space(10);
-
-        param.isFairyGUI = GUILayout.Toggle(param.isFairyGUI, "FGUI");
-
-        if (GUILayout.Button("-", GUILayout.MaxWidth(20)))
-        {
-            onRemove();
-        }
     }
 
     private void LoadConfig()
