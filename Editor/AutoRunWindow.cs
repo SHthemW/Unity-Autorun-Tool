@@ -128,4 +128,13 @@ public partial class AutoRunWindow : EditorWindow
         _logText += text;
         _consoleScrollPosition.y += 100; // Keep scroll at the bottom
     }
+
+    public static void AppendBridgeConsoleText(string text)
+    {
+        foreach (AutoRunWindow window in Resources.FindObjectsOfTypeAll<AutoRunWindow>())
+        {
+            window.AppendConsoleText(text);
+            window.Repaint();
+        }
+    }
 }

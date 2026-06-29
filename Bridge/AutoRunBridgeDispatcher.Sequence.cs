@@ -5,7 +5,7 @@ using UnityEngine;
 public sealed partial class AutoRunBridgeDispatcher
 {
     private const float SequenceDefaultStepTimeoutSeconds = 10f;
-    private const float SequencePollIntervalSeconds = 0.05f;
+    private const float SequencePollIntervalSeconds = 1f;
 
     private AutoRunSequenceJob _sequenceJob;
 
@@ -104,6 +104,7 @@ public sealed partial class AutoRunBridgeDispatcher
         }
 
         _sequenceJob.Job.Response = response;
+        LogResponse(response);
         _sequenceJob.Job.WaitHandle.Set();
         Debug.Log(response.message);
         _sequenceJob = null;

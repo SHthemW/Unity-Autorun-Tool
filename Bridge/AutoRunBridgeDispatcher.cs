@@ -84,6 +84,7 @@ public sealed partial class AutoRunBridgeDispatcher
         {
             if (shouldComplete)
             {
+                LogResponse(job.Response);
                 job.WaitHandle.Set();
             }
         }
@@ -141,6 +142,25 @@ public sealed partial class AutoRunBridgeDispatcher
             buttonText = string.IsNullOrEmpty(payload?.text) ? AutoRunParam.DEFAULT_TEXT : payload.text,
             isFairyGUI = (payload?.framework ?? "ugui").ToLowerInvariant() == "fairygui",
         };
+    }
+
+    private static void LogResponse(AutoRunBridgeResponse response)
+    {
+        if (response == null)
+        {
+            return;
+        }
+
+        AutoRunWindow.AppendBridgeConsoleText($"MCP {response.code}: {response.message}");
+        if (response.data?.messages == null)
+        {
+            return;
+        }
+
+        foreach (string message in response.data.messages)
+        {
+            AutoRunWindow.AppendBridgeConsoleText(message);
+        }
     }
 
     private sealed class AutoRunBridgeJob
