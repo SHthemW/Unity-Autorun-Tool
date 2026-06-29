@@ -31,6 +31,7 @@ Open `Window/Auto Run Window`, select the MCP install target folder, then press 
 
 - Select a `.codex` folder to update `config.toml` with a `[mcp_servers.unity_autorun]` entry.
 - Select a `.claude` folder to update `.mcp.json` with a `unity-autorun` entry under `mcpServers`.
+- Press `Preview Nav Map` to render `mcp/ui-nav-map.json` as `mcp/ui-nav-map.preview.html` and open it in the browser.
 
 Installing an MCP means registering a server command with the AI client. The protocol is common, but each client stores the server configuration in its own format.
 

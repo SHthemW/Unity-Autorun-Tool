@@ -63,7 +63,21 @@ public partial class AutoRunWindow
             }
         }
 
-        GUILayout.Label("Open a terminal at the Unity AutoRun tool root.");
+        if (GUILayout.Button("Preview Nav Map", GUILayout.Width(130)))
+        {
+            string message;
+            if (McpNavMapPreviewService.OpenPreview(out message))
+            {
+                AppendConsoleText(message);
+            }
+            else
+            {
+                AppendConsoleText(message);
+                EditorUtility.DisplayDialog("Preview Nav Map Failed", message, "OK");
+            }
+        }
+
+        GUILayout.Label("Open terminal or render mcp/ui-nav-map.json as an HTML graph.");
         GUILayout.EndHorizontal();
     }
 
