@@ -105,13 +105,67 @@ namespace UnityAutorun.Mcp
         {
             JsonObject transition = FindStepTransition(step);
             JsonObject automation = transition?["automation"] as JsonObject;
+            JsonObject control = FindStepControl(step);
             if (automation?["autoRun"] != null)
             {
-                return automation["autoRun"];
+                JsonNode autoRun = NormalizeAutoRun(automation["autoRun"], control);
+                return IsDefaultAction(autoRun) ? null : autoRun;
             }
 
-            JsonObject control = FindStepControl(step);
-            return control?["autoRun"];
+            JsonNode controlAutoRun = NormalizeAutoRun(control?["autoRun"], control);
+            return IsDefaultAction(controlAutoRun) ? null : controlAutoRun;
+        }
+
+        private static JsonNode NormalizeAutoRun(JsonNode autoRun, JsonObject control)
+        {
+            if (autoRun == null)
+            {
+                return CreateAutoRunFromControl(control);
+            }
+
+            if (control == null || !IsDefaultAction(autoRun))
+            {
+                return autoRun;
+            }
+
+            JsonObject fallback = CreateAutoRunFromControl(control);
+            if (fallback == null)
+            {
+                return autoRun;
+            }
+
+            if (autoRun["delay"] != null)
+            {
+                fallback["delay"] = autoRun["delay"].DeepClone();
+            }
+
+            if (autoRun["isTest"] != null)
+            {
+                fallback["isTest"] = autoRun["isTest"].DeepClone();
+            }
+
+            return fallback;
+        }
+
+        private static JsonObject CreateAutoRunFromControl(JsonObject control)
+        {
+            string name = Text(control, "name");
+            if (name == null)
+            {
+                return null;
+            }
+
+            return JsonUtil.Obj(
+                ("buttonName", name),
+                ("buttonText", Text(control, "text") ?? "untitled"),
+                ("isFairyGUI", string.Equals(Text(control, "framework"), "fairygui", StringComparison.OrdinalIgnoreCase))
+            );
+        }
+
+        private static bool IsDefaultAction(JsonNode autoRun)
+        {
+            string buttonName = autoRun?["buttonName"]?.GetValue<string>();
+            return string.IsNullOrEmpty(buttonName) || buttonName == "unnamed";
         }
 
         private JsonObject FindStepControl(JsonObject step)

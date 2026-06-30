@@ -120,6 +120,8 @@ public sealed partial class AutoRunBridgeDispatcher
             case "navigate_route":
                 shouldComplete = StartNavigation(job);
                 return job.Response;
+            case "cancel_navigation":
+                return CancelNavigation(request);
             default:
                 return AutoRunBridgeResponses.Fail(request.id, "unknown_command", $"Unknown command: {request.command}");
         }

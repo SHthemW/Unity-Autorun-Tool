@@ -47,6 +47,7 @@ public sealed class AutoRunBridgeData
 public sealed class AutoRunNavStep
 {
     public string transitionId;
+    public string controlId;
     public string fromViewId;
     public string toViewId;
     public string kind;

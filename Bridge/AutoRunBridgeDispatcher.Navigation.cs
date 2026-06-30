@@ -26,6 +26,8 @@ public sealed partial class AutoRunBridgeDispatcher
         }
 
         _navigationJob = new AutoRunNavigationJob(job, payload.routeId, payload.targetViewId, steps);
+        _navigationJob.Messages.Add("Navigation started: route=" + _navigationJob.RouteId
+            + ", steps=" + NavigationAutoRunLog.FormatSteps(steps));
         return false;
     }
 
@@ -59,6 +61,17 @@ public sealed partial class AutoRunBridgeDispatcher
         CompleteNavigationFail("navigation_manual_step", $"Navigation step '{step.transitionId}' requires unsupported mode '{step.mode}'.");
     }
 
+    private AutoRunBridgeResponse CancelNavigation(AutoRunBridgeRequest request)
+    {
+        if (_navigationJob == null)
+        {
+            return AutoRunBridgeResponses.Success(request.id, "No navigation is running.");
+        }
+
+        CompleteNavigationFail("navigation_canceled", "Navigation canceled.");
+        return AutoRunBridgeResponses.Success(request.id, "Navigation cancel requested.");
+    }
+
     private void RunNavigationClickStep(AutoRunNavStep step)
     {
         if (_navigationJob.ClickedSteps.Contains(_navigationJob.CurrentIndex))
@@ -75,7 +88,8 @@ public sealed partial class AutoRunBridgeDispatcher
 
         if (!AutoRunButtonService.HasButton(step.action))
         {
-            CompleteNavigationTimeout(step, $"button '{step.action.buttonName}'");
+            CompleteNavigationTimeout(step, "button '" + step.action.buttonName
+                + "' (controlId=" + step.controlId + ")");
             return;
         }
 

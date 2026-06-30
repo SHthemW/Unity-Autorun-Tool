@@ -22,6 +22,11 @@ public static class AutoRunBridgeController
         Server.Start();
     }
 
+    public static AutoRunBridgeResponse Enqueue(string requestJson)
+    {
+        return Server.Enqueue(requestJson);
+    }
+
     public static void Stop()
     {
         SessionState.SetBool(BridgeEnabledKey, false);

@@ -5,6 +5,9 @@ using System;
 
 public partial class AutoRunWindow : EditorWindow
 {
+    private const int MaxConsoleChars = 20000;
+    private const int MaxConsoleEntryChars = 1200;
+
     private string _logText = "";
     private Vector2 _actionScrollPosition;
     private Vector2 _consoleScrollPosition;
@@ -27,6 +30,8 @@ public partial class AutoRunWindow : EditorWindow
 
     private void OnFocus()
     {
+        Repaint();
+
         // Do not load config when in play mode
         if (EditorApplication.isPlaying)
         {
@@ -41,6 +46,7 @@ public partial class AutoRunWindow : EditorWindow
         GUILayout.Label("Auto Run Game Utility");
 
         RenderMcpPanel();
+        RenderNavigationAutoRunPanel();
         RenderManualAutoRunPanel();
 
         // console
@@ -50,7 +56,7 @@ public partial class AutoRunWindow : EditorWindow
             ClearConsoleText();
         }
 
-        _consoleScrollPosition = GUILayout.BeginScrollView(_consoleScrollPosition, GUILayout.Height(100));
+        _consoleScrollPosition = GUILayout.BeginScrollView(_consoleScrollPosition, GUILayout.Height(220));
         GUILayout.TextArea(_logText);
         GUILayout.EndScrollView();
     }
@@ -121,11 +127,21 @@ public partial class AutoRunWindow : EditorWindow
     {
         if (string.IsNullOrEmpty(text))
             return;
+
+        if (text.Length > MaxConsoleEntryChars)
+        {
+            text = text.Substring(0, MaxConsoleEntryChars) + "... [truncated]";
+        }
         
         if (!text.StartsWith("\n"))
             text += "\n";
 
         _logText += text;
+        if (_logText.Length > MaxConsoleChars)
+        {
+            _logText = _logText.Substring(_logText.Length - MaxConsoleChars);
+        }
+
         _consoleScrollPosition.y += 100; // Keep scroll at the bottom
     }
 

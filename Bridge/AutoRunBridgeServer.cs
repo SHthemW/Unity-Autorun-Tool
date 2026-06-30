@@ -63,6 +63,16 @@ public sealed class AutoRunBridgeServer
         }
     }
 
+    public AutoRunBridgeResponse Enqueue(string requestJson)
+    {
+        if (!IsRunning || _dispatcher == null)
+        {
+            return AutoRunBridgeResponses.Fail(null, "bridge_not_running", "AutoRun MCP bridge is not running.");
+        }
+
+        return _dispatcher.Enqueue(requestJson);
+    }
+
     private void ListenLoop()
     {
         while (IsRunning)
