@@ -186,6 +186,7 @@ public partial class AutoRunWindow
         _navigationStatusText = null;
         StopPendingNavigation();
         NavigationAutoRunSession.ClearPending();
+        NavigationAutoRunSession.ClearActiveRequest();
         LogNavigation("Canceled by user.");
         NavigationAutoRunCancelRequest.Start(OnNavigationAutoRunCancelCompleted);
         Repaint();

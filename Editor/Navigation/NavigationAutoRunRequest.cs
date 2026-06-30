@@ -25,6 +25,7 @@ public static class NavigationAutoRunRequest
             },
         };
         string json = JsonUtility.ToJson(request);
+        NavigationAutoRunSession.MarkActiveRequest();
         PostLog(context, "Navigation AutoRun request queued: " + request.id
             + ", route=" + plan.RouteId
             + ", steps=" + NavigationAutoRunLog.FormatSteps(plan.Steps));
@@ -46,12 +47,18 @@ public static class NavigationAutoRunRequest
 
             if (context != null)
             {
-                context.Post(__ => onCompleted?.Invoke(response), null);
+                context.Post(__ => Complete(response, onCompleted), null);
                 return;
             }
 
-            UnityEditor.EditorApplication.delayCall += () => onCompleted?.Invoke(response);
+            UnityEditor.EditorApplication.delayCall += () => Complete(response, onCompleted);
         });
+    }
+
+    private static void Complete(AutoRunBridgeResponse response, Action<AutoRunBridgeResponse> onCompleted)
+    {
+        NavigationAutoRunSession.ClearActiveRequest();
+        onCompleted?.Invoke(response);
     }
 
     private static void PostLog(SynchronizationContext context, string message)

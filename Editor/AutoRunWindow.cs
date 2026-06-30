@@ -153,4 +153,12 @@ public partial class AutoRunWindow : EditorWindow
             window.Repaint();
         }
     }
+
+    public static void RepaintAllNavigationWindows()
+    {
+        foreach (AutoRunWindow window in Resources.FindObjectsOfTypeAll<AutoRunWindow>())
+        {
+            window.Repaint();
+        }
+    }
 }

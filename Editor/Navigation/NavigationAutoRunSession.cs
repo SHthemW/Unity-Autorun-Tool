@@ -6,8 +6,10 @@ public static class NavigationAutoRunSession
     private const string TargetViewIdKey = "UnityAutorunTool.Navigation.TargetViewId";
     private const string TargetNameKey = "UnityAutorunTool.Navigation.TargetName";
     private const string RunIdKey = "UnityAutorunTool.Navigation.RunId";
+    private const string ActiveRequestKey = "UnityAutorunTool.Navigation.ActiveRequest";
 
     public static bool HasPending => EditorPrefs.GetBool(PendingKey, false) || SessionState.GetBool(PendingKey, false);
+    public static bool HasActiveRequest => EditorPrefs.GetBool(ActiveRequestKey, false) || SessionState.GetBool(ActiveRequestKey, false);
     public static string TargetViewId => GetString(TargetViewIdKey);
     public static string TargetName => GetString(TargetNameKey);
     public static int RunId => GetInt(RunIdKey);
@@ -25,6 +27,12 @@ public static class NavigationAutoRunSession
         return runId;
     }
 
+    public static void MarkActiveRequest()
+    {
+        EditorPrefs.SetBool(ActiveRequestKey, true);
+        SessionState.SetBool(ActiveRequestKey, true);
+    }
+
     public static void ClearPending()
     {
         EditorPrefs.SetBool(PendingKey, false);
@@ -35,6 +43,12 @@ public static class NavigationAutoRunSession
         SessionState.SetString(TargetViewIdKey, "");
         SessionState.SetString(TargetNameKey, "");
         SessionState.SetInt(RunIdKey, 0);
+    }
+
+    public static void ClearActiveRequest()
+    {
+        EditorPrefs.SetBool(ActiveRequestKey, false);
+        SessionState.SetBool(ActiveRequestKey, false);
     }
 
     private static string GetString(string key)
