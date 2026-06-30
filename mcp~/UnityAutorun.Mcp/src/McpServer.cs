@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace UnityAutorun.Mcp
 {
-    public sealed class McpServer
+    public sealed partial class McpServer
     {
         private readonly BridgeClient _bridge = new BridgeClient();
         private string _buffer = "";
@@ -135,46 +135,8 @@ namespace UnityAutorun.Mcp
             if (name == "list_ui_routes") return ListRoutes(args);
             if (name == "resolve_ui_route") return ResolveRoute(args);
             if (name == "run_ui_route") return await RunRouteAsync(args);
+            if (name == "navigate_ui") return await NavigateUiAsync(args);
             throw new InvalidOperationException($"Unknown tool: {name}");
-        }
-
-        private static JsonObject ListRoutes(JsonObject args)
-        {
-            UiNavMap map = UiNavMap.Load(Text(args, "mapPath"));
-            return JsonUtil.Obj(("ok", true), ("path", map.Path), ("routes", map.ListRoutes()));
-        }
-
-        private static JsonObject ResolveRoute(JsonObject args)
-        {
-            UiNavMap map = UiNavMap.Load(Text(args, "mapPath"));
-            return JsonUtil.Obj(("ok", true), ("path", map.Path), ("route", Resolve(map, args)));
-        }
-
-        private async Task<JsonNode> RunRouteAsync(JsonObject args)
-        {
-            UiNavMap map = UiNavMap.Load(Text(args, "mapPath"));
-            JsonObject route = Resolve(map, args);
-            if (route["isFullyAutoRunnable"]?.GetValue<bool>() != true)
-            {
-                return JsonUtil.Obj(
-                    ("ok", false),
-                    ("code", "route_not_fully_autorunnable"),
-                    ("message", "Route contains app-driven or manual transitions. Use resolve_ui_route and advance/wait for those steps outside AutoRun."),
-                    ("route", route)
-                );
-            }
-
-            JsonNode result = await _bridge.CallUnityAsync("run_sequence", JsonUtil.Obj(("actions", route["autoRunSequence"]?.DeepClone())));
-            if (result != null)
-            {
-                result["route"] = JsonUtil.Obj(("path", map.Path), ("id", route["id"]?.DeepClone()), ("fromViewId", route["fromViewId"]?.DeepClone()), ("toViewId", route["toViewId"]?.DeepClone()));
-            }
-            return result;
-        }
-
-        private static JsonObject Resolve(UiNavMap map, JsonObject args)
-        {
-            return map.ResolveRoute(Text(args, "route"), Text(args, "from"), Text(args, "to"));
         }
 
         private static string Text(JsonObject args, string key, string fallback = null)

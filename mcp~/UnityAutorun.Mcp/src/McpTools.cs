@@ -18,6 +18,7 @@ namespace UnityAutorun.Mcp
                 Tool("list_ui_routes", "List routes in a UI navigation map file.", ("mapPath", "string")),
                 Tool("resolve_ui_route", "Resolve a UI route from a navigation map without executing it.", ("mapPath", "string"), ("route", "string"), ("from", "string"), ("to", "string")),
                 Tool("run_ui_route", "Resolve a UI route and execute it through AutoRun.", ("mapPath", "string"), ("route", "string"), ("from", "string"), ("to", "string")),
+                Tool("navigate_ui", "Navigate to a target UI view through the Unity bridge using the nav map. If from is omitted, active Unity views are used as route candidates.", ("mapPath", "string"), ("from", "string"), ("to", "string")),
             };
         }
 

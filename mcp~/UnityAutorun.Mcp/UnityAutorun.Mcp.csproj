@@ -7,6 +7,11 @@
     <AssemblyName>UnityAutorun.Mcp</AssemblyName>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="bin\**\*.cs" />
+    <Compile Remove="obj\**\*.cs" />
+  </ItemGroup>
+
   <PropertyGroup>
     <ArchivePlatform Condition="'$(RuntimeIdentifier)' == ''">portable</ArchivePlatform>
     <ArchivePlatform Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win'))">win</ArchivePlatform>

@@ -52,6 +52,11 @@ public sealed partial class AutoRunBridgeDispatcher
 
     public void Pump()
     {
+        if (_navigationJob != null)
+        {
+            PumpNavigation();
+        }
+
         if (_sequenceJob != null)
         {
             PumpSequence();
@@ -105,10 +110,15 @@ public sealed partial class AutoRunBridgeDispatcher
                 return AutoRunBridgeResponses.Success(request.id, "Stop requested.");
             case "list_buttons":
                 return ListButtons(request);
+            case "list_open_views":
+                return ListOpenViews(request);
             case "click_button":
                 return ClickButton(request);
             case "run_sequence":
                 shouldComplete = StartSequence(job);
+                return job.Response;
+            case "navigate_route":
+                shouldComplete = StartNavigation(job);
                 return job.Response;
             default:
                 return AutoRunBridgeResponses.Fail(request.id, "unknown_command", $"Unknown command: {request.command}");
@@ -132,6 +142,15 @@ public sealed partial class AutoRunBridgeDispatcher
         AutoRunParam param = ToParam(request.payload);
         AutoRunButtonResult result = AutoRunButtonService.Click(param);
         return AutoRunBridgeResponses.FromButtonResult(request.id, result);
+    }
+
+    private static AutoRunBridgeResponse ListOpenViews(AutoRunBridgeRequest request)
+    {
+        List<string> openViews = AutoRunViewService.ListOpenViewNames();
+        return AutoRunBridgeResponses.Success(request.id, $"Found {openViews.Count} active view candidates.", new AutoRunBridgeData
+        {
+            openViews = openViews,
+        });
     }
 
     private static AutoRunParam ToParam(AutoRunBridgePayload payload)

@@ -12,9 +12,9 @@ public sealed partial class AutoRunBridgeDispatcher
     private bool StartSequence(AutoRunBridgeJob job)
     {
         AutoRunBridgeRequest request = job.Request;
-        if (_sequenceJob != null)
+        if (_sequenceJob != null || _navigationJob != null)
         {
-            job.Response = AutoRunBridgeResponses.Fail(request.id, "sequence_busy", "Another run_sequence request is still running.");
+            job.Response = AutoRunBridgeResponses.Fail(request.id, "sequence_busy", "Another sequence or navigation request is still running.");
             return true;
         }
 

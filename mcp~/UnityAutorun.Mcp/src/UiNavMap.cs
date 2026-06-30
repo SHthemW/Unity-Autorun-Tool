@@ -62,12 +62,7 @@ namespace UnityAutorun.Mcp
             }
             else if (fromViewId != null && toViewId != null)
             {
-                route = Objects("routes").FirstOrDefault(item => Text(item, "fromViewId") == fromViewId && Text(item, "toViewId") == toViewId);
-            }
-
-            if (route == null && fromViewId != null && toViewId != null)
-            {
-                route = BuildRoute(fromViewId, toViewId);
+                route = ResolveBestRouteObject(fromViewId, toViewId);
             }
 
             if (route == null)
@@ -85,8 +80,35 @@ namespace UnityAutorun.Mcp
                 ("steps", CloneSteps(route)),
                 ("automationSequence", automationSequence),
                 ("isFullyAutoRunnable", IsFullyAutoRunnable(route, autoRunSequence)),
+                ("navigationSteps", ResolveNavigationSteps(route)),
                 ("autoRunSequence", autoRunSequence)
             );
+        }
+
+        public JsonObject ResolveBestRoute(string from, string to, IEnumerable<string> openViews)
+        {
+            if (!string.IsNullOrWhiteSpace(from))
+            {
+                return ResolveRoute(null, from, to);
+            }
+
+            foreach (string openView in openViews ?? Enumerable.Empty<string>())
+            {
+                string fromViewId = ResolveViewId(openView);
+                string toViewId = ResolveViewId(to);
+                if (fromViewId == null || toViewId == null || fromViewId == toViewId)
+                {
+                    continue;
+                }
+
+                JsonObject route = TryResolveRoute(fromViewId, toViewId);
+                if (route != null)
+                {
+                    return route;
+                }
+            }
+
+            return ResolveRoute(null, from, to);
         }
 
         private string ResolveViewId(string value)
@@ -96,8 +118,46 @@ namespace UnityAutorun.Mcp
                 return null;
             }
 
-            JsonObject view = Objects("views").FirstOrDefault(item => Text(item, "id") == value || Text(item, "name") == value);
+            string normalized = NormalizeViewToken(value);
+            JsonObject view = Objects("views").FirstOrDefault(item =>
+                Text(item, "id") == value
+                || Text(item, "name") == value
+                || NormalizeViewToken(Text(item, "id")) == normalized
+                || NormalizeViewToken(Text(item, "name")) == normalized);
             return view?["id"]?.GetValue<string>() ?? value;
+        }
+
+        private static string NormalizeViewToken(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            string token = value.ToLowerInvariant();
+            if (token.StartsWith("view."))
+            {
+                token = token.Substring("view.".Length);
+            }
+
+            return token
+                .Replace("ui.form.", "uiform")
+                .Replace(".", string.Empty)
+                .Replace("_", string.Empty)
+                .Replace("-", string.Empty)
+                .Replace(" ", string.Empty);
+        }
+
+        private JsonObject TryResolveRoute(string fromViewId, string toViewId)
+        {
+            try
+            {
+                return ResolveRoute(null, fromViewId, toViewId);
+            }
+            catch (InvalidOperationException)
+            {
+                return null;
+            }
         }
 
         private static JsonArray CloneSteps(JsonObject route)

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
@@ -53,6 +54,10 @@ namespace UnityAutorun.Mcp
             else if (command == "run-route")
             {
                 result = await RunRouteAsync(args, bridge);
+            }
+            else if (command == "navigate-ui")
+            {
+                result = await NavigateUiAsync(args, bridge);
             }
 
             if (result == null)
@@ -115,6 +120,36 @@ namespace UnityAutorun.Mcp
             return result;
         }
 
+        private static async Task<JsonNode> NavigateUiAsync(string[] args, BridgeClient bridge)
+        {
+            UiNavMap map = UiNavMap.Load(Read(args, "--map"));
+            JsonArray openViews = await ListOpenViewsAsync(bridge);
+            JsonObject route = map.ResolveBestRoute(Read(args, "--from"), Read(args, "--to"), openViews.Select(item => item?.GetValue<string>()));
+            JsonNode result = await bridge.CallUnityAsync("navigate_route", JsonUtil.Obj(
+                ("routeId", route["id"]?.DeepClone()),
+                ("targetViewId", route["toViewId"]?.DeepClone()),
+                ("navigationSteps", route["navigationSteps"]?.DeepClone() ?? new JsonArray())
+            ));
+            if (result != null)
+            {
+                result["route"] = JsonUtil.Obj(
+                    ("path", map.Path),
+                    ("id", route["id"]?.DeepClone()),
+                    ("fromViewId", route["fromViewId"]?.DeepClone()),
+                    ("toViewId", route["toViewId"]?.DeepClone()),
+                    ("steps", route["steps"]?.DeepClone())
+                );
+            }
+
+            return result;
+        }
+
+        private static async Task<JsonArray> ListOpenViewsAsync(BridgeClient bridge)
+        {
+            JsonNode result = await bridge.CallUnityAsync("list_open_views");
+            return result?["data"]?["openViews"]?.AsArray() ?? new JsonArray();
+        }
+
         private static JsonObject Resolve(UiNavMap map, string[] args)
         {
             return map.ResolveRoute(Read(args, "--route"), Read(args, "--from"), Read(args, "--to"));
@@ -141,6 +176,7 @@ namespace UnityAutorun.Mcp
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- routes --map mcp/ui-nav-map.example.json\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- route --map mcp/ui-nav-map.example.json --from A --to C\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- run-route --map mcp/ui-nav-map.example.json --from A --to C\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- navigate-ui --map mcp/ui-nav-map.json --to UIFormOperation [--from UIFormLogin]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- mcp\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- mock-bridge");
         }
