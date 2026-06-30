@@ -38,7 +38,7 @@ public partial class AutoRunWindow : EditorWindow
             return;
         }
 
-        LoadConfig();
+        LoadConfig(false);
     }
 
     private void OnGUI()
@@ -73,7 +73,7 @@ public partial class AutoRunWindow : EditorWindow
         GUILayout.EndVertical();
     }
 
-    private void LoadConfig()
+    private void LoadConfig(bool logLoaded = true)
     {
         bool hasConfigFile = XmlHelper.TryLoadConfig<AutoRunParamConfig>(
             ConfigPath,
@@ -83,7 +83,10 @@ public partial class AutoRunWindow : EditorWindow
         if (hasConfigFile)
         {
             _currentLoadingConfig = config;
-            AppendConsoleText($"Config loaded. Details: " + config.Info());
+            if (logLoaded)
+            {
+                AppendConsoleText($"Config loaded. Details: " + config.Info());
+            }
         }
     }
 
