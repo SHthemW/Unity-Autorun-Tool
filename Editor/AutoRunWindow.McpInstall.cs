@@ -84,8 +84,16 @@ public partial class AutoRunWindow
     private void RenderMcpPanel()
     {
         BeginPanel("MCP");
+        if (EditorApplication.timeSinceStartup - _mcpProcessLastRefreshAt > 2)
+        {
+            RefreshMcpProcesses();
+        }
+
         GUILayout.Label("Bridge");
         RenderBridgeControls();
+        GUILayout.Space(4);
+        GUILayout.Label("Processes");
+        RenderMcpProcesses();
         GUILayout.Space(4);
         GUILayout.Label("Install");
         RenderMcpInstallControls();
