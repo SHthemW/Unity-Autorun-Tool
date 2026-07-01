@@ -15,6 +15,8 @@ namespace UnityAutorun.Mcp
                 Tool("click_button", "Click a Unity UI button by name or text.", ("name", "string"), ("text", "string"), ("framework", Enum("ugui", "fairygui"))),
                 Tool("run_sequence", "Run a sequence of AutoRun button actions.", ("actions", "array")),
                 Tool("get_nav_map_guidance", "Get the UI navigation map schema, generation rules, and prompt guidance for AI prefab/code analysis."),
+                Tool("get_current_ui_nav_map", "Read the current canonical UI navigation map from Unity-Autorun-Tool/mcp/ui-nav-map.json."),
+                Tool("save_ui_nav_map", "Save a generated UI navigation map to the canonical Unity-Autorun-Tool/mcp/ui-nav-map.json path. Use this instead of writing the file manually.", ("map", "object"), ("mapJson", "string")),
                 Tool("list_ui_routes", "List routes in a UI navigation map file.", ("mapPath", "string")),
                 Tool("resolve_ui_route", "Resolve a UI route from a navigation map without executing it.", ("mapPath", "string"), ("route", "string"), ("from", "string"), ("to", "string")),
                 Tool("run_ui_route", "Resolve a UI route and execute it through AutoRun.", ("mapPath", "string"), ("route", "string"), ("from", "string"), ("to", "string")),

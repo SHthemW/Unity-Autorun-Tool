@@ -23,7 +23,7 @@ Environment variables:
 
 ## MCP Server
 
-Use `dotnet run --no-build --project mcp~/UnityAutorun.Mcp -- mcp` as a stdio MCP server command.
+Use `powershell -NoProfile -ExecutionPolicy Bypass -File mcp/run-mcp.ps1` as a stdio MCP server command.
 
 ## One-click install
 
@@ -52,6 +52,8 @@ The server exposes:
 - `click_button`
 - `run_sequence`
 - `get_nav_map_guidance`
+- `get_current_ui_nav_map`
+- `save_ui_nav_map`
 - `list_ui_routes`
 - `resolve_ui_route`
 - `run_ui_route`
@@ -62,12 +64,13 @@ Use this prompt after the MCP server is installed:
 
 ```text
 Use the unity-autorun MCP tool get_nav_map_guidance first.
+Read the current map with get_current_ui_nav_map before making changes.
 Then analyze this Unity project's UI prefabs and related C# UI scripts.
-Generate mcp/ui-nav-map.json with views, controls, transitions, routes, and unresolved links.
-Write it under the Unity-Autorun-Tool root exactly as `mcp/ui-nav-map.json`; if get_nav_map_guidance returns absoluteOutputPath, write to that exact absolute path.
+Generate a UI navigation map JSON object with views, controls, transitions, routes, and unresolved links.
+Save the generated JSON by calling the `save_ui_nav_map` MCP tool; do not write `ui-nav-map.json` directly with filesystem operations.
 Use evidence from prefab events, AddListener calls, FairyGUI callbacks, and UI router/window manager APIs.
 For CodeBind-backed uGUI controls, resolve serialized prefab references and use the real GameObject name/path for objectPath and autoRun.buttonName, not the C# field or property name.
-After writing the file, call list_ui_routes and resolve_ui_route to validate the route from <start view> to <target view>.
+After save_ui_nav_map succeeds, call list_ui_routes and resolve_ui_route to validate the route from <start view> to <target view>.
 If Unity is open and the AutoRun bridge is running, call run_ui_route to navigate to <target view>.
 ```
 
@@ -75,7 +78,7 @@ For bug investigation:
 
 ```text
 I need to debug <target view>.
-Use get_nav_map_guidance, generate or update mcp/ui-nav-map.json, resolve the route to <target view>, then use run_ui_route if the Unity bridge is running.
+Use get_nav_map_guidance, read the current map with get_current_ui_nav_map, save updates with save_ui_nav_map, resolve the route to <target view>, then use run_ui_route if the Unity bridge is running.
 Do not invent uncertain transitions; put them in unresolved with source evidence.
 ```
 

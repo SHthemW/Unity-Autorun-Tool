@@ -12,9 +12,23 @@ namespace UnityAutorun.Mcp
             return JsonUtil.Obj(
                 ("ok", true),
                 ("schemaVersion", "1.0"),
-                ("defaultOutputPath", UiNavMapPaths.DefaultRelativePath),
+                ("canonicalPath", absoluteOutputPath),
+                ("requiredTools", new JsonArray
+                {
+                    "get_nav_map_guidance",
+                    "get_current_ui_nav_map",
+                    "save_ui_nav_map",
+                    "list_ui_routes",
+                    "resolve_ui_route"
+                }),
+                ("workflowBriefRules", WorkflowBriefRules()),
+                ("workflowBriefPrompt", WorkflowBriefPrompt(absoluteOutputPath)),
+                ("defaultOutputPath", absoluteOutputPath),
+                ("repoRelativeOutputPath", UiNavMapPaths.DefaultRelativePath),
                 ("absoluteOutputPath", absoluteOutputPath),
                 ("outputDirectory", Path.GetDirectoryName(absoluteOutputPath)),
+                ("requiredSaveTool", "save_ui_nav_map"),
+                ("requiredReadTool", "get_current_ui_nav_map"),
                 ("outputPathRules", OutputPathRules(absoluteOutputPath)),
                 ("workflow", Workflow()),
                 ("requiredArrays", RequiredArrays()),
@@ -27,13 +41,38 @@ namespace UnityAutorun.Mcp
             );
         }
 
+        private static JsonArray WorkflowBriefRules()
+        {
+            return new JsonArray
+            {
+                "Call get_nav_map_guidance before starting UI navigation map work.",
+                "Use this response for the workflow brief, schema, and detailed generation rules.",
+                "Call get_current_ui_nav_map before changing the map; preserve valid existing entries.",
+                "Do not write ui-nav-map.json directly with filesystem operations.",
+                "Persist the complete map only by calling save_ui_nav_map.",
+                "After saving, validate with list_ui_routes and resolve_ui_route."
+            };
+        }
+
+        private static string WorkflowBriefPrompt(string path)
+        {
+            return "Before UI navigation work, call get_nav_map_guidance. "
+                + "Read the existing map with get_current_ui_nav_map. "
+                + "Generate or update the complete navigation map object in memory. "
+                + "Do not write ui-nav-map.json directly. "
+                + "Persist only by calling save_ui_nav_map; it writes the canonical path: " + path + ". "
+                + "Then validate with list_ui_routes and resolve_ui_route.";
+        }
+
         private static JsonArray Workflow()
         {
             return new JsonArray
             {
+                "Use this get_nav_map_guidance response as the workflow brief before starting UI navigation map work.",
                 "Read Unity UI prefabs, scene roots, UI controller scripts, and surrounding application flow code.",
+                "Call get_current_ui_nav_map before changing an existing navigation map and preserve valid entries.",
                 "Identify views, controls, reachability transitions, and direct routes.",
-                "Write the navigation map to the absoluteOutputPath returned by this tool. The repo-relative path is mcp/ui-nav-map.json under the Unity-Autorun-Tool root.",
+                "Call save_ui_nav_map with the complete generated map. Do not write ui-nav-map.json with direct filesystem writes.",
                 "Call resolve_ui_route to verify important paths.",
                 "Call run_ui_route only when resolve_ui_route reports isFullyAutoRunnable=true, Unity bridge is running, and the user wants execution."
             };
@@ -43,8 +82,9 @@ namespace UnityAutorun.Mcp
         {
             return new JsonArray
             {
-                "Always write the generated navigation map to absoluteOutputPath exactly: " + absoluteOutputPath,
-                "Do not write ui-nav-map.json to the Unity project root, the MCP project folder, the current shell directory, or a temporary working directory.",
+                "This get_nav_map_guidance response is the required workflow brief and canonical read/write workflow.",
+                "Always save the generated navigation map by calling save_ui_nav_map. The tool writes absoluteOutputPath exactly: " + absoluteOutputPath,
+                "Do not create or edit ui-nav-map.json with direct filesystem writes. Do not write ui-nav-map.json to the Unity project root, the MCP project folder, the current shell directory, or a temporary working directory.",
                 "When calling list_ui_routes, resolve_ui_route, run_ui_route, or navigate_ui, pass mapPath as absoluteOutputPath unless the user explicitly requests another file."
             };
         }
@@ -116,7 +156,9 @@ namespace UnityAutorun.Mcp
             return new JsonArray
             {
                 "Call get_nav_map_guidance before writing the file when available.",
-                "After writing absoluteOutputPath, call list_ui_routes with mapPath set to absoluteOutputPath.",
+                "Call get_current_ui_nav_map before generating changes to an existing map.",
+                "After generating the map content, call save_ui_nav_map before route validation.",
+                "After save_ui_nav_map succeeds, call list_ui_routes with mapPath set to absoluteOutputPath.",
                 "Call resolve_ui_route with from/to or route id for each important target.",
                 "Check resolve_ui_route.isFullyAutoRunnable before execution.",
                 "If Unity bridge is running and the route is fully auto-runnable, call run_ui_route to execute the path."
@@ -194,12 +236,14 @@ namespace UnityAutorun.Mcp
         {
             string absoluteOutputPath = UiNavMapPaths.ResolveDefaultMapPath();
             return "Use the unity-autorun MCP tool get_nav_map_guidance first. "
-                + "Then analyze Unity UI prefabs, UI scripts, and surrounding application flow code to generate the navigation map at this exact path: "
-                + absoluteOutputPath + ". "
+                + "Read the current map with get_current_ui_nav_map before making changes. "
+                + "Then analyze Unity UI prefabs, UI scripts, and surrounding application flow code to generate the navigation map content. "
+                + "Save the result by calling save_ui_nav_map; do not write files manually. "
+                + "save_ui_nav_map will write the exact path: " + absoluteOutputPath + ". "
                 + "Identify views, controls, reachability transitions, routes, and unresolved links. "
                 + "Automatically infer project-specific UI open, close, routing, event, state, and scene APIs from code evidence. "
                 + "Use transitions for both interaction-driven and app-flow-driven reachability. "
-                + "After writing the file, call list_ui_routes and resolve_ui_route to validate the target path. "
+                + "After save_ui_nav_map succeeds, call list_ui_routes and resolve_ui_route to validate the target path. "
                 + "Only call run_ui_route when resolve_ui_route reports isFullyAutoRunnable=true, Unity bridge is running, and execution is requested.";
         }
     }

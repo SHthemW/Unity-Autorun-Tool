@@ -19,11 +19,12 @@ public sealed class McpInstallConfig
         string projectPath = GetMcpProjectPath();
         string projectDirectory = Path.GetDirectoryName(projectPath);
         string toolRoot = GetToolRootDirectory();
+        string launcherPath = Path.Combine(toolRoot, "mcp", "run-mcp.ps1");
 
         return new McpInstallConfig
         {
-            Command = "dotnet",
-            Args = new List<string> { "run", "--no-build", "--project", projectPath, "--", "mcp" },
+            Command = "powershell",
+            Args = new List<string> { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", launcherPath },
             Cwd = toolRoot,
             Host = "127.0.0.1",
             Port = AutoRunBridgeServer.DefaultPort.ToString(),

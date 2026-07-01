@@ -132,6 +132,8 @@ namespace UnityAutorun.Mcp
             if (name == "click_button") return await _bridge.CallUnityAsync("click_button", JsonUtil.Obj(("name", Text(args, "name")), ("text", Text(args, "text")), ("framework", Text(args, "framework", "ugui"))));
             if (name == "run_sequence") return await _bridge.CallUnityAsync("run_sequence", JsonUtil.Obj(("actions", args["actions"]?.DeepClone() ?? new JsonArray())));
             if (name == "get_nav_map_guidance") return UiNavMapGuidance.Get();
+            if (name == "get_current_ui_nav_map") return UiNavMapReader.GetCurrent();
+            if (name == "save_ui_nav_map") return UiNavMapWriter.Save(args);
             if (name == "list_ui_routes") return ListRoutes(args);
             if (name == "resolve_ui_route") return ResolveRoute(args);
             if (name == "run_ui_route") return await RunRouteAsync(args);
