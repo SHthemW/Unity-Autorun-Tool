@@ -65,7 +65,7 @@ namespace UnityAutorun.Mcp
         private static JsonObject AutoRunActionShape()
         {
             return JsonUtil.Obj(
-                ("buttonName", "Unity object name or FairyGUI component name."),
+                ("buttonName", "Runtime-clickable Unity GameObject name or FairyGUI component name. For uGUI this must be the real prefab/scene object name, not a CodeBind field or C# property name."),
                 ("buttonText", "Visible label text when known; use untitled when unavailable."),
                 ("isFairyGUI", "true for FairyGUI controls, false for uGUI controls."),
                 ("delay", "Seconds to wait after the click, usually 0.2 to 1.0.")
@@ -89,6 +89,8 @@ namespace UnityAutorun.Mcp
                 "Do not invent a transition when the target view is unclear. Put uncertain links in unresolved unless a human has confirmed them, in which case use kind=inferred with source.type=human.",
                 "For FairyGUI controls, set framework to fairygui and autoRun.isFairyGUI to true.",
                 "For uGUI controls, set framework to ugui and autoRun.isFairyGUI to false.",
+                "For CodeBind-backed uGUI controls, resolve the serialized field reference in the prefab and use the referenced component's GameObject name and hierarchy path. Do not use the CodeBind field/property name as control.name, objectPath, or autoRun.buttonName unless it is also the real GameObject name.",
+                "For uGUI controls, objectPath must be the real prefab/scene hierarchy path and autoRun.buttonName must equal the final GameObject name in that path, because AutoRun clicks by Unity object name.",
                 "Every route step should reference transitionId. Include controlId only when the transition has one.",
                 "Keep generated JSON deterministic: sort views, controls, transitions, and routes by id."
             };

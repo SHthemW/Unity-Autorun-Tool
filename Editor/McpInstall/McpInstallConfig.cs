@@ -21,7 +21,7 @@ public sealed class McpInstallConfig
         return new McpInstallConfig
         {
             Command = "dotnet",
-            Args = new List<string> { "run", "--project", projectPath, "--", "mcp" },
+            Args = new List<string> { "run", "--no-build", "--project", projectPath, "--", "mcp" },
             Cwd = projectDirectory,
             Host = "127.0.0.1",
             Port = AutoRunBridgeServer.DefaultPort.ToString()

@@ -25,6 +25,7 @@ public sealed class NavigationMapControl
     public string viewId;
     public string name;
     public string text;
+    public string objectPath;
     public string framework;
     public AutoRunParam autoRun;
 }

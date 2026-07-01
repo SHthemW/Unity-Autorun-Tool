@@ -123,6 +123,12 @@ namespace UnityAutorun.Mcp
                 return CreateAutoRunFromControl(control);
             }
 
+            string objectPathButtonName = GetObjectPathLeaf(Text(control, "objectPath"));
+            if (!IsDefaultAction(autoRun) && !IsFairyGUIControl(control) && !string.IsNullOrEmpty(objectPathButtonName))
+            {
+                return CloneAutoRunWithButtonName(autoRun, objectPathButtonName);
+            }
+
             if (control == null || !IsDefaultAction(autoRun))
             {
                 return autoRun;
@@ -147,19 +153,49 @@ namespace UnityAutorun.Mcp
             return fallback;
         }
 
+        private static JsonNode CloneAutoRunWithButtonName(JsonNode autoRun, string buttonName)
+        {
+            JsonObject clone = autoRun.DeepClone().AsObject();
+            clone["buttonName"] = buttonName;
+            return clone;
+        }
+
+        private static bool IsFairyGUIControl(JsonObject control)
+        {
+            return string.Equals(Text(control, "framework"), "fairygui", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static JsonObject CreateAutoRunFromControl(JsonObject control)
         {
-            string name = Text(control, "name");
-            if (name == null)
+            string buttonName = ResolveAutoRunButtonName(control);
+            if (buttonName == null)
             {
                 return null;
             }
 
             return JsonUtil.Obj(
-                ("buttonName", name),
+                ("buttonName", buttonName),
                 ("buttonText", Text(control, "text") ?? "untitled"),
                 ("isFairyGUI", string.Equals(Text(control, "framework"), "fairygui", StringComparison.OrdinalIgnoreCase))
             );
+        }
+
+        private static string ResolveAutoRunButtonName(JsonObject control)
+        {
+            string pathLeaf = GetObjectPathLeaf(Text(control, "objectPath"));
+            return string.IsNullOrEmpty(pathLeaf) ? Text(control, "name") : pathLeaf;
+        }
+
+        private static string GetObjectPathLeaf(string objectPath)
+        {
+            if (string.IsNullOrWhiteSpace(objectPath))
+            {
+                return null;
+            }
+
+            string normalized = objectPath.Replace('\\', '/').Trim('/');
+            int slashIndex = normalized.LastIndexOf('/');
+            return slashIndex >= 0 ? normalized.Substring(slashIndex + 1) : normalized;
         }
 
         private static bool IsDefaultAction(JsonNode autoRun)

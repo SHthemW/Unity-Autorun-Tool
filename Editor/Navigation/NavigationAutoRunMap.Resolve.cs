@@ -87,6 +87,12 @@ public sealed partial class NavigationAutoRunMap
             return CreateAutoRunFromControl(control);
         }
 
+        string objectPathButtonName = GetObjectPathLeaf(control?.objectPath);
+        if (!IsDefaultAction(autoRun) && !IsFairyGUIControl(control) && !string.IsNullOrEmpty(objectPathButtonName))
+        {
+            return CopyAutoRunWithButtonName(autoRun, objectPathButtonName);
+        }
+
         if (control == null || !IsDefaultAction(autoRun))
         {
             return autoRun;
@@ -103,19 +109,60 @@ public sealed partial class NavigationAutoRunMap
         return fallback;
     }
 
+    private static AutoRunParam CopyAutoRunWithButtonName(AutoRunParam autoRun, string buttonName)
+    {
+        return new AutoRunParam
+        {
+            buttonName = buttonName,
+            buttonText = autoRun.buttonText,
+            isFairyGUI = autoRun.isFairyGUI,
+            delay = autoRun.delay,
+            isTest = autoRun.isTest,
+        };
+    }
+
+    private static bool IsFairyGUIControl(NavigationMapControl control)
+    {
+        return string.Equals(control?.framework, "fairygui", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static AutoRunParam CreateAutoRunFromControl(NavigationMapControl control)
     {
-        if (control == null || string.IsNullOrEmpty(control.name))
+        string buttonName = ResolveAutoRunButtonName(control);
+        if (string.IsNullOrEmpty(buttonName))
         {
             return null;
         }
 
         return new AutoRunParam
         {
-            buttonName = control.name,
+            buttonName = buttonName,
             buttonText = string.IsNullOrEmpty(control.text) ? AutoRunParam.DEFAULT_TEXT : control.text,
             isFairyGUI = !string.IsNullOrEmpty(control.framework) && control.framework.ToLowerInvariant() == "fairygui",
         };
+    }
+
+    private static string ResolveAutoRunButtonName(NavigationMapControl control)
+    {
+        if (control == null)
+        {
+            return null;
+        }
+
+        string pathLeaf = GetObjectPathLeaf(control.objectPath);
+        return string.IsNullOrEmpty(pathLeaf) ? control.name : pathLeaf;
+    }
+
+    private static string GetObjectPathLeaf(string objectPath)
+    {
+        if (string.IsNullOrWhiteSpace(objectPath))
+        {
+            return null;
+        }
+
+        string normalized = objectPath.Replace('\\', '/').Trim('/');
+        int slashIndex = normalized.LastIndexOf('/');
+        return slashIndex >= 0 ? normalized.Substring(slashIndex + 1) : normalized;
     }
 
     private static bool IsDefaultAction(AutoRunParam autoRun)

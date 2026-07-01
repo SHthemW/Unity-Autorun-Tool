@@ -23,7 +23,7 @@ Environment variables:
 
 ## MCP Server
 
-Use `dotnet run --project mcp~/UnityAutorun.Mcp -- mcp` as a stdio MCP server command.
+Use `dotnet run --no-build --project mcp~/UnityAutorun.Mcp -- mcp` as a stdio MCP server command.
 
 ## One-click install
 
@@ -65,6 +65,7 @@ Use the unity-autorun MCP tool get_nav_map_guidance first.
 Then analyze this Unity project's UI prefabs and related C# UI scripts.
 Generate mcp/ui-nav-map.json with views, controls, transitions, routes, and unresolved links.
 Use evidence from prefab events, AddListener calls, FairyGUI callbacks, and UI router/window manager APIs.
+For CodeBind-backed uGUI controls, resolve serialized prefab references and use the real GameObject name/path for objectPath and autoRun.buttonName, not the C# field or property name.
 After writing the file, call list_ui_routes and resolve_ui_route to validate the route from <start view> to <target view>.
 If Unity is open and the AutoRun bridge is running, call run_ui_route to navigate to <target view>.
 ```
