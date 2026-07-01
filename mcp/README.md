@@ -64,6 +64,7 @@ Use this prompt after the MCP server is installed:
 Use the unity-autorun MCP tool get_nav_map_guidance first.
 Then analyze this Unity project's UI prefabs and related C# UI scripts.
 Generate mcp/ui-nav-map.json with views, controls, transitions, routes, and unresolved links.
+Write it under the Unity-Autorun-Tool root exactly as `mcp/ui-nav-map.json`; if get_nav_map_guidance returns absoluteOutputPath, write to that exact absolute path.
 Use evidence from prefab events, AddListener calls, FairyGUI callbacks, and UI router/window manager APIs.
 For CodeBind-backed uGUI controls, resolve serialized prefab references and use the real GameObject name/path for objectPath and autoRun.buttonName, not the C# field or property name.
 After writing the file, call list_ui_routes and resolve_ui_route to validate the route from <start view> to <target view>.

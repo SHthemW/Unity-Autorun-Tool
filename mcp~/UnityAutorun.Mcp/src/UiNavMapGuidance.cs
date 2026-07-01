@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Text.Json.Nodes;
 
 namespace UnityAutorun.Mcp
@@ -7,10 +8,14 @@ namespace UnityAutorun.Mcp
     {
         public static JsonObject Get()
         {
+            string absoluteOutputPath = UiNavMapPaths.ResolveDefaultMapPath();
             return JsonUtil.Obj(
                 ("ok", true),
                 ("schemaVersion", "1.0"),
-                ("defaultOutputPath", "mcp/ui-nav-map.json"),
+                ("defaultOutputPath", UiNavMapPaths.DefaultRelativePath),
+                ("absoluteOutputPath", absoluteOutputPath),
+                ("outputDirectory", Path.GetDirectoryName(absoluteOutputPath)),
+                ("outputPathRules", OutputPathRules(absoluteOutputPath)),
                 ("workflow", Workflow()),
                 ("requiredArrays", RequiredArrays()),
                 ("transitionShape", TransitionShape()),
@@ -28,9 +33,19 @@ namespace UnityAutorun.Mcp
             {
                 "Read Unity UI prefabs, scene roots, UI controller scripts, and surrounding application flow code.",
                 "Identify views, controls, reachability transitions, and direct routes.",
-                "Write the navigation map to mcp/ui-nav-map.json.",
+                "Write the navigation map to the absoluteOutputPath returned by this tool. The repo-relative path is mcp/ui-nav-map.json under the Unity-Autorun-Tool root.",
                 "Call resolve_ui_route to verify important paths.",
                 "Call run_ui_route only when resolve_ui_route reports isFullyAutoRunnable=true, Unity bridge is running, and the user wants execution."
+            };
+        }
+
+        private static JsonArray OutputPathRules(string absoluteOutputPath)
+        {
+            return new JsonArray
+            {
+                "Always write the generated navigation map to absoluteOutputPath exactly: " + absoluteOutputPath,
+                "Do not write ui-nav-map.json to the Unity project root, the MCP project folder, the current shell directory, or a temporary working directory.",
+                "When calling list_ui_routes, resolve_ui_route, run_ui_route, or navigate_ui, pass mapPath as absoluteOutputPath unless the user explicitly requests another file."
             };
         }
 
@@ -101,7 +116,7 @@ namespace UnityAutorun.Mcp
             return new JsonArray
             {
                 "Call get_nav_map_guidance before writing the file when available.",
-                "After writing mcp/ui-nav-map.json, call list_ui_routes with mapPath.",
+                "After writing absoluteOutputPath, call list_ui_routes with mapPath set to absoluteOutputPath.",
                 "Call resolve_ui_route with from/to or route id for each important target.",
                 "Check resolve_ui_route.isFullyAutoRunnable before execution.",
                 "If Unity bridge is running and the route is fully auto-runnable, call run_ui_route to execute the path."
@@ -177,8 +192,10 @@ namespace UnityAutorun.Mcp
 
         private static string PromptTemplate()
         {
+            string absoluteOutputPath = UiNavMapPaths.ResolveDefaultMapPath();
             return "Use the unity-autorun MCP tool get_nav_map_guidance first. "
-                + "Then analyze Unity UI prefabs, UI scripts, and surrounding application flow code to generate mcp/ui-nav-map.json. "
+                + "Then analyze Unity UI prefabs, UI scripts, and surrounding application flow code to generate the navigation map at this exact path: "
+                + absoluteOutputPath + ". "
                 + "Identify views, controls, reachability transitions, routes, and unresolved links. "
                 + "Automatically infer project-specific UI open, close, routing, event, state, and scene APIs from code evidence. "
                 + "Use transitions for both interaction-driven and app-flow-driven reachability. "

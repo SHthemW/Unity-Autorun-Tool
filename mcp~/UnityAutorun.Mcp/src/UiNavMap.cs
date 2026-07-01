@@ -20,10 +20,7 @@ namespace UnityAutorun.Mcp
 
         public static UiNavMap Load(string mapPath)
         {
-            string input = string.IsNullOrWhiteSpace(mapPath)
-                ? Environment.GetEnvironmentVariable("UNITY_AUTORUN_NAV_MAP") ?? "ui-nav-map.json"
-                : mapPath;
-            string fullPath = System.IO.Path.GetFullPath(input);
+            string fullPath = UiNavMapPaths.ResolveMapPath(mapPath);
             JsonObject map = JsonNode.Parse(File.ReadAllText(fullPath))?.AsObject()
                 ?? throw new InvalidOperationException($"Invalid UI nav map: {fullPath}");
             return new UiNavMap(map, fullPath);

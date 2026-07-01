@@ -12,19 +12,22 @@ public sealed class McpInstallConfig
     public string Cwd;
     public string Host;
     public string Port;
+    public string ToolRoot;
 
     public static McpInstallConfig Create()
     {
         string projectPath = GetMcpProjectPath();
         string projectDirectory = Path.GetDirectoryName(projectPath);
+        string toolRoot = GetToolRootDirectory();
 
         return new McpInstallConfig
         {
             Command = "dotnet",
             Args = new List<string> { "run", "--no-build", "--project", projectPath, "--", "mcp" },
-            Cwd = projectDirectory,
+            Cwd = toolRoot,
             Host = "127.0.0.1",
-            Port = AutoRunBridgeServer.DefaultPort.ToString()
+            Port = AutoRunBridgeServer.DefaultPort.ToString(),
+            ToolRoot = toolRoot
         };
     }
 
@@ -60,6 +63,7 @@ public sealed class McpInstallConfig
         builder.AppendLine("[mcp_servers.unity_autorun.env]");
         builder.AppendLine("UNITY_AUTORUN_HOST = " + TomlString(Host));
         builder.AppendLine("UNITY_AUTORUN_PORT = " + TomlString(Port));
+        builder.AppendLine("UNITY_AUTORUN_TOOL_ROOT = " + TomlString(ToolRoot));
         return builder.ToString().TrimEnd();
     }
 
@@ -71,7 +75,8 @@ public sealed class McpInstallConfig
         builder.Append("\"args\":").Append(JsonStringArray(Args)).Append(",");
         builder.Append("\"env\":{");
         builder.Append("\"UNITY_AUTORUN_HOST\":\"").Append(JsonEscape(Host)).Append("\",");
-        builder.Append("\"UNITY_AUTORUN_PORT\":\"").Append(JsonEscape(Port)).Append("\"");
+        builder.Append("\"UNITY_AUTORUN_PORT\":\"").Append(JsonEscape(Port)).Append("\",");
+        builder.Append("\"UNITY_AUTORUN_TOOL_ROOT\":\"").Append(JsonEscape(ToolRoot)).Append("\"");
         builder.Append("}");
         builder.Append("}");
         return builder.ToString();
