@@ -33,6 +33,7 @@ namespace UnityAutorun.Mcp
             {
                 JsonArray autoRunSequence = ResolveAutoRunSequence(route);
                 JsonArray automationSequence = ResolveAutomationSequence(route);
+                JsonArray navigationSteps = ResolveNavigationSteps(route);
                 routes.Add(JsonUtil.Obj(
                     ("id", Text(route, "id")),
                     ("fromViewId", Text(route, "fromViewId")),
@@ -40,7 +41,9 @@ namespace UnityAutorun.Mcp
                     ("steps", Steps(route).Count),
                     ("autoRunSteps", autoRunSequence.Count),
                     ("automationSteps", automationSequence.Count),
-                    ("isFullyAutoRunnable", IsFullyAutoRunnable(route, autoRunSequence))
+                    ("navigationSteps", navigationSteps.Count),
+                    ("isFullyAutoRunnable", IsFullyAutoRunnable(route, autoRunSequence)),
+                    ("isNavigationRunnable", IsNavigationRunnable(navigationSteps))
                 ));
             }
 
@@ -69,6 +72,7 @@ namespace UnityAutorun.Mcp
 
             JsonArray autoRunSequence = ResolveAutoRunSequence(route);
             JsonArray automationSequence = ResolveAutomationSequence(route);
+            JsonArray navigationSteps = ResolveNavigationSteps(route);
 
             return JsonUtil.Obj(
                 ("id", Text(route, "id")),
@@ -77,7 +81,8 @@ namespace UnityAutorun.Mcp
                 ("steps", CloneSteps(route)),
                 ("automationSequence", automationSequence),
                 ("isFullyAutoRunnable", IsFullyAutoRunnable(route, autoRunSequence)),
-                ("navigationSteps", ResolveNavigationSteps(route)),
+                ("isNavigationRunnable", IsNavigationRunnable(navigationSteps)),
+                ("navigationSteps", navigationSteps),
                 ("autoRunSequence", autoRunSequence)
             );
         }
@@ -119,8 +124,8 @@ namespace UnityAutorun.Mcp
             JsonObject view = Objects("views").FirstOrDefault(item =>
                 Text(item, "id") == value
                 || Text(item, "name") == value
-                || NormalizeViewToken(Text(item, "id")) == normalized
-                || NormalizeViewToken(Text(item, "name")) == normalized);
+                || IsViewTokenMatch(NormalizeViewToken(Text(item, "id")), normalized)
+                || IsViewTokenMatch(NormalizeViewToken(Text(item, "name")), normalized));
             return view?["id"]?.GetValue<string>() ?? value;
         }
 
@@ -138,11 +143,22 @@ namespace UnityAutorun.Mcp
             }
 
             return token
-                .Replace("ui.form.", "uiform")
                 .Replace(".", string.Empty)
                 .Replace("_", string.Empty)
                 .Replace("-", string.Empty)
                 .Replace(" ", string.Empty);
+        }
+
+        private static bool IsViewTokenMatch(string candidate, string target)
+        {
+            if (string.IsNullOrEmpty(candidate) || string.IsNullOrEmpty(target))
+            {
+                return false;
+            }
+
+            return candidate == target
+                || (target.Length >= 4 && candidate.EndsWith(target))
+                || (candidate.Length >= 4 && target.EndsWith(candidate));
         }
 
         private JsonObject TryResolveRoute(string fromViewId, string toViewId)

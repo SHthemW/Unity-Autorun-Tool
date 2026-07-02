@@ -16,6 +16,9 @@ public sealed class NavigationMapView
 {
     public string id;
     public string name;
+    public string rootObjectPath;
+    public string prefabPath;
+    public string framework;
 }
 
 [Serializable]

@@ -101,6 +101,26 @@ namespace UnityAutorun.Mcp
             return Steps(route).Count > 0 && Steps(route).Count == autoRunSequence.Count;
         }
 
+        private static bool IsNavigationRunnable(JsonArray navigationSteps)
+        {
+            if (navigationSteps == null || navigationSteps.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (JsonObject step in navigationSteps.OfType<JsonObject>())
+            {
+                string mode = Text(step, "mode");
+                bool supported = mode == "wait" || (mode == "click" && step["action"] != null);
+                if (!supported)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private JsonNode ResolveStepAutoRun(JsonObject step)
         {
             JsonObject transition = FindStepTransition(step);

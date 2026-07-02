@@ -20,9 +20,46 @@ public sealed partial class NavigationAutoRunMap
         NavigationMapView view = Views().FirstOrDefault(item =>
             item.id == value
             || item.name == value
-            || NormalizeViewToken(item.id) == normalized
-            || NormalizeViewToken(item.name) == normalized);
+            || IsViewTokenMatch(NormalizeViewToken(item.id), normalized)
+            || IsViewTokenMatch(NormalizeViewToken(item.name), normalized));
         return view != null ? view.id : value;
+    }
+
+    private string ResolveOpenViewId(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        string normalized = NormalizeViewToken(value);
+        NavigationMapView view = Views().FirstOrDefault(item => IsOpenViewMatch(item, normalized));
+        return view?.id;
+    }
+
+    private static bool IsOpenViewMatch(NavigationMapView view, string normalizedRuntimeToken)
+    {
+        if (view == null || string.IsNullOrEmpty(normalizedRuntimeToken))
+        {
+            return false;
+        }
+
+        return IsRuntimeTokenMatch(normalizedRuntimeToken, NormalizeViewToken(view.id))
+            || IsRuntimeTokenMatch(normalizedRuntimeToken, NormalizeViewToken(view.name))
+            || IsRuntimeTokenMatch(normalizedRuntimeToken, NormalizeViewToken(view.rootObjectPath))
+            || IsRuntimeTokenMatch(normalizedRuntimeToken, NormalizeViewToken(GetObjectPathLeaf(view.rootObjectPath)))
+            || IsRuntimeTokenMatch(normalizedRuntimeToken, NormalizeViewToken(GetObjectPathLeaf(view.prefabPath)));
+    }
+
+    private static bool IsRuntimeTokenMatch(string runtimeToken, string mapToken)
+    {
+        if (string.IsNullOrEmpty(runtimeToken) || string.IsNullOrEmpty(mapToken))
+        {
+            return false;
+        }
+
+        return runtimeToken == mapToken
+            || (runtimeToken.Length > mapToken.Length && runtimeToken.EndsWith(mapToken));
     }
 
     private AutoRunNavStep ResolveNavigationStep(NavigationMapRouteStep step)
@@ -167,7 +204,9 @@ public sealed partial class NavigationAutoRunMap
 
     private static bool IsDefaultAction(AutoRunParam autoRun)
     {
-        return string.IsNullOrEmpty(autoRun.buttonName) || autoRun.buttonName == AutoRunParam.DEFAULT_NAME;
+        return autoRun == null
+            || string.IsNullOrEmpty(autoRun.buttonName)
+            || autoRun.buttonName == AutoRunParam.DEFAULT_NAME;
     }
 
     private NavigationMapTransition FindStepTransition(NavigationMapRouteStep step)
@@ -225,11 +264,29 @@ public sealed partial class NavigationAutoRunMap
             token = token.Substring("view.".Length);
         }
 
+        if (token.EndsWith(".prefab"))
+        {
+            token = token.Substring(0, token.Length - ".prefab".Length);
+        }
+
         return token
-            .Replace("ui.form.", "uiform")
             .Replace(".", string.Empty)
             .Replace("_", string.Empty)
             .Replace("-", string.Empty)
+            .Replace("/", string.Empty)
+            .Replace("\\", string.Empty)
             .Replace(" ", string.Empty);
+    }
+
+    private static bool IsViewTokenMatch(string candidate, string target)
+    {
+        if (string.IsNullOrEmpty(candidate) || string.IsNullOrEmpty(target))
+        {
+            return false;
+        }
+
+        return candidate == target
+            || (target.Length >= 4 && candidate.EndsWith(target))
+            || (candidate.Length >= 4 && target.EndsWith(candidate));
     }
 }

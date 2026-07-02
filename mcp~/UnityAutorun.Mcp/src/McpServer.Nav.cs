@@ -24,10 +24,21 @@ namespace UnityAutorun.Mcp
             JsonObject route = Resolve(map, args);
             if (route["isFullyAutoRunnable"]?.GetValue<bool>() != true)
             {
+                if (route["isNavigationRunnable"]?.GetValue<bool>() == true)
+                {
+                    JsonNode navigationResult = await _bridge.CallUnityAsync("navigate_route", JsonUtil.Obj(
+                        ("routeId", route["id"]?.DeepClone()),
+                        ("targetViewId", route["toViewId"]?.DeepClone()),
+                        ("navigationSteps", route["navigationSteps"]?.DeepClone() ?? new JsonArray())
+                    ));
+                    AddRouteInfo(navigationResult, map, route, true);
+                    return navigationResult;
+                }
+
                 return JsonUtil.Obj(
                     ("ok", false),
-                    ("code", "route_not_fully_autorunnable"),
-                    ("message", "Route contains app-driven or manual transitions. Use resolve_ui_route and navigate_ui for app-driven wait steps."),
+                    ("code", "route_not_runnable"),
+                    ("message", "Route contains manual or unsupported transitions. Use resolve_ui_route to inspect navigationSteps."),
                     ("route", route)
                 );
             }

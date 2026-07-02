@@ -80,10 +80,11 @@ public sealed partial class NavigationAutoRunMap
             throw new InvalidOperationException("Target view is required.");
         }
 
+        var plans = new List<NavigationAutoRunPlan>();
         foreach (string openView in openViews ?? Enumerable.Empty<string>())
         {
-            string fromViewId = ResolveViewId(openView);
-            if (fromViewId == null)
+            string fromViewId = ResolveOpenViewId(openView);
+            if (fromViewId == null || !_views.ContainsKey(fromViewId))
             {
                 continue;
             }
@@ -96,11 +97,67 @@ public sealed partial class NavigationAutoRunMap
             NavigationMapRoute route = TryResolveRoute(fromViewId, toViewId);
             if (route != null)
             {
-                return BuildPlan(route);
+                plans.Add(BuildPlan(route));
             }
         }
 
+        foreach (string inferredViewId in InferOpenViewIdsFromVisibleControls())
+        {
+            if (inferredViewId == toViewId)
+            {
+                return new NavigationAutoRunPlan { RouteId = "already." + toViewId, FromViewId = inferredViewId, ToViewId = toViewId };
+            }
+
+            NavigationMapRoute route = TryResolveRoute(inferredViewId, toViewId);
+            if (route != null)
+            {
+                plans.Add(BuildPlan(route));
+            }
+        }
+
+        foreach (string startupViewId in StartupViewIds())
+        {
+            if (startupViewId == toViewId)
+            {
+                continue;
+            }
+
+            NavigationMapRoute route = TryResolveRoute(startupViewId, toViewId);
+            if (route != null)
+            {
+                plans.Add(BuildPlan(route));
+            }
+        }
+
+        NavigationAutoRunPlan plan = SelectBestPlan(plans);
+        if (plan != null)
+        {
+            return plan;
+        }
+
         throw new InvalidOperationException("Route not found from current active views to " + toViewId + ".");
+    }
+
+    private IEnumerable<string> InferOpenViewIdsFromVisibleControls()
+    {
+        var viewIds = new HashSet<string>();
+        foreach (NavigationMapControl control in _controls.Values)
+        {
+            if (control == null || string.IsNullOrEmpty(control.viewId))
+            {
+                continue;
+            }
+
+            AutoRunParam action = NormalizeAutoRun(control.autoRun, control);
+            if (IsDefaultAction(action) || !AutoRunButtonService.HasButton(action))
+            {
+                continue;
+            }
+
+            AddTarget(viewIds, control.viewId);
+        }
+
+        return viewIds;
     }
 
     private NavigationAutoRunPlan BuildPlan(NavigationMapRoute route)
@@ -141,6 +198,84 @@ public sealed partial class NavigationAutoRunMap
         {
             targetIds.Add(viewId);
         }
+    }
+
+    private IEnumerable<string> StartupViewIds()
+    {
+        var startupIds = new HashSet<string>();
+        foreach (NavigationMapTransition transition in Transitions())
+        {
+            if (IsStartupTransition(transition))
+            {
+                AddTarget(startupIds, transition.fromViewId);
+            }
+        }
+
+        foreach (NavigationMapRoute route in Routes())
+        {
+            if (IsStartupViewId(route.fromViewId))
+            {
+                AddTarget(startupIds, route.fromViewId);
+            }
+        }
+
+        foreach (string viewId in _views.Keys)
+        {
+            if (IsStartupViewId(viewId))
+            {
+                AddTarget(startupIds, viewId);
+            }
+        }
+
+        return startupIds;
+    }
+
+    private static bool IsStartupTransition(NavigationMapTransition transition)
+    {
+        return transition != null
+            && (IsStartupViewId(transition.fromViewId)
+                || (string.Equals(transition.kind, "lifecycle", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(transition.automation?.mode, "wait", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static bool IsStartupViewId(string viewId)
+    {
+        if (string.IsNullOrEmpty(viewId))
+        {
+            return false;
+        }
+
+        string token = NormalizeViewToken(viewId);
+        return token == "appstart" || token == "start" || token == "startup";
+    }
+
+    private static NavigationAutoRunPlan SelectBestPlan(IEnumerable<NavigationAutoRunPlan> plans)
+    {
+        return plans
+            .Where(plan => plan != null)
+            .GroupBy(plan => plan.RouteId)
+            .Select(group => group.First())
+            .OrderBy(plan => IsReadyToStart(plan) ? 0 : 1)
+            .ThenBy(plan => plan.Steps.Count)
+            .FirstOrDefault();
+    }
+
+    private static bool IsReadyToStart(NavigationAutoRunPlan plan)
+    {
+        if (plan == null || plan.Steps.Count == 0)
+        {
+            return true;
+        }
+
+        AutoRunNavStep firstStep = plan.Steps[0];
+        if (firstStep.mode == "wait")
+        {
+            return true;
+        }
+
+        return firstStep.mode == "click"
+            && firstStep.action != null
+            && AutoRunButtonService.HasButton(firstStep.action);
     }
 
     private static string ResolveMapPath(string root)

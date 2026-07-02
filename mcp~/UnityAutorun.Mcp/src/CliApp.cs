@@ -43,6 +43,25 @@ namespace UnityAutorun.Mcp
             {
                 result = UiNavMapGuidance.Get();
             }
+            else if (command == "scan-nav-sources")
+            {
+                result = UiNavMapSourceScanner.Scan(JsonUtil.Obj(
+                    ("mapPath", Read(args, "--map")),
+                    ("kind", Read(args, "--kind", "all")),
+                    ("query", Read(args, "--query", "")),
+                    ("offset", ReadInt(args, "--offset", 0)),
+                    ("limit", ReadInt(args, "--limit", 50)),
+                    ("includeText", ReadBool(args, "--include-text", true))
+                ));
+            }
+            else if (command == "backfill-nav-map")
+            {
+                result = UiNavMapSourceScanner.Backfill(JsonUtil.Obj(
+                    ("mapPath", Read(args, "--map")),
+                    ("previewOnly", ReadBool(args, "--preview", true)),
+                    ("includeEvidenceBacklog", ReadBool(args, "--include-evidence-backlog", true))
+                ));
+            }
             else if (command == "routes")
             {
                 result = Routes(args);
@@ -104,10 +123,25 @@ namespace UnityAutorun.Mcp
             JsonObject route = Resolve(map, args);
             if (route["isFullyAutoRunnable"]?.GetValue<bool>() != true)
             {
+                if (route["isNavigationRunnable"]?.GetValue<bool>() == true)
+                {
+                    JsonNode navigationResult = await bridge.CallUnityAsync("navigate_route", JsonUtil.Obj(
+                        ("routeId", route["id"]?.DeepClone()),
+                        ("targetViewId", route["toViewId"]?.DeepClone()),
+                        ("navigationSteps", route["navigationSteps"]?.DeepClone() ?? new JsonArray())
+                    ));
+                    if (navigationResult != null)
+                    {
+                        navigationResult["route"] = JsonUtil.Obj(("path", map.Path), ("id", route["id"]?.DeepClone()), ("fromViewId", route["fromViewId"]?.DeepClone()), ("toViewId", route["toViewId"]?.DeepClone()), ("steps", route["steps"]?.DeepClone()));
+                    }
+
+                    return navigationResult;
+                }
+
                 return JsonUtil.Obj(
                     ("ok", false),
-                    ("code", "route_not_fully_autorunnable"),
-                    ("message", "Route contains app-driven or manual transitions. Use route/resolve_ui_route and advance/wait for those steps outside AutoRun."),
+                    ("code", "route_not_runnable"),
+                    ("message", "Route contains manual or unsupported transitions. Use route/resolve_ui_route to inspect navigationSteps."),
                     ("route", route)
                 );
             }
@@ -161,6 +195,35 @@ namespace UnityAutorun.Mcp
             return index >= 0 && index + 1 < args.Length ? args[index + 1] : fallback;
         }
 
+        private static int ReadInt(string[] args, string option, int fallback)
+        {
+            int index = Array.IndexOf(args, option);
+            if (index < 0 || index + 1 >= args.Length)
+            {
+                return fallback;
+            }
+
+            int value;
+            return int.TryParse(args[index + 1], out value) ? value : fallback;
+        }
+
+        private static bool ReadBool(string[] args, string option, bool fallback)
+        {
+            int index = Array.IndexOf(args, option);
+            if (index < 0)
+            {
+                return fallback;
+            }
+
+            if (index + 1 >= args.Length || args[index + 1].StartsWith("--", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            bool value;
+            return bool.TryParse(args[index + 1], out value) ? value : fallback;
+        }
+
         private static void PrintUsage()
         {
             Console.WriteLine("Unity AutoRun MCP\n\n"
@@ -173,10 +236,12 @@ namespace UnityAutorun.Mcp
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- click --name ButtonName [--text Text] [--framework ugui|fairygui]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- run-sequence --json-file sequence.json\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- nav-guidance\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- scan-nav-sources [--map mcp/ui-nav-map.json]\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- backfill-nav-map [--map mcp/ui-nav-map.json] [--preview true|false]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- routes --map mcp/ui-nav-map.example.json\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- route --map mcp/ui-nav-map.example.json --from A --to C\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- run-route --map mcp/ui-nav-map.example.json --from A --to C\n"
-                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- navigate-ui --map mcp/ui-nav-map.json --to UIFormOperation [--from UIFormLogin]\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- navigate-ui --map mcp/ui-nav-map.json --to TargetView [--from StartView]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- mcp\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- mock-bridge");
         }
