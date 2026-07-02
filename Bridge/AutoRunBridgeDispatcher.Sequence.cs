@@ -106,7 +106,6 @@ public sealed partial class AutoRunBridgeDispatcher
         _sequenceJob.Job.Response = response;
         LogResponse(response);
         _sequenceJob.Job.WaitHandle.Set();
-        Debug.Log(response.message);
         _sequenceJob = null;
     }
 

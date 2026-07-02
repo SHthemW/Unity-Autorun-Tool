@@ -172,7 +172,8 @@ public sealed partial class AutoRunBridgeDispatcher
             return;
         }
 
-        AutoRunWindow.AppendBridgeConsoleText($"MCP {response.code}: {response.message}");
+        AutoRunWindow.AppendBridgeConsoleText($"MCP {response.code}: {response.message}",
+            response.ok ? AutoRunLogLevel.Info : AutoRunLogLevel.Error);
         if (response.data?.messages == null)
         {
             return;
@@ -180,7 +181,7 @@ public sealed partial class AutoRunBridgeDispatcher
 
         foreach (string message in response.data.messages)
         {
-            AutoRunWindow.AppendBridgeConsoleText(message);
+            AutoRunWindow.AppendBridgeConsoleText(message, AutoRunLogLevel.Debug);
         }
     }
 

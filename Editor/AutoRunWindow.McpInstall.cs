@@ -36,7 +36,7 @@ public partial class AutoRunWindow
             }
             else
             {
-                AppendConsoleText(message);
+                AppendConsoleText(message, AutoRunLogLevel.Error);
                 EditorUtility.DisplayDialog("MCP Install Failed", message, "OK");
             }
         }
@@ -58,7 +58,7 @@ public partial class AutoRunWindow
             }
             else
             {
-                AppendConsoleText(message);
+                AppendConsoleText(message, AutoRunLogLevel.Error);
                 EditorUtility.DisplayDialog("Publish MCP Failed", message, "OK");
             }
         }
@@ -72,7 +72,7 @@ public partial class AutoRunWindow
             }
             else
             {
-                AppendConsoleText(message);
+                AppendConsoleText(message, AutoRunLogLevel.Error);
                 EditorUtility.DisplayDialog("Open Terminal Failed", message, "OK");
             }
         }
@@ -86,7 +86,7 @@ public partial class AutoRunWindow
             }
             else
             {
-                AppendConsoleText(message);
+                AppendConsoleText(message, AutoRunLogLevel.Error);
                 EditorUtility.DisplayDialog("Preview Nav Map Failed", message, "OK");
             }
         }

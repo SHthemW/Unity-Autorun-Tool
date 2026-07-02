@@ -2,13 +2,21 @@ using UnityEditor;
 using UnityEngine;
 using System.IO;
 using System;
+using System.Collections.Generic;
 
 public partial class AutoRunWindow : EditorWindow
 {
     private const int MaxConsoleChars = 20000;
     private const int MaxConsoleEntryChars = 1200;
 
-    private string _logText = "";
+    private readonly List<AutoRunConsoleEntry> _consoleEntries = new List<AutoRunConsoleEntry>();
+    private int _consoleCharCount;
+    private bool _showDebugLogs = true;
+    private bool _showInfoLogs = true;
+    private bool _showWarningLogs = true;
+    private bool _showErrorLogs = true;
+    private static readonly Dictionary<AutoRunLogLevel, GUIStyle> ConsoleEntryStyles = new Dictionary<AutoRunLogLevel, GUIStyle>();
+    private static Font _consoleFont;
     private Vector2 _actionScrollPosition;
     private Vector2 _consoleScrollPosition;
     private const string HANDLER_OBJECT_NAME = "AutoRunHandler";
@@ -49,16 +57,7 @@ public partial class AutoRunWindow : EditorWindow
         RenderNavigationAutoRunPanel();
         RenderManualAutoRunPanel();
 
-        // console
-        GUILayout.Label("Console");
-        if (GUILayout.Button("Clear"))
-        {
-            ClearConsoleText();
-        }
-
-        _consoleScrollPosition = GUILayout.BeginScrollView(_consoleScrollPosition, GUILayout.Height(220));
-        GUILayout.TextArea(_logText);
-        GUILayout.EndScrollView();
+        RenderConsole();
     }
 
     private void BeginPanel(string title)
@@ -122,11 +121,17 @@ public partial class AutoRunWindow : EditorWindow
 
     private void ClearConsoleText()
     {
-        _logText = string.Empty;
+        _consoleEntries.Clear();
+        _consoleCharCount = 0;
         _consoleScrollPosition = Vector2.zero;
     }
 
     private void AppendConsoleText(string text)
+    {
+        AppendConsoleText(text, AutoRunLogLevel.Info);
+    }
+
+    private void AppendConsoleText(string text, AutoRunLogLevel level)
     {
         if (string.IsNullOrEmpty(text))
             return;
@@ -136,13 +141,14 @@ public partial class AutoRunWindow : EditorWindow
             text = text.Substring(0, MaxConsoleEntryChars) + "... [truncated]";
         }
         
-        if (!text.StartsWith("\n"))
-            text += "\n";
-
-        _logText += text;
-        if (_logText.Length > MaxConsoleChars)
+        text = text.TrimEnd('\r', '\n');
+        var entry = new AutoRunConsoleEntry(level, text);
+        _consoleEntries.Add(entry);
+        _consoleCharCount += entry.Text.Length;
+        while (_consoleCharCount > MaxConsoleChars && _consoleEntries.Count > 0)
         {
-            _logText = _logText.Substring(_logText.Length - MaxConsoleChars);
+            _consoleCharCount -= _consoleEntries[0].Text.Length;
+            _consoleEntries.RemoveAt(0);
         }
 
         _consoleScrollPosition.y += 100; // Keep scroll at the bottom
@@ -150,9 +156,14 @@ public partial class AutoRunWindow : EditorWindow
 
     public static void AppendBridgeConsoleText(string text)
     {
+        AppendBridgeConsoleText(text, AutoRunLogLevel.Info);
+    }
+
+    public static void AppendBridgeConsoleText(string text, AutoRunLogLevel level)
+    {
         foreach (AutoRunWindow window in Resources.FindObjectsOfTypeAll<AutoRunWindow>())
         {
-            window.AppendConsoleText(text);
+            window.AppendConsoleText(text, level);
             window.Repaint();
         }
     }
@@ -164,4 +175,164 @@ public partial class AutoRunWindow : EditorWindow
             window.Repaint();
         }
     }
+
+    private void RenderConsole()
+    {
+        GUILayout.Label("Console");
+        RenderConsoleLevelFilters();
+        if (GUILayout.Button("Clear"))
+        {
+            ClearConsoleText();
+        }
+
+        GUILayout.BeginVertical(EditorStyles.helpBox);
+        _consoleScrollPosition = GUILayout.BeginScrollView(_consoleScrollPosition, GUILayout.Height(220));
+        if (_consoleEntries.Count == 0)
+        {
+            GUILayout.Label("No logs.", GetConsoleEntryStyle(AutoRunLogLevel.Debug));
+        }
+        else
+        {
+            bool hasVisibleEntry = false;
+            foreach (AutoRunConsoleEntry entry in _consoleEntries)
+            {
+                if (!ShouldShowConsoleEntry(entry.Level))
+                {
+                    continue;
+                }
+
+                hasVisibleEntry = true;
+                GUILayout.Label(FormatConsoleEntry(entry), GetConsoleEntryStyle(entry.Level));
+            }
+
+            if (!hasVisibleEntry)
+            {
+                GUILayout.Label("No logs match the selected levels.", GetConsoleEntryStyle(AutoRunLogLevel.Debug));
+            }
+        }
+
+        GUILayout.EndScrollView();
+        GUILayout.EndVertical();
+    }
+
+    private void RenderConsoleLevelFilters()
+    {
+        GUILayout.BeginHorizontal();
+        _showDebugLogs = GUILayout.Toggle(_showDebugLogs, "Debug", GUILayout.Width(70));
+        _showInfoLogs = GUILayout.Toggle(_showInfoLogs, "Info", GUILayout.Width(60));
+        _showWarningLogs = GUILayout.Toggle(_showWarningLogs, "Warning", GUILayout.Width(85));
+        _showErrorLogs = GUILayout.Toggle(_showErrorLogs, "Error", GUILayout.Width(65));
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+    }
+
+    private bool ShouldShowConsoleEntry(AutoRunLogLevel level)
+    {
+        switch (level)
+        {
+            case AutoRunLogLevel.Debug:
+                return _showDebugLogs;
+            case AutoRunLogLevel.Info:
+                return _showInfoLogs;
+            case AutoRunLogLevel.Warning:
+                return _showWarningLogs;
+            case AutoRunLogLevel.Error:
+                return _showErrorLogs;
+            default:
+                return true;
+        }
+    }
+
+    private static string FormatConsoleEntry(AutoRunConsoleEntry entry)
+    {
+        return "[" + GetConsoleLevelPrefix(entry.Level) + "] " + entry.Text;
+    }
+
+    private static string GetConsoleLevelPrefix(AutoRunLogLevel level)
+    {
+        switch (level)
+        {
+            case AutoRunLogLevel.Debug:
+                return "D";
+            case AutoRunLogLevel.Info:
+                return "I";
+            case AutoRunLogLevel.Warning:
+                return "W";
+            case AutoRunLogLevel.Error:
+                return "E";
+            default:
+                return "?";
+        }
+    }
+
+    private static GUIStyle GetConsoleEntryStyle(AutoRunLogLevel level)
+    {
+        if (ConsoleEntryStyles.TryGetValue(level, out GUIStyle style))
+        {
+            return style;
+        }
+
+        style = new GUIStyle(EditorStyles.label)
+        {
+            wordWrap = true,
+            richText = false,
+            font = GetConsoleFont(),
+            fontSize = 12,
+            fixedHeight = 0f,
+        };
+        style.margin = new RectOffset(0, 0, 2, 6);
+        style.padding = new RectOffset(0, 0, 3, 3);
+        style.normal.textColor = GetConsoleTextColor(level);
+        ConsoleEntryStyles[level] = style;
+        return style;
+    }
+
+    private static Font GetConsoleFont()
+    {
+        if (_consoleFont != null)
+        {
+            return _consoleFont;
+        }
+
+        _consoleFont = Font.CreateDynamicFontFromOSFont(
+            new[] { "Consolas", "Courier New", "Menlo", "Monaco", "monospace" },
+            12
+        );
+        return _consoleFont;
+    }
+
+    private static Color GetConsoleTextColor(AutoRunLogLevel level)
+    {
+        switch (level)
+        {
+            case AutoRunLogLevel.Debug:
+                return new Color(0.55f, 0.55f, 0.55f);
+            case AutoRunLogLevel.Warning:
+                return new Color(1f, 0.72f, 0.16f);
+            case AutoRunLogLevel.Error:
+                return new Color(1f, 0.25f, 0.25f);
+            default:
+                return EditorStyles.label.normal.textColor;
+        }
+    }
+
+    private sealed class AutoRunConsoleEntry
+    {
+        public AutoRunConsoleEntry(AutoRunLogLevel level, string text)
+        {
+            Level = level;
+            Text = text;
+        }
+
+        public AutoRunLogLevel Level { get; }
+        public string Text { get; }
+    }
+}
+
+public enum AutoRunLogLevel
+{
+    Debug,
+    Info,
+    Warning,
+    Error,
 }

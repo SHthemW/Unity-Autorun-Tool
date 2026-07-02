@@ -37,12 +37,13 @@ public static class NavigationAutoRunRequest
             {
                 PostLog(context, "Navigation AutoRun request sending: " + request.id);
                 response = AutoRunBridgeController.Enqueue(json);
-                PostLog(context, "Navigation AutoRun request response: " + response.code + ", " + response.message);
+                PostLog(context, "Navigation AutoRun request response: " + response.code + ", " + response.message,
+                    response.ok ? AutoRunLogLevel.Info : AutoRunLogLevel.Error);
             }
             catch (Exception ex)
             {
                 response = AutoRunBridgeResponses.Fail(request.id, "navigation_request_error", ex.Message);
-                PostLog(context, "Navigation AutoRun request exception: " + ex.Message);
+                PostLog(context, "Navigation AutoRun request exception: " + ex.Message, AutoRunLogLevel.Error);
             }
 
             if (context != null)
@@ -61,14 +62,14 @@ public static class NavigationAutoRunRequest
         onCompleted?.Invoke(response);
     }
 
-    private static void PostLog(SynchronizationContext context, string message)
+    private static void PostLog(SynchronizationContext context, string message, AutoRunLogLevel level = AutoRunLogLevel.Debug)
     {
         if (context != null)
         {
-            context.Post(_ => AutoRunWindow.AppendBridgeConsoleText("[Navigation AutoRun] " + message), null);
+            context.Post(_ => AutoRunWindow.AppendBridgeConsoleText("[Navigation AutoRun] " + message, level), null);
             return;
         }
 
-        UnityEditor.EditorApplication.delayCall += () => AutoRunWindow.AppendBridgeConsoleText("[Navigation AutoRun] " + message);
+        UnityEditor.EditorApplication.delayCall += () => AutoRunWindow.AppendBridgeConsoleText("[Navigation AutoRun] " + message, level);
     }
 }

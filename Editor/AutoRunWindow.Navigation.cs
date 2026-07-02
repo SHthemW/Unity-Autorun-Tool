@@ -106,7 +106,7 @@ public partial class AutoRunWindow
             _navigationTargets = new List<NavigationAutoRunOption>();
             _navigationFilteredTargets = new List<NavigationAutoRunOption>();
             _navigationTargetNames = new string[0];
-            AppendConsoleText("Navigation AutoRun load failed: " + ex.Message);
+            AppendConsoleText("Navigation AutoRun load failed: " + ex.Message, AutoRunLogLevel.Error);
         }
     }
 
@@ -134,7 +134,7 @@ public partial class AutoRunWindow
         ClearConsoleText();
         LogNavigation("Started: " + target.DisplayName
             + ", runId=" + _navigationRunId
-            + ", isPlaying=" + EditorApplication.isPlaying);
+            + ", isPlaying=" + EditorApplication.isPlaying, AutoRunLogLevel.Info);
         if (!EditorApplication.isPlaying)
         {
             LogNavigation("Saving pending target before entering Play Mode: " + target.ViewId);
@@ -187,7 +187,7 @@ public partial class AutoRunWindow
         StopPendingNavigation();
         NavigationAutoRunSession.ClearPending();
         NavigationAutoRunSession.ClearActiveRequest();
-        LogNavigation("Canceled by user.");
+        LogNavigation("Canceled by user.", AutoRunLogLevel.Warning);
         NavigationAutoRunCancelRequest.Start(OnNavigationAutoRunCancelCompleted);
         Repaint();
     }
@@ -211,12 +211,12 @@ public partial class AutoRunWindow
             return;
         }
 
-        LogNavigation("Cancel response " + response.code + ": " + response.message);
+        LogNavigation("Cancel response " + response.code + ": " + response.message, AutoRunLogLevel.Error);
         Repaint();
     }
 
-    private void LogNavigation(string message)
+    private void LogNavigation(string message, AutoRunLogLevel level = AutoRunLogLevel.Debug)
     {
-        AppendConsoleText("[Navigation AutoRun] " + message);
+        AppendConsoleText("[Navigation AutoRun] " + message, level);
     }
 }

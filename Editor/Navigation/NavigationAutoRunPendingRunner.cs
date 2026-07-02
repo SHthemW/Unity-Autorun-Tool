@@ -77,7 +77,7 @@ public static class NavigationAutoRunPendingRunner
             return;
         }
 
-        Log("Timed out after " + elapsed.ToString("0.0") + "s. Last error: " + Safe(_lastError));
+        Log("Timed out after " + elapsed.ToString("0.0") + "s. Last error: " + Safe(_lastError), AutoRunLogLevel.Error);
         NavigationAutoRunSession.ClearPending();
         Reset(false);
     }
@@ -108,16 +108,17 @@ public static class NavigationAutoRunPendingRunner
     {
         if (response == null)
         {
-            Log("Completed with no response.");
+            Log("Completed with no response.", AutoRunLogLevel.Error);
             NavigationAutoRunSession.ClearPending();
             Reset(true);
             return;
         }
 
-        Log("Completed response ok=" + response.ok + ", code=" + response.code + ", message=" + response.message);
+        Log("Completed response ok=" + response.ok + ", code=" + response.code + ", message=" + response.message,
+            response.ok ? AutoRunLogLevel.Info : AutoRunLogLevel.Error);
         if (!response.ok)
         {
-            Log("Failed response " + response.code + ": " + response.message);
+            Log("Failed response " + response.code + ": " + response.message, AutoRunLogLevel.Error);
         }
 
         NavigationAutoRunSession.ClearPending();
@@ -171,8 +172,8 @@ public static class NavigationAutoRunPendingRunner
         return string.IsNullOrEmpty(value) ? "none" : value;
     }
 
-    private static void Log(string message)
+    private static void Log(string message, AutoRunLogLevel level = AutoRunLogLevel.Debug)
     {
-        AutoRunWindow.AppendBridgeConsoleText("[Navigation AutoRun] " + message);
+        AutoRunWindow.AppendBridgeConsoleText("[Navigation AutoRun] " + message, level);
     }
 }

@@ -30,7 +30,7 @@ public static class NavigationAutoRunPlayModeCancel
         }
 
         _canceling = true;
-        Log("Play Mode stopped. Canceling navigation task. state=" + state);
+        Log("Play Mode stopped. Canceling navigation task. state=" + state, AutoRunLogLevel.Warning);
         NavigationAutoRunSession.ClearPending();
         NavigationAutoRunSession.ClearActiveRequest();
         NavigationAutoRunCancelRequest.Start(OnCancelCompleted);
@@ -42,15 +42,16 @@ public static class NavigationAutoRunPlayModeCancel
         _canceling = false;
         if (response == null)
         {
-            Log("Cancel completed with no response.");
+            Log("Cancel completed with no response.", AutoRunLogLevel.Error);
             return;
         }
 
-        Log("Cancel response ok=" + response.ok + ", code=" + response.code + ", message=" + response.message);
+        Log("Cancel response ok=" + response.ok + ", code=" + response.code + ", message=" + response.message,
+            response.ok ? AutoRunLogLevel.Info : AutoRunLogLevel.Error);
     }
 
-    private static void Log(string message)
+    private static void Log(string message, AutoRunLogLevel level = AutoRunLogLevel.Debug)
     {
-        AutoRunWindow.AppendBridgeConsoleText("[Navigation AutoRun] " + message);
+        AutoRunWindow.AppendBridgeConsoleText("[Navigation AutoRun] " + message, level);
     }
 }

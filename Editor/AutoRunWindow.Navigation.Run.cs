@@ -16,15 +16,16 @@ public partial class AutoRunWindow
         NavigationAutoRunSession.ClearPending();
         if (response == null)
         {
-            LogNavigation("Failed: no response.");
+            LogNavigation("Failed: no response.", AutoRunLogLevel.Error);
             Repaint();
             return;
         }
 
-        LogNavigation("Completed response ok=" + response.ok + ", code=" + response.code + ", message=" + response.message);
+        LogNavigation("Completed response ok=" + response.ok + ", code=" + response.code + ", message=" + response.message,
+            response.ok ? AutoRunLogLevel.Info : AutoRunLogLevel.Error);
         if (!response.ok)
         {
-            LogNavigation("Failed response " + response.code + ": " + response.message);
+            LogNavigation("Failed response " + response.code + ": " + response.message, AutoRunLogLevel.Error);
         }
 
         Repaint();
@@ -60,7 +61,7 @@ public partial class AutoRunWindow
             LogNavigation("Resolve attempt failed: " + ex.Message);
             if (!waiting)
             {
-                LogNavigation("Failed: " + ex.Message);
+                LogNavigation("Failed: " + ex.Message, AutoRunLogLevel.Error);
                 _navigationRunning = false;
                 _navigationStatusText = null;
                 NavigationAutoRunSession.ClearPending();

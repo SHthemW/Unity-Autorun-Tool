@@ -32,7 +32,7 @@ public sealed class AutoRunBridgeServer
         _thread = new Thread(ListenLoop) { IsBackground = true };
         _thread.Start();
         EditorApplication.update += _dispatcher.Pump;
-        Debug.Log($"AutoRun MCP bridge started on http://127.0.0.1:{port}/");
+        AutoRunWindow.AppendBridgeConsoleText($"AutoRun MCP bridge started on http://127.0.0.1:{port}/", AutoRunLogLevel.Info);
     }
 
     public void Stop()
@@ -59,7 +59,7 @@ public sealed class AutoRunBridgeServer
 
         if (wasRunning)
         {
-            Debug.Log("AutoRun MCP bridge stopped.");
+            AutoRunWindow.AppendBridgeConsoleText("AutoRun MCP bridge stopped.", AutoRunLogLevel.Info);
         }
     }
 

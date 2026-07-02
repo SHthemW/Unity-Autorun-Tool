@@ -16,7 +16,6 @@ public partial class AutoRunWindow
             if (GUILayout.Button("Start", GUILayout.Width(70)))
             {
                 AutoRunBridgeController.Start();
-                AppendConsoleText($"MCP Bridge started: {AutoRunBridgeController.Url}");
             }
         }
 
@@ -25,7 +24,6 @@ public partial class AutoRunWindow
             if (GUILayout.Button("Stop", GUILayout.Width(70)))
             {
                 AutoRunBridgeController.Stop();
-                AppendConsoleText("MCP Bridge stopped.");
             }
         }
 

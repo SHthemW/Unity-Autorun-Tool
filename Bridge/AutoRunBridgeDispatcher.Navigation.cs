@@ -190,7 +190,6 @@ public sealed partial class AutoRunBridgeDispatcher
         _navigationJob.Job.Response = response;
         LogResponse(response);
         _navigationJob.Job.WaitHandle.Set();
-        Debug.Log(response.message);
         _navigationJob = null;
     }
 

@@ -112,11 +112,8 @@ public static class FairyGUIHelper
         var com = GetMemberValue(obj, "asCom");
         if (com == null)
         {
-            Debug.Log("Obj is not a component: " + GetMemberValue(obj, "gameObjectName"));
             return;
         }
-
-        Debug.Log("Obj is a component: " + GetMemberValue(obj, "gameObjectName"));
 
         components.Add(com);
         int numChildren = (int)GetMemberValue(com, "numChildren");

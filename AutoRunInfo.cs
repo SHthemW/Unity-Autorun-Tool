@@ -58,7 +58,7 @@ public sealed class AutoRunParamConfig
 
         if (matches.Count > 1)
         {
-            Debug.LogError($"class amount not 1: {className}, {matches.Count}");
+            AutoRunWindow.AppendBridgeConsoleText($"class amount not 1: {className}, {matches.Count}", AutoRunLogLevel.Error);
             goActions = null;
             stopActions = null;
             return false;

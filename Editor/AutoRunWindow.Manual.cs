@@ -121,7 +121,7 @@ public partial class AutoRunWindow
 
             if (!XmlHelper.SaveConfig(_currentLoadingConfig, ConfigPath))
             {
-                Debug.LogError("Failed to create config file.");
+                AppendConsoleText("Failed to create config file.", AutoRunLogLevel.Error);
             }
 
             AppendConsoleText("Config is created on: " + ConfigPath);
