@@ -38,6 +38,31 @@ Open `Window/Auto Run Window`, press `Publish MCP`, select the MCP install targe
 
 Installing an MCP means registering a server command with the AI client. The protocol is common, but each client stores the server configuration in its own format.
 
+## Auto Run Window console
+
+The `Window/Auto Run Window` panel has a local Console area for tool messages.
+
+Logs are grouped by level:
+
+- `Debug`: detailed navigation, request, and route-resolution diagnostics.
+- `Info`: normal successful operations and completion summaries.
+- `Warning`: user cancellation or interrupted Play Mode flow.
+- `Error`: failed requests, exceptions, invalid configuration, and operation failures.
+
+The Console renders each entry with a short prefix:
+
+- `[D]` for Debug
+- `[I]` for Info
+- `[W]` for Warning
+- `[E]` for Error
+
+Use the `Debug`, `Info`, `Warning`, and `Error` toggles under the Console title to filter visible log levels.
+Filtering only changes what is shown; it does not delete stored log entries.
+
+Press `Clear` to remove all current Console entries.
+
+The tool does not mirror these messages to the Unity Console.
+
 For a release binary:
 
 ```powershell
@@ -58,8 +83,6 @@ The server exposes:
 - `get_current_ui_nav_map`
 - `save_ui_nav_map`
 - `get_nav_map_summary`
-- `scan_ui_nav_sources`
-- `backfill_ui_nav_map_from_sources`
 - `query_nav_map_items`
 - `get_ui_nav_subgraph`
 - `validate_ui_nav_map_patch`
@@ -77,32 +100,29 @@ Use the unity-autorun MCP tool get_nav_map_guidance first.
 Guidance cannot force an external AI client to comply, so required MCP tool results are the acceptance record.
 Do not accept self-certified completion from the model.
 Read the current map with get_current_ui_nav_map before making changes.
-Call get_nav_map_summary and scan_ui_nav_sources before broad work.
+Call get_nav_map_summary before broad work.
 If the map is missing or large, generate it incrementally instead of producing one full JSON object.
 Analyze this Unity project's UI prefabs and related C# UI scripts in slices by module, prefab folder, scene, or target view.
-Use scan_ui_nav_sources coverage gaps as the backlog until UIFormId entries, prefabs, classes, and OpenUIForm targets are represented.
-If coverage gaps are non-empty and the goal is a comprehensive map, call backfill_ui_nav_map_from_sources with previewOnly=true, then call it again to merge before manual patching.
+MCP does not provide source scanning; inspect Unity prefabs, scenes, UI scripts, controllers, state machines, events, and project-specific navigation APIs directly.
 Use query_nav_map_items and get_ui_nav_subgraph to inspect only relevant existing entries.
 For each slice, generate a UI navigation map patch with views, controls, transitions, routes, and unresolved links.
 Validate each patch with validate_ui_nav_map_patch, then save it with merge_ui_nav_map_patch.
 Do not write `ui-nav-map.json` directly with filesystem operations.
 Use evidence from prefab events, AddListener calls, FairyGUI callbacks, and UI router/window manager APIs.
-Do not stop at direct button clicks; include Procedure, ChangeState, LoadScene, DataNode, EventArgs, lifecycle, and OpenUIForm/OpenUIFormAsync chains as indirect flow transitions.
-For startup flows, generate important routes such as UIFormLogin -> UIFormLoadScene -> UIFormOperation when code evidence supports the chain.
+Do not stop at direct button clicks; include state changes, scene loading, data context, events, lifecycle, and project-specific open/show/navigation API chains as indirect flow transitions.
+Keep ui-nav-map.json compact and actionable; do not copy broad source evidence into the canonical map.
 For CodeBind-backed uGUI controls, resolve serialized prefab references and use the real GameObject name/path for objectPath and autoRun.buttonName, not the C# field or property name.
 After merge_ui_nav_map_patch succeeds, call list_ui_routes and resolve_ui_route to validate the route from <start view> to <target view>.
-Do not claim the map is complete while scan_ui_nav_sources still reports important missing UIFormId, prefab, or OpenUIForm targets; add unresolved entries with evidence for anything that cannot be resolved.
-For this project, a map around 1-2k lines is suspiciously incomplete unless scan_ui_nav_sources proves coverage is complete.
-Report final get_nav_map_summary counts and scan_ui_nav_sources coverage gaps.
-If Unity is open and the AutoRun bridge is running, call run_ui_route to navigate to <target view>.
+Report final get_nav_map_summary counts and important route validation results.
+If Unity is open and the AutoRun bridge is running, call run_ui_route when resolve_ui_route reports isFullyAutoRunnable=true or isNavigationRunnable=true.
 ```
 
 For bug investigation:
 
 ```text
 I need to debug <target view>.
-Use get_nav_map_guidance, read the current map with get_current_ui_nav_map, inspect the local graph with get_ui_nav_subgraph, save updates with validate_ui_nav_map_patch and merge_ui_nav_map_patch, resolve the route to <target view>, then use run_ui_route if the Unity bridge is running.
-Do not invent uncertain transitions; put them in unresolved with source evidence.
+Use get_nav_map_guidance, read the current map with get_current_ui_nav_map, inspect the local graph with get_ui_nav_subgraph, save updates with validate_ui_nav_map_patch and merge_ui_nav_map_patch, resolve the route to <target view>, then use run_ui_route if the route isFullyAutoRunnable or isNavigationRunnable and the Unity bridge is running.
+Do not invent uncertain transitions; put only concise navigation blockers in unresolved.
 ```
 
 ## UI Navigation Map
