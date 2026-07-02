@@ -57,6 +57,13 @@ The server exposes:
 - `get_nav_map_guidance`
 - `get_current_ui_nav_map`
 - `save_ui_nav_map`
+- `get_nav_map_summary`
+- `scan_ui_nav_sources`
+- `backfill_ui_nav_map_from_sources`
+- `query_nav_map_items`
+- `get_ui_nav_subgraph`
+- `validate_ui_nav_map_patch`
+- `merge_ui_nav_map_patch`
 - `list_ui_routes`
 - `resolve_ui_route`
 - `run_ui_route`
@@ -67,13 +74,26 @@ Use this prompt after the MCP server is installed:
 
 ```text
 Use the unity-autorun MCP tool get_nav_map_guidance first.
+Guidance cannot force an external AI client to comply, so required MCP tool results are the acceptance record.
+Do not accept self-certified completion from the model.
 Read the current map with get_current_ui_nav_map before making changes.
-Then analyze this Unity project's UI prefabs and related C# UI scripts.
-Generate a UI navigation map JSON object with views, controls, transitions, routes, and unresolved links.
-Save the generated JSON by calling the `save_ui_nav_map` MCP tool; do not write `ui-nav-map.json` directly with filesystem operations.
+Call get_nav_map_summary and scan_ui_nav_sources before broad work.
+If the map is missing or large, generate it incrementally instead of producing one full JSON object.
+Analyze this Unity project's UI prefabs and related C# UI scripts in slices by module, prefab folder, scene, or target view.
+Use scan_ui_nav_sources coverage gaps as the backlog until UIFormId entries, prefabs, classes, and OpenUIForm targets are represented.
+If coverage gaps are non-empty and the goal is a comprehensive map, call backfill_ui_nav_map_from_sources with previewOnly=true, then call it again to merge before manual patching.
+Use query_nav_map_items and get_ui_nav_subgraph to inspect only relevant existing entries.
+For each slice, generate a UI navigation map patch with views, controls, transitions, routes, and unresolved links.
+Validate each patch with validate_ui_nav_map_patch, then save it with merge_ui_nav_map_patch.
+Do not write `ui-nav-map.json` directly with filesystem operations.
 Use evidence from prefab events, AddListener calls, FairyGUI callbacks, and UI router/window manager APIs.
+Do not stop at direct button clicks; include Procedure, ChangeState, LoadScene, DataNode, EventArgs, lifecycle, and OpenUIForm/OpenUIFormAsync chains as indirect flow transitions.
+For startup flows, generate important routes such as UIFormLogin -> UIFormLoadScene -> UIFormOperation when code evidence supports the chain.
 For CodeBind-backed uGUI controls, resolve serialized prefab references and use the real GameObject name/path for objectPath and autoRun.buttonName, not the C# field or property name.
-After save_ui_nav_map succeeds, call list_ui_routes and resolve_ui_route to validate the route from <start view> to <target view>.
+After merge_ui_nav_map_patch succeeds, call list_ui_routes and resolve_ui_route to validate the route from <start view> to <target view>.
+Do not claim the map is complete while scan_ui_nav_sources still reports important missing UIFormId, prefab, or OpenUIForm targets; add unresolved entries with evidence for anything that cannot be resolved.
+For this project, a map around 1-2k lines is suspiciously incomplete unless scan_ui_nav_sources proves coverage is complete.
+Report final get_nav_map_summary counts and scan_ui_nav_sources coverage gaps.
 If Unity is open and the AutoRun bridge is running, call run_ui_route to navigate to <target view>.
 ```
 
@@ -81,7 +101,7 @@ For bug investigation:
 
 ```text
 I need to debug <target view>.
-Use get_nav_map_guidance, read the current map with get_current_ui_nav_map, save updates with save_ui_nav_map, resolve the route to <target view>, then use run_ui_route if the Unity bridge is running.
+Use get_nav_map_guidance, read the current map with get_current_ui_nav_map, inspect the local graph with get_ui_nav_subgraph, save updates with validate_ui_nav_map_patch and merge_ui_nav_map_patch, resolve the route to <target view>, then use run_ui_route if the Unity bridge is running.
 Do not invent uncertain transitions; put them in unresolved with source evidence.
 ```
 

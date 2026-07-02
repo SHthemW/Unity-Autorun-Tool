@@ -134,6 +134,13 @@ namespace UnityAutorun.Mcp
             if (name == "get_nav_map_guidance") return UiNavMapGuidance.Get();
             if (name == "get_current_ui_nav_map") return UiNavMapReader.GetCurrent();
             if (name == "save_ui_nav_map") return UiNavMapWriter.Save(args);
+            if (name == "get_nav_map_summary") return UiNavMapPatchTools.GetSummary(args);
+            if (name == "scan_ui_nav_sources") return UiNavMapSourceScanner.Scan(args);
+            if (name == "backfill_ui_nav_map_from_sources") return UiNavMapSourceScanner.Backfill(args);
+            if (name == "query_nav_map_items") return UiNavMapPatchTools.QueryItems(args);
+            if (name == "get_ui_nav_subgraph") return UiNavMapPatchTools.GetSubgraph(args);
+            if (name == "validate_ui_nav_map_patch") return UiNavMapPatchTools.ValidatePatch(args);
+            if (name == "merge_ui_nav_map_patch") return UiNavMapPatchTools.MergePatch(args);
             if (name == "list_ui_routes") return ListRoutes(args);
             if (name == "resolve_ui_route") return ResolveRoute(args);
             if (name == "run_ui_route") return await RunRouteAsync(args);
