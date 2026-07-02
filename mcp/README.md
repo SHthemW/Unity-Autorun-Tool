@@ -23,12 +23,15 @@ Environment variables:
 
 ## MCP Server
 
-Use `powershell -NoProfile -ExecutionPolicy Bypass -File mcp/run-mcp.ps1` as a stdio MCP server command.
+Publish the server first, then use `dotnet mcp~/UnityAutorun.Mcp/bin/Release/net8.0/publish/UnityAutorun.Mcp.dll mcp` as a stdio MCP server command.
+
+The installed MCP configuration starts the current published binary only. It does not build on each MCP connection.
 
 ## One-click install
 
-Open `Window/Auto Run Window`, select the MCP install target folder, then press `Install MCP`.
+Open `Window/Auto Run Window`, press `Publish MCP`, select the MCP install target folder, then press `Install MCP`.
 
+- Press `Publish MCP` to publish the current MCP server version into `mcp~/UnityAutorun.Mcp/bin/Release/net8.0/publish/`.
 - Select a `.codex` folder to update `config.toml` with a `[mcp_servers.unity_autorun]` entry.
 - Select a `.claude` folder to update `.mcp.json` with a `unity-autorun` entry under `mcpServers`.
 - Press `Preview Nav Map` to render `mcp/ui-nav-map.json` as `mcp/ui-nav-map.preview.html` and open it in the browser.

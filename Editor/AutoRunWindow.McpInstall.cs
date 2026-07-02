@@ -49,6 +49,20 @@ public partial class AutoRunWindow
     {
         GUILayout.BeginHorizontal();
 
+        if (GUILayout.Button("Publish MCP", GUILayout.Width(110)))
+        {
+            string message;
+            if (McpPublishService.PublishCurrentVersion(out message))
+            {
+                AppendConsoleText(message);
+            }
+            else
+            {
+                AppendConsoleText(message);
+                EditorUtility.DisplayDialog("Publish MCP Failed", message, "OK");
+            }
+        }
+
         if (GUILayout.Button("Open Terminal", GUILayout.Width(120)))
         {
             string message;
@@ -77,7 +91,7 @@ public partial class AutoRunWindow
             }
         }
 
-        GUILayout.Label("Open terminal or render mcp/ui-nav-map.json as an HTML graph.");
+        GUILayout.Label("Publish the MCP server, open terminal, or render mcp/ui-nav-map.json as an HTML graph.");
         GUILayout.EndHorizontal();
     }
 

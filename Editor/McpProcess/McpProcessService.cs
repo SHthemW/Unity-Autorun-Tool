@@ -31,14 +31,15 @@ public static class McpProcessService
             Arguments = "-NoProfile -ExecutionPolicy Bypass -Command \""
                 + "$all=Get-CimInstance Win32_Process;"
                 + "$p=$all | Where-Object {($_.Name -eq 'UnityAutorun.Mcp.exe' -and $_.CommandLine -like '* mcp*')"
-                + " -or ($_.Name -eq 'dotnet.exe' -and $_.CommandLine -like '*UnityAutorun.Mcp.csproj*' -and $_.CommandLine -like '*-- mcp*')};"
+                + " -or ($_.Name -eq 'dotnet.exe' -and $_.CommandLine -like '*UnityAutorun.Mcp.dll*' -and $_.CommandLine -like '* mcp*')};"
                 + "$p | ForEach-Object {"
                 + "$item=$_;$parent=$all | Where-Object {$_.ProcessId -eq $item.ParentProcessId} | Select-Object -First 1;"
                 + "$ai=$parent;while($ai -and $ai.Name -notmatch 'codex|claude|cursor|code|windsurf'){"
                 + "$ai=$all | Where-Object {$_.ProcessId -eq $ai.ParentProcessId} | Select-Object -First 1};"
                 + "$aiPid=if($ai){$ai.ProcessId}else{0};$aiName=if($ai){$ai.Name}else{'unknown'};"
                 + "$parentName=if($parent){$parent.Name}else{'unknown'};"
-                + "Write-Output ($item.ProcessId.ToString()+'|'+$item.Name+'|'+$item.ParentProcessId.ToString()+'|'+$parentName+'|'+$aiPid.ToString()+'|'+$aiName+'|'+$item.CommandLine)}\"",
+                + "$exe=if($item.ExecutablePath){$item.ExecutablePath}else{''};"
+                + "Write-Output ($item.ProcessId.ToString()+'|'+$item.Name+'|'+$item.ParentProcessId.ToString()+'|'+$parentName+'|'+$aiPid.ToString()+'|'+$aiName+'|'+$exe+'|'+$item.CommandLine)}\"",
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardOutput = true,
@@ -59,8 +60,8 @@ public static class McpProcessService
 
     private static McpProcessInfo ParseLine(string line)
     {
-        string[] parts = line.Split(new[] { '|' }, 7);
-        if (parts.Length < 7 || !int.TryParse(parts[0], out int processId))
+        string[] parts = line.Split(new[] { '|' }, 8);
+        if (parts.Length < 8 || !int.TryParse(parts[0], out int processId))
         {
             return null;
         }
@@ -75,8 +76,47 @@ public static class McpProcessService
             ParentProcessName = Safe(parts[3]),
             AiProcessId = aiId,
             AiProcessName = Safe(parts[5]),
-            CommandLine = Shorten(CleanCommandLine(parts[6])),
+            PublishedAt = GetPublishedAt(parts[1], parts[6], parts[7]),
+            CommandLine = Shorten(CleanCommandLine(parts[7])),
         };
+    }
+
+    private static string GetPublishedAt(string processName, string executablePath, string commandLine)
+    {
+        string path = ResolveMainProgramPath(processName, executablePath, commandLine);
+        if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path))
+        {
+            return "unknown";
+        }
+
+        return System.IO.File.GetLastWriteTime(path).ToString("MMdd HHmm");
+    }
+
+    private static string ResolveMainProgramPath(string processName, string executablePath, string commandLine)
+    {
+        if (string.Equals(processName, "UnityAutorun.Mcp.exe", StringComparison.OrdinalIgnoreCase)
+            && System.IO.File.Exists(executablePath))
+        {
+            return executablePath;
+        }
+
+        string fromCommandLine = MatchUnityAutorunBinary(commandLine);
+        if (!string.IsNullOrEmpty(fromCommandLine))
+        {
+            return fromCommandLine;
+        }
+
+        return executablePath;
+    }
+
+    private static string MatchUnityAutorunBinary(string commandLine)
+    {
+        Match match = Regex.Match(
+            Safe(commandLine),
+            "((?:\"[^\"]*UnityAutorun\\.Mcp\\.(?:dll|exe)\")|(?:\\S*UnityAutorun\\.Mcp\\.(?:dll|exe)))",
+            RegexOptions.IgnoreCase);
+
+        return match.Success ? match.Value.Trim('"') : "";
     }
 
     private static string Shorten(string value)

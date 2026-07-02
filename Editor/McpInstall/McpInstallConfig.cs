@@ -13,22 +13,22 @@ public sealed class McpInstallConfig
     public string Host;
     public string Port;
     public string ToolRoot;
+    public string PublishedDllPath;
 
     public static McpInstallConfig Create()
     {
-        string projectPath = GetMcpProjectPath();
-        string projectDirectory = Path.GetDirectoryName(projectPath);
         string toolRoot = GetToolRootDirectory();
-        string launcherPath = Path.Combine(toolRoot, "mcp", "run-mcp.ps1");
+        string publishedDllPath = GetPublishedDllPath();
 
         return new McpInstallConfig
         {
-            Command = "powershell",
-            Args = new List<string> { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", launcherPath },
+            Command = "dotnet",
+            Args = new List<string> { publishedDllPath, "mcp" },
             Cwd = toolRoot,
             Host = "127.0.0.1",
             Port = AutoRunBridgeServer.DefaultPort.ToString(),
-            ToolRoot = toolRoot
+            ToolRoot = toolRoot,
+            PublishedDllPath = publishedDllPath
         };
     }
 
@@ -48,6 +48,13 @@ public sealed class McpInstallConfig
         }
 
         return mcpFolder.Parent.FullName;
+    }
+
+    public static string GetPublishedDllPath()
+    {
+        string projectPath = GetMcpProjectPath();
+        string projectDirectory = Path.GetDirectoryName(projectPath);
+        return Path.Combine(projectDirectory, "bin", "Release", "net8.0", "publish", "UnityAutorun.Mcp.dll");
     }
 
     public string ToCodexTomlBlock()

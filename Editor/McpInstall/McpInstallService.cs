@@ -18,6 +18,12 @@ public static class McpInstallService
 
             string folderName = new DirectoryInfo(targetFolder).Name;
             McpInstallConfig config = McpInstallConfig.Create();
+            if (!File.Exists(config.PublishedDllPath))
+            {
+                message = "Publish MCP first. Missing published server: " + config.PublishedDllPath;
+                return false;
+            }
+
             if (string.Equals(folderName, ".codex", StringComparison.OrdinalIgnoreCase))
             {
                 string path = InstallCodex(targetFolder, config);

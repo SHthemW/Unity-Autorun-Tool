@@ -6,5 +6,6 @@ public sealed class McpProcessInfo
     public string ParentProcessName;
     public int AiProcessId;
     public string AiProcessName;
+    public string PublishedAt;
     public string CommandLine;
 }

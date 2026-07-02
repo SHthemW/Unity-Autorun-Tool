@@ -22,7 +22,7 @@ public partial class AutoRunWindow
         GUILayout.EndHorizontal();
 
         float[] widths = CalculateMcpProcessColumnWidths();
-        RenderMcpProcessRow("MCP PID", "MCP Process", "AI PID", "AI Process", "Parent", EditorStyles.boldLabel, widths);
+        RenderMcpProcessRow("MCP PID", "MCP Process", "AI PID", "AI Process", "Published", EditorStyles.boldLabel, widths);
         if (_mcpProcesses.Count == 0)
         {
             RenderMcpProcessRow("-", "No UnityAutorun.Mcp process found.", "-", "-", "-", EditorStyles.miniLabel, widths);
@@ -36,7 +36,7 @@ public partial class AutoRunWindow
                 process.ProcessName,
                 process.AiProcessId.ToString(),
                 process.AiProcessName,
-                process.ParentProcessName + " (" + process.ParentProcessId + ")",
+                process.PublishedAt,
                 EditorStyles.miniLabel,
                 widths);
         }
@@ -72,7 +72,7 @@ public partial class AutoRunWindow
             MeasureMcpProcessCell("MCP Process", EditorStyles.boldLabel),
             MeasureMcpProcessCell("AI PID", EditorStyles.boldLabel),
             MeasureMcpProcessCell("AI Process", EditorStyles.boldLabel),
-            MeasureMcpProcessCell("Parent", EditorStyles.boldLabel),
+            MeasureMcpProcessCell("Published", EditorStyles.boldLabel),
         };
 
         if (_mcpProcesses.Count == 0)
@@ -87,7 +87,7 @@ public partial class AutoRunWindow
             widths[1] = MaxCell(widths[1], process.ProcessName);
             widths[2] = MaxCell(widths[2], process.AiProcessId.ToString());
             widths[3] = MaxCell(widths[3], process.AiProcessName);
-            widths[4] = MaxCell(widths[4], process.ParentProcessName + " (" + process.ParentProcessId + ")");
+            widths[4] = MaxCell(widths[4], process.PublishedAt);
         }
 
         return widths;
