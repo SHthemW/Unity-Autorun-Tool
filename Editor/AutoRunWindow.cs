@@ -8,6 +8,9 @@ public partial class AutoRunWindow : EditorWindow
 {
     private const int MaxConsoleChars = 20000;
     private const int MaxConsoleEntryChars = 1200;
+    private const float WindowVerticalScrollbarWidth = 18f;
+    private const float WindowContentPadding = 10f;
+    private const float MinimumWindowContentWidth = 260f;
 
     private readonly List<AutoRunConsoleEntry> _consoleEntries = new List<AutoRunConsoleEntry>();
     private int _consoleCharCount;
@@ -18,6 +21,7 @@ public partial class AutoRunWindow : EditorWindow
     private const string WindowScrollXKey = "UnityAutorunTool.Window.ScrollX";
     private const string WindowScrollYKey = "UnityAutorunTool.Window.ScrollY";
     private static readonly Dictionary<AutoRunLogLevel, GUIStyle> ConsoleEntryStyles = new Dictionary<AutoRunLogLevel, GUIStyle>();
+    private static readonly Dictionary<GUIStyle, GUIStyle> SqueezedStyles = new Dictionary<GUIStyle, GUIStyle>();
     private static Font _consoleFont;
     private Vector2 _windowScrollPosition;
     private Vector2 _actionScrollPosition;
@@ -42,7 +46,7 @@ public partial class AutoRunWindow : EditorWindow
     private void OnEnable()
     {
         _windowScrollPosition = new Vector2(
-            EditorPrefs.GetFloat(WindowScrollXKey, 0f),
+            0f,
             EditorPrefs.GetFloat(WindowScrollYKey, 0f)
         );
     }
@@ -67,13 +71,21 @@ public partial class AutoRunWindow : EditorWindow
 
     private void OnGUI()
     {
-        Vector2 nextScrollPosition = GUILayout.BeginScrollView(_windowScrollPosition, false, true);
+        Vector2 nextScrollPosition = GUILayout.BeginScrollView(
+            _windowScrollPosition,
+            false,
+            true,
+            GUIStyle.none,
+            GUI.skin.verticalScrollbar
+        );
+        nextScrollPosition.x = 0f;
         if (nextScrollPosition != _windowScrollPosition)
         {
             _windowScrollPosition = nextScrollPosition;
             SaveWindowScrollPosition();
         }
 
+        GUILayout.BeginVertical(GUILayout.Width(GetWindowContentWidth()), GUILayout.ExpandWidth(false));
         GUILayout.Label("Auto Run Game Utility");
 
         RenderMcpPanel();
@@ -81,13 +93,35 @@ public partial class AutoRunWindow : EditorWindow
         RenderManualAutoRunPanel();
         RenderConsole();
 
+        GUILayout.EndVertical();
         GUILayout.EndScrollView();
     }
 
     private void SaveWindowScrollPosition()
     {
-        EditorPrefs.SetFloat(WindowScrollXKey, _windowScrollPosition.x);
+        EditorPrefs.SetFloat(WindowScrollXKey, 0f);
         EditorPrefs.SetFloat(WindowScrollYKey, _windowScrollPosition.y);
+    }
+
+    private float GetWindowContentWidth()
+    {
+        return Mathf.Max(MinimumWindowContentWidth, position.width - WindowVerticalScrollbarWidth - WindowContentPadding);
+    }
+
+    private static GUIStyle GetSqueezedStyle(GUIStyle baseStyle)
+    {
+        if (SqueezedStyles.TryGetValue(baseStyle, out GUIStyle style))
+        {
+            return style;
+        }
+
+        style = new GUIStyle(baseStyle)
+        {
+            clipping = TextClipping.Clip,
+            wordWrap = false,
+        };
+        SqueezedStyles[baseStyle] = style;
+        return style;
     }
 
     private void BeginPanel(string title)

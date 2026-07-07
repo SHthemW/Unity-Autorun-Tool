@@ -16,7 +16,7 @@ public partial class AutoRunWindow
         }
 
         GUILayout.BeginHorizontal();
-        _mcpInstallTargetPath = GUILayout.TextField(_mcpInstallTargetPath);
+        _mcpInstallTargetPath = GUILayout.TextField(_mcpInstallTargetPath, GUILayout.MinWidth(0), GUILayout.ExpandWidth(true));
 
         if (GUILayout.Button("Select", GUILayout.Width(70)))
         {
@@ -44,7 +44,12 @@ public partial class AutoRunWindow
         }
 
         GUILayout.EndHorizontal();
-        GUILayout.Label("Select a .codex folder for Codex or a .claude folder for Claude.");
+        GUILayout.Label(
+            "Select a .codex folder for Codex or a .claude folder for Claude.",
+            GetSqueezedStyle(EditorStyles.label),
+            GUILayout.MinWidth(0),
+            GUILayout.ExpandWidth(true)
+        );
     }
 
     private void RenderMcpTools()
@@ -107,7 +112,12 @@ public partial class AutoRunWindow
             }
         }
 
-        GUILayout.Label("Publish the MCP server, open terminal/root folder, or render mcp/ui-nav-map.json as an HTML graph.");
+        GUILayout.Label(
+            "Publish the MCP server, open terminal/root folder, or render mcp/ui-nav-map.json as an HTML graph.",
+            GetSqueezedStyle(EditorStyles.label),
+            GUILayout.MinWidth(0),
+            GUILayout.ExpandWidth(true)
+        );
         GUILayout.EndHorizontal();
     }
 

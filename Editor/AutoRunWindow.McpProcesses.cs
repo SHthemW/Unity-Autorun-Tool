@@ -6,6 +6,7 @@ public partial class AutoRunWindow
 {
     private const float McpProcessColumnGap = 12f;
     private const float McpProcessColumnPadding = 4f;
+    private const float McpProcessTablePadding = 28f;
 
     private List<McpProcessInfo> _mcpProcesses = new List<McpProcessInfo>();
     private double _mcpProcessLastRefreshAt;
@@ -18,10 +19,15 @@ public partial class AutoRunWindow
             RefreshMcpProcesses();
         }
 
-        GUILayout.Label("MCP stdio processes started by AI clients.");
+        GUILayout.Label(
+            "MCP stdio processes started by AI clients.",
+            GetSqueezedStyle(EditorStyles.label),
+            GUILayout.MinWidth(0),
+            GUILayout.ExpandWidth(true)
+        );
         GUILayout.EndHorizontal();
 
-        float[] widths = CalculateMcpProcessColumnWidths();
+        float[] widths = CalculateMcpProcessColumnWidths(GetWindowContentWidth() - McpProcessTablePadding);
         RenderMcpProcessRow("MCP PID", "MCP Process", "AI PID", "AI Process", "Published", EditorStyles.boldLabel, widths);
         if (_mcpProcesses.Count == 0)
         {
@@ -52,19 +58,20 @@ public partial class AutoRunWindow
         float[] widths)
     {
         GUILayout.BeginHorizontal();
-        GUILayout.Label(mcpPid, style, GUILayout.Width(widths[0]));
+        GUIStyle cellStyle = GetSqueezedStyle(style);
+        GUILayout.Label(mcpPid, cellStyle, GUILayout.Width(widths[0]));
         GUILayout.Space(McpProcessColumnGap);
-        GUILayout.Label(mcpProcess, style, GUILayout.Width(widths[1]));
+        GUILayout.Label(mcpProcess, cellStyle, GUILayout.Width(widths[1]));
         GUILayout.Space(McpProcessColumnGap);
-        GUILayout.Label(aiPid, style, GUILayout.Width(widths[2]));
+        GUILayout.Label(aiPid, cellStyle, GUILayout.Width(widths[2]));
         GUILayout.Space(McpProcessColumnGap);
-        GUILayout.Label(aiProcess, style, GUILayout.Width(widths[3]));
+        GUILayout.Label(aiProcess, cellStyle, GUILayout.Width(widths[3]));
         GUILayout.Space(McpProcessColumnGap);
-        GUILayout.Label(parent, style, GUILayout.Width(widths[4]));
+        GUILayout.Label(parent, cellStyle, GUILayout.Width(widths[4]));
         GUILayout.EndHorizontal();
     }
 
-    private float[] CalculateMcpProcessColumnWidths()
+    private float[] CalculateMcpProcessColumnWidths(float availableWidth)
     {
         float[] widths =
         {
@@ -88,6 +95,57 @@ public partial class AutoRunWindow
             widths[2] = MaxCell(widths[2], process.AiProcessId.ToString());
             widths[3] = MaxCell(widths[3], process.AiProcessName);
             widths[4] = MaxCell(widths[4], process.PublishedAt);
+        }
+
+        return FitMcpProcessColumnWidths(widths, availableWidth);
+    }
+
+    private static float[] FitMcpProcessColumnWidths(float[] widths, float availableWidth)
+    {
+        float availableForColumns = Mathf.Max(120f, availableWidth - McpProcessColumnGap * (widths.Length - 1));
+        float total = 0f;
+        for (int i = 0; i < widths.Length; i++)
+        {
+            total += widths[i];
+        }
+
+        if (total <= availableForColumns)
+        {
+            return widths;
+        }
+
+        float[] minimums =
+        {
+            50f,
+            70f,
+            42f,
+            70f,
+            70f,
+        };
+        float minimumTotal = 0f;
+        float flexibleTotal = 0f;
+        for (int i = 0; i < widths.Length; i++)
+        {
+            minimumTotal += minimums[i];
+            flexibleTotal += Mathf.Max(0f, widths[i] - minimums[i]);
+        }
+
+        float remaining = availableForColumns - minimumTotal;
+        if (remaining <= 0f || flexibleTotal <= 0f)
+        {
+            float scale = availableForColumns / minimumTotal;
+            for (int i = 0; i < widths.Length; i++)
+            {
+                widths[i] = Mathf.Max(28f, minimums[i] * scale);
+            }
+
+            return widths;
+        }
+
+        for (int i = 0; i < widths.Length; i++)
+        {
+            float flexible = Mathf.Max(0f, widths[i] - minimums[i]);
+            widths[i] = minimums[i] + remaining * (flexible / flexibleTotal);
         }
 
         return widths;
