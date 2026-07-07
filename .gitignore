@@ -1,2 +1,7 @@
 *.meta
 Config
+.codex
+bin/
+obj/
+mcp/*.preview.html
+mcp/ui-nav-map.json

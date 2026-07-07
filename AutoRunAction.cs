@@ -1,7 +1,3 @@
-using System.Linq;
-using UnityEngine;
-using UnityEngine.UI;
-
 [System.Serializable]
 public sealed class AutoRunAction
 {
@@ -25,47 +21,6 @@ public sealed class AutoRunAction
             return $"testing {buttonName}.";
         }
 
-        return isFairyGUI ? ExecuteWithFGUI() : ExecuteWithUGUI();
-    }
-
-    private string ExecuteWithUGUI()
-    {
-        var allButtons = Object.FindObjectsOfType<Button>();
-
-        var nameMachedBtns = allButtons.Where(b => b.name == buttonName);
-        var textMachedBtns = allButtons.Where(b => b.GetComponentInChildren<Text>().text == buttonText);
-
-        var btnObject = (nameMachedBtns.Count(), textMachedBtns.Count()) switch
-        {
-            (1, _) => nameMachedBtns.First(),
-            (_, 1) => textMachedBtns.First(),
-            _ => null
-        };
-
-        if (!btnObject)
-        {
-            return $"err: button '{buttonName}' not found!";
-        }
-
-        var btnComponent = btnObject.GetComponent<Button>();
-        if (!btnComponent)
-        {
-            return $"err: button '{buttonName}' has no button component!";
-        }
-
-        var btnClickAction = btnComponent.onClick;
-        if (btnClickAction == null || btnClickAction.GetPersistentEventCount() == 0)
-        {
-            return $"err: button '{buttonName}' has no button click event!";
-        }
-
-        btnClickAction.Invoke();
-
-        return $"btn {buttonName} is clicked. Text: {btnObject.GetComponentInChildren<Text>().text}";
-    }
-
-    private string ExecuteWithFGUI()
-    {
-        return FairyGUIHelper.ClickButton(buttonName, buttonText);
+        return AutoRunButtonService.Click(Param).message;
     }
 }

@@ -1,13 +1,29 @@
 using UnityEditor;
 using UnityEngine;
-using System.Collections.Generic;
 using System.IO;
 using System;
-using System.Xml;
+using System.Collections.Generic;
 
 public partial class AutoRunWindow : EditorWindow
 {
-    private string _logText = "";
+    private const int MaxConsoleChars = 20000;
+    private const int MaxConsoleEntryChars = 1200;
+    private const float WindowVerticalScrollbarWidth = 18f;
+    private const float WindowContentPadding = 10f;
+    private const float MinimumWindowContentWidth = 260f;
+
+    private readonly List<AutoRunConsoleEntry> _consoleEntries = new List<AutoRunConsoleEntry>();
+    private int _consoleCharCount;
+    private bool _showDebugLogs = true;
+    private bool _showInfoLogs = true;
+    private bool _showWarningLogs = true;
+    private bool _showErrorLogs = true;
+    private const string WindowScrollXKey = "UnityAutorunTool.Window.ScrollX";
+    private const string WindowScrollYKey = "UnityAutorunTool.Window.ScrollY";
+    private static readonly Dictionary<AutoRunLogLevel, GUIStyle> ConsoleEntryStyles = new Dictionary<AutoRunLogLevel, GUIStyle>();
+    private static readonly Dictionary<GUIStyle, GUIStyle> SqueezedStyles = new Dictionary<GUIStyle, GUIStyle>();
+    private static Font _consoleFont;
+    private Vector2 _windowScrollPosition;
     private Vector2 _actionScrollPosition;
     private Vector2 _consoleScrollPosition;
     private const string HANDLER_OBJECT_NAME = "AutoRunHandler";
@@ -19,7 +35,7 @@ public partial class AutoRunWindow : EditorWindow
     }
 
     private string ConfigPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AutorunToolData", "config.xml");
-    private AutoRunParamConfig _currentLoadingConfig = new();
+    private AutoRunParamConfig _currentLoadingConfig = new AutoRunParamConfig();
     private string _currentSelectingClassName;
     private int _currentSelectingClassIndex = 0;
 
@@ -27,202 +43,100 @@ public partial class AutoRunWindow : EditorWindow
     private bool HasPreset => LoadedPresetNames.Length > 0;
     private bool IsConfigFileExists => File.Exists(ConfigPath);
 
+    private void OnEnable()
+    {
+        _windowScrollPosition = new Vector2(
+            0f,
+            EditorPrefs.GetFloat(WindowScrollYKey, 0f)
+        );
+    }
+
+    private void OnDisable()
+    {
+        SaveWindowScrollPosition();
+    }
+
     private void OnFocus()
     {
+        Repaint();
+
         // Do not load config when in play mode
         if (EditorApplication.isPlaying)
         {
             return;
         }
 
-        LoadConfig();
+        LoadConfig(false);
     }
 
     private void OnGUI()
-    {   
-        // main
+    {
+        Vector2 nextScrollPosition = GUILayout.BeginScrollView(
+            _windowScrollPosition,
+            false,
+            true,
+            GUIStyle.none,
+            GUI.skin.verticalScrollbar
+        );
+        nextScrollPosition.x = 0f;
+        if (nextScrollPosition != _windowScrollPosition)
+        {
+            _windowScrollPosition = nextScrollPosition;
+            SaveWindowScrollPosition();
+        }
+
+        GUILayout.BeginVertical(GUILayout.Width(GetWindowContentWidth()), GUILayout.ExpandWidth(false));
         GUILayout.Label("Auto Run Game Utility");
 
-        if (IsConfigFileExists)
-        {
-            if (GUILayout.Button("Go!", GUILayout.Height(40)))
-            {
-                ClearConsoleText();
+        RenderMcpPanel();
+        RenderNavigationAutoRunPanel();
+        RenderManualAutoRunPanel();
+        RenderConsole();
 
-                EditorApplication.isPlaying = true;
-
-                LoadConfig();
-
-                var handler = GetHandler();
-                handler.SetStatus(HandlerStatus.Go);
-            }
-
-            if (GUILayout.Button("Stop", GUILayout.Height(40)))
-            {
-                var handler = GetHandler();
-                handler.SetStatus(HandlerStatus.Stop);
-            }
-        }
-        else
-        {
-            GUILayout.Label(
-                  "\n"
-                + "Follow the instructions on bottons to use this tool.\n"
-                + "\n"
-                + "View full document on my Github:"
-            );
-
-            if (GUILayout.Button("more info"))
-            {
-                Application.OpenURL("https://github.com/SHthemW/Unity-Autorun-Tool");
-            }
-        }
-
-        // actions
-
-        GUILayout.Label("Config");
-
-        GUILayout.BeginHorizontal();
-
-        if (HasPreset)
-        {
-            _currentSelectingClassIndex = EditorGUILayout.Popup(_currentSelectingClassIndex, LoadedPresetNames);
-            _currentSelectingClassName = LoadedPresetNames[_currentSelectingClassIndex];
-        }
-
-        if (IsConfigFileExists)
-        {
-            if (HasPreset)
-            {
-                if (GUILayout.Button("+", GUILayout.MaxWidth(20)))
-                {
-                    _currentLoadingConfig.AppendClass($"new preset {LoadedPresetNames.Length + 1} (change name in config file)");
-                }
-            }
-            else
-            {
-                // maybe first use, show a tutorial-style description.
-
-                if (GUILayout.Button("Then, press me to create a new action preset"))
-                {
-                    _currentLoadingConfig.AppendClass($"new preset {LoadedPresetNames.Length + 1} (you should save it before edit!)");
-                }
-            }
-        }
-        else
-        {
-            _currentLoadingConfig = new();
-        }
-
-        GUILayout.EndHorizontal();
-
-        GUILayout.BeginHorizontal();
-
-        if (IsConfigFileExists)
-        {
-            if (GUILayout.Button("Open config"))
-            {
-                XmlHelper.OpenWithDefaultEditor(ConfigPath);
-            }
-
-            if (GUILayout.Button("Save config"))
-            {
-                XmlHelper.SaveConfig(_currentLoadingConfig, ConfigPath);
-                AppendConsoleText($"Config saved. Details: {_currentLoadingConfig.Info()}");
-            }
-        }
-        else
-        {
-            if (GUILayout.Button("First use? Press me to create an autorun action config :)", GUILayout.Height(30)))
-            {
-                if (!Directory.Exists(Path.GetDirectoryName(ConfigPath)))
-                {
-                    Directory.CreateDirectory(Path.GetDirectoryName(ConfigPath));
-                }
-
-                if (!XmlHelper.SaveConfig(_currentLoadingConfig, ConfigPath))
-                {
-                    Debug.LogError("Failed to create config file.");
-                }
-
-                AppendConsoleText("Config is created on: " + ConfigPath);
-            }
-        }
-
-        GUILayout.EndHorizontal();
-
-        _actionScrollPosition = GUILayout.BeginScrollView(_actionScrollPosition, GUILayout.Height(120));
-
-        if (_currentLoadingConfig.GetActions(_currentSelectingClassName, out var goParams, out var stopParams))
-        {
-            GUILayout.BeginHorizontal();
-
-            GUILayout.Label("Action - Go");
-
-            if (HasPreset)
-            {
-                if (GUILayout.Button("+", GUILayout.MaxWidth(20)))
-                {
-                    _currentLoadingConfig.AppendAction(_currentSelectingClassName, new AutoRunParam(), HandlerStatus.Go);
-                }
-            }
-
-            GUILayout.EndHorizontal();
-
-            for (int i = 0; i < goParams.Count; i++)
-            {
-                GUILayout.BeginHorizontal();
-
-                RenderActionParam(
-                    goParams[i],
-                    () => goParams.RemoveAt(i)
-                );
-
-                GUILayout.EndHorizontal();
-            }
-
-            GUILayout.BeginHorizontal();
-
-            GUILayout.Label("Action - Stop");
-
-            if (HasPreset)
-            {
-                if (GUILayout.Button("+", GUILayout.MaxWidth(20)))
-                {
-                    _currentLoadingConfig.AppendAction(_currentSelectingClassName, new AutoRunParam(), HandlerStatus.Stop);
-                }
-            }
-
-            GUILayout.EndHorizontal();
-
-            for (int i = 0; i < stopParams.Count; i++)
-            {
-                GUILayout.BeginHorizontal();
-
-                RenderActionParam(
-                    stopParams[i],
-                    () => stopParams.RemoveAt(i)
-                );
-
-                GUILayout.EndHorizontal();
-            }
-        }
-        
-        GUILayout.EndScrollView();
-
-        // console
-        GUILayout.Label("Console");
-        if (GUILayout.Button("Clear"))
-        {
-            ClearConsoleText();
-        }
-
-        _consoleScrollPosition = GUILayout.BeginScrollView(_consoleScrollPosition, GUILayout.Height(100));
-        GUILayout.TextArea(_logText);
+        GUILayout.EndVertical();
         GUILayout.EndScrollView();
     }
 
-    private void LoadConfig()
+    private void SaveWindowScrollPosition()
+    {
+        EditorPrefs.SetFloat(WindowScrollXKey, 0f);
+        EditorPrefs.SetFloat(WindowScrollYKey, _windowScrollPosition.y);
+    }
+
+    private float GetWindowContentWidth()
+    {
+        return Mathf.Max(MinimumWindowContentWidth, position.width - WindowVerticalScrollbarWidth - WindowContentPadding);
+    }
+
+    private static GUIStyle GetSqueezedStyle(GUIStyle baseStyle)
+    {
+        if (SqueezedStyles.TryGetValue(baseStyle, out GUIStyle style))
+        {
+            return style;
+        }
+
+        style = new GUIStyle(baseStyle)
+        {
+            clipping = TextClipping.Clip,
+            wordWrap = false,
+        };
+        SqueezedStyles[baseStyle] = style;
+        return style;
+    }
+
+    private void BeginPanel(string title)
+    {
+        GUILayout.Space(8);
+        GUILayout.BeginVertical(EditorStyles.helpBox);
+        GUILayout.Label(title, EditorStyles.boldLabel);
+    }
+
+    private void EndPanel()
+    {
+        GUILayout.EndVertical();
+    }
+
+    private void LoadConfig(bool logLoaded = true)
     {
         bool hasConfigFile = XmlHelper.TryLoadConfig<AutoRunParamConfig>(
             ConfigPath,
@@ -232,7 +146,10 @@ public partial class AutoRunWindow : EditorWindow
         if (hasConfigFile)
         {
             _currentLoadingConfig = config;
-            AppendConsoleText($"Config loaded. Details: " + config.Info());
+            if (logLoaded)
+            {
+                AppendConsoleText($"Config loaded. Details: " + config.Info());
+            }
         }
     }
 
@@ -268,19 +185,218 @@ public partial class AutoRunWindow : EditorWindow
 
     private void ClearConsoleText()
     {
-        _logText = string.Empty;
+        _consoleEntries.Clear();
+        _consoleCharCount = 0;
         _consoleScrollPosition = Vector2.zero;
     }
 
     private void AppendConsoleText(string text)
     {
+        AppendConsoleText(text, AutoRunLogLevel.Info);
+    }
+
+    private void AppendConsoleText(string text, AutoRunLogLevel level)
+    {
         if (string.IsNullOrEmpty(text))
             return;
-        
-        if (!text.StartsWith("\n"))
-            text += "\n";
 
-        _logText += text;
+        if (text.Length > MaxConsoleEntryChars)
+        {
+            text = text.Substring(0, MaxConsoleEntryChars) + "... [truncated]";
+        }
+        
+        text = text.TrimEnd('\r', '\n');
+        var entry = new AutoRunConsoleEntry(level, text);
+        _consoleEntries.Add(entry);
+        _consoleCharCount += entry.Text.Length;
+        while (_consoleCharCount > MaxConsoleChars && _consoleEntries.Count > 0)
+        {
+            _consoleCharCount -= _consoleEntries[0].Text.Length;
+            _consoleEntries.RemoveAt(0);
+        }
+
         _consoleScrollPosition.y += 100; // Keep scroll at the bottom
     }
+
+    public static void AppendBridgeConsoleText(string text)
+    {
+        AppendBridgeConsoleText(text, AutoRunLogLevel.Info);
+    }
+
+    public static void AppendBridgeConsoleText(string text, AutoRunLogLevel level)
+    {
+        foreach (AutoRunWindow window in Resources.FindObjectsOfTypeAll<AutoRunWindow>())
+        {
+            window.AppendConsoleText(text, level);
+            window.Repaint();
+        }
+    }
+
+    public static void RepaintAllNavigationWindows()
+    {
+        foreach (AutoRunWindow window in Resources.FindObjectsOfTypeAll<AutoRunWindow>())
+        {
+            window.Repaint();
+        }
+    }
+
+    private void RenderConsole()
+    {
+        GUILayout.Label("Console");
+        RenderConsoleLevelFilters();
+        if (GUILayout.Button("Clear"))
+        {
+            ClearConsoleText();
+        }
+
+        GUILayout.BeginVertical(EditorStyles.helpBox);
+        _consoleScrollPosition = GUILayout.BeginScrollView(_consoleScrollPosition, GUILayout.Height(220));
+        if (_consoleEntries.Count == 0)
+        {
+            GUILayout.Label("No logs.", GetConsoleEntryStyle(AutoRunLogLevel.Debug));
+        }
+        else
+        {
+            bool hasVisibleEntry = false;
+            foreach (AutoRunConsoleEntry entry in _consoleEntries)
+            {
+                if (!ShouldShowConsoleEntry(entry.Level))
+                {
+                    continue;
+                }
+
+                hasVisibleEntry = true;
+                GUILayout.Label(FormatConsoleEntry(entry), GetConsoleEntryStyle(entry.Level));
+            }
+
+            if (!hasVisibleEntry)
+            {
+                GUILayout.Label("No logs match the selected levels.", GetConsoleEntryStyle(AutoRunLogLevel.Debug));
+            }
+        }
+
+        GUILayout.EndScrollView();
+        GUILayout.EndVertical();
+    }
+
+    private void RenderConsoleLevelFilters()
+    {
+        GUILayout.BeginHorizontal();
+        _showDebugLogs = GUILayout.Toggle(_showDebugLogs, "Debug", GUILayout.Width(70));
+        _showInfoLogs = GUILayout.Toggle(_showInfoLogs, "Info", GUILayout.Width(60));
+        _showWarningLogs = GUILayout.Toggle(_showWarningLogs, "Warning", GUILayout.Width(85));
+        _showErrorLogs = GUILayout.Toggle(_showErrorLogs, "Error", GUILayout.Width(65));
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+    }
+
+    private bool ShouldShowConsoleEntry(AutoRunLogLevel level)
+    {
+        switch (level)
+        {
+            case AutoRunLogLevel.Debug:
+                return _showDebugLogs;
+            case AutoRunLogLevel.Info:
+                return _showInfoLogs;
+            case AutoRunLogLevel.Warning:
+                return _showWarningLogs;
+            case AutoRunLogLevel.Error:
+                return _showErrorLogs;
+            default:
+                return true;
+        }
+    }
+
+    private static string FormatConsoleEntry(AutoRunConsoleEntry entry)
+    {
+        return "[" + GetConsoleLevelPrefix(entry.Level) + "] " + entry.Text;
+    }
+
+    private static string GetConsoleLevelPrefix(AutoRunLogLevel level)
+    {
+        switch (level)
+        {
+            case AutoRunLogLevel.Debug:
+                return "D";
+            case AutoRunLogLevel.Info:
+                return "I";
+            case AutoRunLogLevel.Warning:
+                return "W";
+            case AutoRunLogLevel.Error:
+                return "E";
+            default:
+                return "?";
+        }
+    }
+
+    private static GUIStyle GetConsoleEntryStyle(AutoRunLogLevel level)
+    {
+        if (ConsoleEntryStyles.TryGetValue(level, out GUIStyle style))
+        {
+            return style;
+        }
+
+        style = new GUIStyle(EditorStyles.label)
+        {
+            wordWrap = true,
+            richText = false,
+            font = GetConsoleFont(),
+            fontSize = 12,
+            fixedHeight = 0f,
+        };
+        style.margin = new RectOffset(0, 0, 2, 6);
+        style.padding = new RectOffset(0, 0, 3, 3);
+        style.normal.textColor = GetConsoleTextColor(level);
+        ConsoleEntryStyles[level] = style;
+        return style;
+    }
+
+    private static Font GetConsoleFont()
+    {
+        if (_consoleFont != null)
+        {
+            return _consoleFont;
+        }
+
+        _consoleFont = Font.CreateDynamicFontFromOSFont(
+            new[] { "Consolas", "Courier New", "Menlo", "Monaco", "monospace" },
+            12
+        );
+        return _consoleFont;
+    }
+
+    private static Color GetConsoleTextColor(AutoRunLogLevel level)
+    {
+        switch (level)
+        {
+            case AutoRunLogLevel.Debug:
+                return new Color(0.55f, 0.55f, 0.55f);
+            case AutoRunLogLevel.Warning:
+                return new Color(1f, 0.72f, 0.16f);
+            case AutoRunLogLevel.Error:
+                return new Color(1f, 0.25f, 0.25f);
+            default:
+                return EditorStyles.label.normal.textColor;
+        }
+    }
+
+    private sealed class AutoRunConsoleEntry
+    {
+        public AutoRunConsoleEntry(AutoRunLogLevel level, string text)
+        {
+            Level = level;
+            Text = text;
+        }
+
+        public AutoRunLogLevel Level { get; }
+        public string Text { get; }
+    }
+}
+
+public enum AutoRunLogLevel
+{
+    Debug,
+    Info,
+    Warning,
+    Error,
 }

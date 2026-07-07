@@ -1,0 +1,22 @@
+{
+  "name": "com.shthemw.unity-autorun-tool",
+  "version": "0.1.0",
+  "displayName": "Unity Autorun Tool",
+  "description": "Unity Editor automation tool for UI AutoRun, MCP bridge, and navigation map workflows.",
+  "unity": "2021.3",
+  "keywords": [
+    "editor",
+    "automation",
+    "autorun",
+    "mcp",
+    "ui"
+  ],
+  "author": {
+    "name": "SHthemW",
+    "url": "https://github.com/SHthemW"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SHthemW/Unity-Autorun-Tool.git"
+  }
+}
