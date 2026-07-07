@@ -94,6 +94,14 @@ public partial class AutoRunWindow
             return;
         }
 
+        NavigationAutoRunOption target = RestorePendingNavigationTarget();
+        if (target == null)
+        {
+            LogNavigation("Pending navigation target is empty. Clearing pending state.", AutoRunLogLevel.Error);
+            NavigationAutoRunSession.ClearPending();
+            return;
+        }
+
         if (_navigationRunning)
         {
             return;
@@ -104,13 +112,6 @@ public partial class AutoRunWindow
         _navigationRunning = true;
         _navigationStatusText = "Restoring navigation to " + NavigationAutoRunSession.TargetName;
         EnsureNavigationTargetsLoaded(false);
-        var target = new NavigationAutoRunOption
-        {
-            ViewId = NavigationAutoRunSession.TargetViewId,
-            Name = NavigationAutoRunSession.TargetName,
-            DisplayName = NavigationAutoRunSession.TargetName + " (" + NavigationAutoRunSession.TargetViewId + ")",
-        };
-        _pendingNavigationTarget = target;
         NavigationAutoRunPendingRunner.EnsureListening();
         LogNavigation("Restored pending UI state. target=" + target.ViewId + ", runId=" + _navigationRunId);
     }

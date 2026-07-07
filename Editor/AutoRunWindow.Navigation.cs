@@ -28,6 +28,7 @@ public partial class AutoRunWindow
         EnsureNavigationTargetsLoaded(false);
 
         RenderNavigationStatus();
+        RenderNavigationTargetStatus();
         using (new EditorGUI.DisabledScope(_navigationRunning))
         {
             string nextSearchText = EditorGUILayout.TextField("Search", _navigationSearchText);
@@ -44,8 +45,7 @@ public partial class AutoRunWindow
                 int nextIndex = EditorGUILayout.Popup(_navigationTargetIndex, _navigationTargetNames);
                 if (nextIndex != _navigationTargetIndex)
                 {
-                    _navigationTargetIndex = nextIndex;
-                    SaveSelectedNavigationTarget();
+                    SelectNavigationTarget(nextIndex);
                 }
             }
             else
@@ -125,8 +125,8 @@ public partial class AutoRunWindow
             return;
         }
 
+        SelectNavigationTarget(_navigationTargetIndex);
         NavigationAutoRunOption target = _navigationFilteredTargets[_navigationTargetIndex];
-        SaveSelectedNavigationTarget();
         _navigationRunId++;
         _navigationRunning = true;
         _navigationCanceled = false;
@@ -165,6 +165,8 @@ public partial class AutoRunWindow
         {
             _navigationTargetIndex = 0;
         }
+
+        SyncSelectedNavigationTarget();
     }
 
     private void RenderNavigationStatus()
@@ -176,6 +178,20 @@ public partial class AutoRunWindow
 
         string status = string.IsNullOrEmpty(_navigationStatusText) ? "Navigation AutoRun is running." : _navigationStatusText;
         GUILayout.Label(status, EditorStyles.miniLabel);
+    }
+
+    private void RenderNavigationTargetStatus()
+    {
+        NavigationAutoRunOption currentTarget = GetCurrentNavigationTarget();
+        string currentText = currentTarget != null ? currentTarget.DisplayName : "None";
+        string savedText = string.IsNullOrEmpty(_navigationSelectedTargetViewId) ? "None" : _navigationSelectedTargetViewId;
+        string pendingText = GetNavigationSessionTargetText(currentTarget);
+
+        GUILayout.Label(
+            "Current target: " + currentText
+            + " | Saved: " + savedText
+            + " | Pending: " + pendingText,
+            EditorStyles.helpBox);
     }
 
     private void CancelNavigationAutoRun()
@@ -192,16 +208,134 @@ public partial class AutoRunWindow
         Repaint();
     }
 
-    private void SaveSelectedNavigationTarget()
+    private void SelectNavigationTarget(int targetIndex)
+    {
+        if (_navigationFilteredTargets.Count == 0)
+        {
+            _navigationTargetIndex = 0;
+            return;
+        }
+
+        _navigationTargetIndex = Mathf.Clamp(targetIndex, 0, _navigationFilteredTargets.Count - 1);
+        SyncSelectedNavigationTarget();
+    }
+
+    private void SyncSelectedNavigationTarget()
     {
         if (_navigationTargetIndex < 0 || _navigationTargetIndex >= _navigationFilteredTargets.Count)
         {
             return;
         }
 
-        _navigationSelectedTargetViewId = _navigationFilteredTargets[_navigationTargetIndex].ViewId;
+        string selectedTargetViewId = _navigationFilteredTargets[_navigationTargetIndex].ViewId;
+        if (_navigationSelectedTargetViewId == selectedTargetViewId)
+        {
+            return;
+        }
+
+        _navigationSelectedTargetViewId = selectedTargetViewId;
         EditorPrefs.SetString(NavigationSelectedTargetKey, _navigationSelectedTargetViewId);
         LogNavigation("Saved selected target: " + _navigationSelectedTargetViewId);
+    }
+
+    private NavigationAutoRunOption GetCurrentNavigationTarget()
+    {
+        if (_pendingNavigationTarget != null)
+        {
+            return _pendingNavigationTarget;
+        }
+
+        if (NavigationAutoRunSession.HasActiveRequest && !string.IsNullOrEmpty(NavigationAutoRunSession.ActiveTargetViewId))
+        {
+            string activeName = string.IsNullOrEmpty(NavigationAutoRunSession.ActiveTargetName)
+                ? NavigationAutoRunSession.ActiveTargetViewId
+                : NavigationAutoRunSession.ActiveTargetName;
+            return new NavigationAutoRunOption
+            {
+                ViewId = NavigationAutoRunSession.ActiveTargetViewId,
+                Name = activeName,
+                DisplayName = activeName + " (" + NavigationAutoRunSession.ActiveTargetViewId + ")",
+            };
+        }
+
+        if (_navigationTargetIndex >= 0 && _navigationTargetIndex < _navigationFilteredTargets.Count)
+        {
+            return _navigationFilteredTargets[_navigationTargetIndex];
+        }
+
+        if (string.IsNullOrEmpty(_navigationSelectedTargetViewId))
+        {
+            return null;
+        }
+
+        NavigationAutoRunOption savedTarget = _navigationTargets.Find(target => target.ViewId == _navigationSelectedTargetViewId);
+        if (savedTarget != null)
+        {
+            return savedTarget;
+        }
+
+        return new NavigationAutoRunOption
+        {
+            ViewId = _navigationSelectedTargetViewId,
+            Name = _navigationSelectedTargetViewId,
+            DisplayName = _navigationSelectedTargetViewId,
+        };
+    }
+
+    private string GetNavigationSessionTargetText(NavigationAutoRunOption currentTarget)
+    {
+        if (NavigationAutoRunSession.HasPending)
+        {
+            return NavigationAutoRunSession.TargetName + " (" + NavigationAutoRunSession.TargetViewId + ")";
+        }
+
+        if (NavigationAutoRunSession.HasActiveRequest && !string.IsNullOrEmpty(NavigationAutoRunSession.ActiveTargetViewId))
+        {
+            string activeName = string.IsNullOrEmpty(NavigationAutoRunSession.ActiveTargetName)
+                ? NavigationAutoRunSession.ActiveTargetViewId
+                : NavigationAutoRunSession.ActiveTargetName;
+            return activeName + " (" + NavigationAutoRunSession.ActiveTargetViewId + ")";
+        }
+
+        if (_navigationRunning && currentTarget != null)
+        {
+            return currentTarget.DisplayName;
+        }
+
+        return "None";
+    }
+
+    private NavigationAutoRunOption RestorePendingNavigationTarget()
+    {
+        string targetViewId = NavigationAutoRunSession.TargetViewId;
+        if (string.IsNullOrEmpty(targetViewId))
+        {
+            return null;
+        }
+
+        string targetName = NavigationAutoRunSession.TargetName;
+        if (string.IsNullOrEmpty(targetName))
+        {
+            targetName = targetViewId;
+        }
+
+        var target = new NavigationAutoRunOption
+        {
+            ViewId = targetViewId,
+            Name = targetName,
+            DisplayName = targetName + " (" + targetViewId + ")",
+        };
+        _pendingNavigationTarget = target;
+        _navigationSelectedTargetViewId = target.ViewId;
+        EditorPrefs.SetString(NavigationSelectedTargetKey, _navigationSelectedTargetViewId);
+
+        int selectedIndex = _navigationFilteredTargets.FindIndex(item => item.ViewId == target.ViewId);
+        if (selectedIndex >= 0)
+        {
+            _navigationTargetIndex = selectedIndex;
+        }
+
+        return target;
     }
 
     private void OnNavigationAutoRunCancelCompleted(AutoRunBridgeResponse response)

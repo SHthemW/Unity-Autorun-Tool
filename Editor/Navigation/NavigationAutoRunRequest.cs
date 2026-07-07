@@ -11,8 +11,30 @@ public static class NavigationAutoRunRequest
             throw new ArgumentNullException(nameof(plan));
         }
 
-        AutoRunBridgeController.Start();
         SynchronizationContext context = SynchronizationContext.Current;
+        if (plan.Steps == null || plan.Steps.Count == 0)
+        {
+            bool alreadyAtTarget = !string.IsNullOrEmpty(plan.RouteId)
+                && plan.RouteId.StartsWith("already.", StringComparison.Ordinal);
+            string responseId = "window-nav-" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            AutoRunBridgeResponse response = alreadyAtTarget
+                ? AutoRunBridgeResponses.Success(responseId, "Already at navigation target: " + plan.ToViewId)
+                : AutoRunBridgeResponses.Fail(responseId, "navigation_empty_route", "Navigation route has no steps: " + plan.RouteId);
+            response.data.openViews = AutoRunViewService.ListOpenViewNames();
+
+            PostLog(context, "Navigation AutoRun completed without bridge request: route="
+                + plan.RouteId + ", target=" + plan.ToViewId);
+            if (context != null)
+            {
+                context.Post(_ => onCompleted?.Invoke(response), null);
+                return;
+            }
+
+            UnityEditor.EditorApplication.delayCall += () => onCompleted?.Invoke(response);
+            return;
+        }
+
+        AutoRunBridgeController.Start();
         var request = new AutoRunBridgeRequest
         {
             id = "window-nav-" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
@@ -25,7 +47,7 @@ public static class NavigationAutoRunRequest
             },
         };
         string json = JsonUtility.ToJson(request);
-        NavigationAutoRunSession.MarkActiveRequest();
+        NavigationAutoRunSession.MarkActiveRequest(plan);
         PostLog(context, "Navigation AutoRun request queued: " + request.id
             + ", route=" + plan.RouteId
             + ", steps=" + NavigationAutoRunLog.FormatSteps(plan.Steps));

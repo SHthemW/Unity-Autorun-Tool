@@ -116,6 +116,14 @@ public static class NavigationAutoRunPendingRunner
 
         Log("Completed response ok=" + response.ok + ", code=" + response.code + ", message=" + response.message,
             response.ok ? AutoRunLogLevel.Info : AutoRunLogLevel.Error);
+        if (IsRetryablePreflightResponse(response))
+        {
+            _lastError = response.message;
+            _requestSent = false;
+            Log("Keeping pending target and retrying route resolution. lastError=" + Safe(_lastError));
+            return;
+        }
+
         if (!response.ok)
         {
             Log("Failed response " + response.code + ": " + response.message, AutoRunLogLevel.Error);
@@ -123,6 +131,11 @@ public static class NavigationAutoRunPendingRunner
 
         NavigationAutoRunSession.ClearPending();
         Reset(true);
+    }
+
+    private static bool IsRetryablePreflightResponse(AutoRunBridgeResponse response)
+    {
+        return response != null && response.code == "navigation_empty_route";
     }
 
     private static void LogWaitingForPlayMode()

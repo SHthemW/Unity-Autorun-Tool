@@ -44,8 +44,7 @@ public sealed partial class NavigationAutoRunMap
             return false;
         }
 
-        return IsRuntimeTokenMatch(normalizedRuntimeToken, NormalizeViewToken(view.id))
-            || IsRuntimeTokenMatch(normalizedRuntimeToken, NormalizeViewToken(view.name))
+        return IsRuntimeTokenMatch(normalizedRuntimeToken, NormalizeViewToken(view.name))
             || IsRuntimeTokenMatch(normalizedRuntimeToken, NormalizeViewToken(view.rootObjectPath))
             || IsRuntimeTokenMatch(normalizedRuntimeToken, NormalizeViewToken(GetObjectPathLeaf(view.rootObjectPath)))
             || IsRuntimeTokenMatch(normalizedRuntimeToken, NormalizeViewToken(GetObjectPathLeaf(view.prefabPath)));
@@ -73,6 +72,7 @@ public sealed partial class NavigationAutoRunMap
         AutoRunParam autoRun = ResolveStepAutoRun(step, transition);
         NavigationMapAutomation automation = transition.automation;
         string mode = !string.IsNullOrEmpty(automation?.mode) ? automation.mode : (autoRun != null ? "click" : "wait");
+        string waitForViewId = !string.IsNullOrEmpty(automation?.waitForViewId) ? automation.waitForViewId : transition.toViewId;
         var navStep = new AutoRunNavStep
         {
             transitionId = step.transitionId,
@@ -83,7 +83,7 @@ public sealed partial class NavigationAutoRunMap
             mode = mode,
             isAutoRunnable = autoRun != null,
             action = autoRun,
-            waitForViewId = !string.IsNullOrEmpty(automation?.waitForViewId) ? automation.waitForViewId : transition.toViewId,
+            waitForViewId = ResolveViewRuntimeToken(waitForViewId),
         };
         if (automation != null && automation.timeout > 0f)
         {
@@ -115,6 +115,22 @@ public sealed partial class NavigationAutoRunMap
 
         AutoRunParam controlAutoRun = NormalizeAutoRun(control.autoRun, control);
         return IsDefaultAction(controlAutoRun) ? null : controlAutoRun;
+    }
+
+    private string ResolveViewRuntimeToken(string viewIdOrName)
+    {
+        string viewId = ResolveViewId(viewIdOrName);
+        if (!_views.TryGetValue(viewId, out NavigationMapView view))
+        {
+            return viewIdOrName;
+        }
+
+        if (!string.IsNullOrEmpty(view.rootObjectPath))
+        {
+            return view.rootObjectPath;
+        }
+
+        return string.IsNullOrEmpty(view.name) ? view.id : view.name;
     }
 
     private static AutoRunParam NormalizeAutoRun(AutoRunParam autoRun, NavigationMapControl control)
