@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -77,6 +79,20 @@ public partial class AutoRunWindow
             }
         }
 
+        if (GUILayout.Button("Open Root", GUILayout.Width(95)))
+        {
+            string message;
+            if (OpenToolRootDirectory(out message))
+            {
+                AppendConsoleText(message);
+            }
+            else
+            {
+                AppendConsoleText(message, AutoRunLogLevel.Error);
+                EditorUtility.DisplayDialog("Open Root Failed", message, "OK");
+            }
+        }
+
         if (GUILayout.Button("Preview Nav Map", GUILayout.Width(130)))
         {
             string message;
@@ -91,8 +107,30 @@ public partial class AutoRunWindow
             }
         }
 
-        GUILayout.Label("Publish the MCP server, open terminal, or render mcp/ui-nav-map.json as an HTML graph.");
+        GUILayout.Label("Publish the MCP server, open terminal/root folder, or render mcp/ui-nav-map.json as an HTML graph.");
         GUILayout.EndHorizontal();
+    }
+
+    private static bool OpenToolRootDirectory(out string message)
+    {
+        try
+        {
+            string root = McpInstallConfig.GetToolRootDirectory();
+            if (!Directory.Exists(root))
+            {
+                message = "Tool root directory does not exist: " + root;
+                return false;
+            }
+
+            EditorUtility.RevealInFinder(root);
+            message = "Opened tool root directory: " + root;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            message = "Open tool root directory failed: " + ex.Message;
+            return false;
+        }
     }
 
     private void RenderMcpPanel()

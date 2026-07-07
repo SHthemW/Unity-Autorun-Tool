@@ -15,8 +15,11 @@ public partial class AutoRunWindow : EditorWindow
     private bool _showInfoLogs = true;
     private bool _showWarningLogs = true;
     private bool _showErrorLogs = true;
+    private const string WindowScrollXKey = "UnityAutorunTool.Window.ScrollX";
+    private const string WindowScrollYKey = "UnityAutorunTool.Window.ScrollY";
     private static readonly Dictionary<AutoRunLogLevel, GUIStyle> ConsoleEntryStyles = new Dictionary<AutoRunLogLevel, GUIStyle>();
     private static Font _consoleFont;
+    private Vector2 _windowScrollPosition;
     private Vector2 _actionScrollPosition;
     private Vector2 _consoleScrollPosition;
     private const string HANDLER_OBJECT_NAME = "AutoRunHandler";
@@ -36,6 +39,19 @@ public partial class AutoRunWindow : EditorWindow
     private bool HasPreset => LoadedPresetNames.Length > 0;
     private bool IsConfigFileExists => File.Exists(ConfigPath);
 
+    private void OnEnable()
+    {
+        _windowScrollPosition = new Vector2(
+            EditorPrefs.GetFloat(WindowScrollXKey, 0f),
+            EditorPrefs.GetFloat(WindowScrollYKey, 0f)
+        );
+    }
+
+    private void OnDisable()
+    {
+        SaveWindowScrollPosition();
+    }
+
     private void OnFocus()
     {
         Repaint();
@@ -50,14 +66,28 @@ public partial class AutoRunWindow : EditorWindow
     }
 
     private void OnGUI()
-    {   
+    {
+        Vector2 nextScrollPosition = GUILayout.BeginScrollView(_windowScrollPosition, false, true);
+        if (nextScrollPosition != _windowScrollPosition)
+        {
+            _windowScrollPosition = nextScrollPosition;
+            SaveWindowScrollPosition();
+        }
+
         GUILayout.Label("Auto Run Game Utility");
 
         RenderMcpPanel();
         RenderNavigationAutoRunPanel();
         RenderManualAutoRunPanel();
-
         RenderConsole();
+
+        GUILayout.EndScrollView();
+    }
+
+    private void SaveWindowScrollPosition()
+    {
+        EditorPrefs.SetFloat(WindowScrollXKey, _windowScrollPosition.x);
+        EditorPrefs.SetFloat(WindowScrollYKey, _windowScrollPosition.y);
     }
 
     private void BeginPanel(string title)
