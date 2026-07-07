@@ -88,6 +88,7 @@ public partial class AutoRunWindow
 
         if (!force && (_navigationMap != null || _navigationLoadAttempted))
         {
+            SyncNavigationTargetIndexFromSelectedTarget();
             return;
         }
 
@@ -154,19 +155,26 @@ public partial class AutoRunWindow
             : _navigationTargets.FindAll(target => target.DisplayName.ToLowerInvariant().Contains(searchText));
         _navigationTargetNames = _navigationFilteredTargets.ConvertAll(target => target.DisplayName).ToArray();
         LogNavigation("Filter refreshed. search='" + searchText + "', matches=" + _navigationFilteredTargets.Count);
-        int selectedIndex = _navigationFilteredTargets.FindIndex(target => target.ViewId == _navigationSelectedTargetViewId);
-        if (selectedIndex >= 0)
+        if (SyncNavigationTargetIndexFromSelectedTarget())
         {
-            _navigationTargetIndex = selectedIndex;
+            return;
+        }
+
+        if (_navigationTargetNames.Length == 0)
+        {
+            _navigationTargetIndex = 0;
             return;
         }
 
         if (_navigationTargetIndex >= _navigationTargetNames.Length)
         {
-            _navigationTargetIndex = 0;
+            _navigationTargetIndex = _navigationTargetNames.Length - 1;
         }
 
-        SyncSelectedNavigationTarget();
+        if (string.IsNullOrEmpty(_navigationSelectedTargetViewId))
+        {
+            SyncSelectedNavigationTarget();
+        }
     }
 
     private void RenderNavigationStatus()
@@ -218,6 +226,23 @@ public partial class AutoRunWindow
 
         _navigationTargetIndex = Mathf.Clamp(targetIndex, 0, _navigationFilteredTargets.Count - 1);
         SyncSelectedNavigationTarget();
+    }
+
+    private bool SyncNavigationTargetIndexFromSelectedTarget()
+    {
+        if (string.IsNullOrEmpty(_navigationSelectedTargetViewId) || _navigationFilteredTargets.Count == 0)
+        {
+            return false;
+        }
+
+        int selectedIndex = _navigationFilteredTargets.FindIndex(target => target.ViewId == _navigationSelectedTargetViewId);
+        if (selectedIndex < 0)
+        {
+            return false;
+        }
+
+        _navigationTargetIndex = selectedIndex;
+        return true;
     }
 
     private void SyncSelectedNavigationTarget()
