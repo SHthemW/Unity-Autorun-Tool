@@ -1,7 +1,10 @@
-*.meta
 Config
 .codex
+Logs/
+Logs.meta
 bin/
 obj/
 mcp/*.preview.html
+mcp/*.preview.html.meta
 mcp/ui-nav-map.json
+mcp/ui-nav-map.json.meta
