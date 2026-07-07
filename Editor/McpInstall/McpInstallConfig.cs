@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using UnityEditor.PackageManager;
 
 public sealed class McpInstallConfig
 {
+    public const string PackageName = "com.shthemw.unity-autorun-tool";
     public const string ServerName = "unity-autorun";
 
     public string Command;
@@ -92,13 +94,34 @@ public sealed class McpInstallConfig
 
     private static string FindMcpProjectPath()
     {
+        string packageRoot = FindPackageRootDirectory();
+        if (!string.IsNullOrEmpty(packageRoot))
+        {
+            string packageProjectPath = Path.Combine(packageRoot, "mcp~", "UnityAutorun.Mcp", "UnityAutorun.Mcp.csproj");
+            if (File.Exists(packageProjectPath))
+            {
+                return Path.GetFullPath(packageProjectPath).Replace('\\', '/');
+            }
+        }
+
         string[] matches = Directory.GetFiles(UnityEngine.Application.dataPath, "UnityAutorun.Mcp.csproj", SearchOption.AllDirectories);
         if (matches.Length == 0)
         {
-            throw new InvalidOperationException("Cannot find UnityAutorun.Mcp.csproj under Assets.");
+            throw new InvalidOperationException("Cannot find UnityAutorun.Mcp.csproj under the Unity AutoRun package or Assets.");
         }
 
         return Path.GetFullPath(matches[0]).Replace('\\', '/');
+    }
+
+    private static string FindPackageRootDirectory()
+    {
+        PackageInfo packageInfo = PackageInfo.FindForAssetPath("Packages/" + PackageName + "/package.json");
+        if (packageInfo == null || string.IsNullOrEmpty(packageInfo.resolvedPath))
+        {
+            return null;
+        }
+
+        return Path.GetFullPath(packageInfo.resolvedPath);
     }
 
     private static string TomlStringList(List<string> values)

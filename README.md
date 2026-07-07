@@ -19,14 +19,35 @@ Unity Autorun Tool is a Unity Editor extension for automating UI startup flows, 
 
 ## Requirements
 
-- Unity Editor project with this folder placed under `Assets/Editor/`.
+- Unity 2021.3 or newer.
 - UGUI for built-in Unity button automation.
 - FairyGUI only if you want to automate FairyGUI buttons.
 - .NET 8 SDK for the CLI and MCP server.
 
 ## Installation
 
-Copy or clone this repository into a Unity project under `Assets/Editor/Unity-Autorun-Tool`.
+The recommended installation method is Unity Package Manager with a Git URL.
+
+1. Open `Window > Package Manager`.
+2. Press `+`.
+3. Choose `Add package from git URL...`.
+4. Enter:
+
+```text
+https://github.com/SHthemW/Unity-Autorun-Tool.git
+```
+
+For reproducible installs, use a version tag:
+
+```text
+https://github.com/SHthemW/Unity-Autorun-Tool.git#v0.1.0
+```
+
+Manual installation is also supported. Copy or clone this repository into a Unity project under:
+
+```text
+Assets/Editor/Unity-Autorun-Tool
+```
 
 Open Unity and use:
 
@@ -94,7 +115,7 @@ http://127.0.0.1:17331/
 
 ## CLI
 
-Run the CLI from the Unity project root or this tool root:
+Run the CLI from the tool root. The easiest way is to open `Window > Auto Run Window`, then press `Open Terminal` in the `MCP` panel. This works for both UPM Git URL installs and manual `Assets/Editor` installs.
 
 ```powershell
 dotnet run --project mcp~/UnityAutorun.Mcp -- help
@@ -227,6 +248,7 @@ The toggles only filter visibility. `Clear` removes current entries. Messages ar
 ```text
 .
 |-- AutoRun*.cs                  # Shared runtime/editor automation models and handler
+|-- package.json                 # Unity Package Manager metadata for Git URL installation
 |-- Bridge/                      # HTTP bridge models, dispatcher, sequence, and navigation execution
 |-- Editor/                      # Unity Editor window, menus, MCP install, processes, nav AutoRun UI
 |-- Services/                    # UGUI/FairyGUI button and active-view discovery
