@@ -94,7 +94,7 @@ AutorunToolData/config.xml
 `Window > Auto Run Window` 中的 `MCP` 面板包含 Bridge 控制、MCP 进程检测、安装入口和辅助工具。
 
 - `Start` / `Stop` 控制本地 Unity Bridge。
-- `Publish MCP` 执行 MCP Server 的 `dotnet publish`。
+- `Publish MCP` 会先终止指向当前发布 DLL 的 MCP 子进程，等待文件解锁后执行 `dotnet publish`，并检测 AI 客户端是否自动重连。
 - `Install MCP` 会更新选中的 `.codex/config.toml` 或 `.claude/.mcp.json`。
 - `Open Terminal` 在工具根目录打开终端。
 - `Open Root` 打开当前工具目录。
@@ -160,6 +160,16 @@ Release publish 输出也会被压缩归档到：
 ```text
 mcp~/UnityAutorun.Mcp/bin/Release-Archives/
 ```
+
+### MCP 使用中发布
+
+编辑器内的 `Publish MCP` 会按完整二进制路径精确匹配当前工具的 MCP 子进程，只终止这些进程，不会结束其它 `dotnet.exe`。进程退出且发布 DLL 解锁后，工具才会开始发布。
+
+如果发布前存在运行中的 MCP，发布完成后工具会等待最多 5 秒，检测原有数量的 MCP 进程是否由 Codex、Claude 等客户端自动重新启动。全部恢复时会记录新的 PID；部分或全部未恢复时，发布仍视为成功，但 Auto Run Console 会写入 Warning，并显示需要重新连接客户端的提示。
+
+Unity 无法替 AI 客户端重建 stdio 连接。如果客户端没有自动重新启动 MCP，请重启或重新连接对应的客户端会话。
+
+直接在终端运行 `dotnet publish` 不会执行上述进程管理。如果发布 DLL 正在使用，请先关闭对应的 MCP 客户端连接，或改用编辑器内的 `Publish MCP`。
 
 编辑器内 `Install MCP` 流程会为选中的客户端注册以下命令：
 

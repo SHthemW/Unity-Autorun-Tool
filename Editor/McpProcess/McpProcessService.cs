@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -16,6 +17,39 @@ public static class McpProcessService
         {
             return new List<McpProcessInfo>();
         }
+    }
+
+    public static List<McpProcessInfo> ListUnityAutorunProcesses(string binaryPath)
+    {
+        return ListUnityAutorunProcesses()
+            .Where(info => IsSameBinaryPath(info.BinaryPath, binaryPath))
+            .ToList();
+    }
+
+    public static bool TryTerminateUnityAutorunProcesses(
+        string binaryPath,
+        int waitForExitMilliseconds,
+        out List<McpProcessInfo> terminatedProcesses,
+        out string error)
+    {
+        List<McpProcessInfo> matchingProcesses = ListUnityAutorunProcesses(binaryPath);
+        terminatedProcesses = new List<McpProcessInfo>();
+        var failures = new List<string>();
+
+        foreach (McpProcessInfo processInfo in matchingProcesses)
+        {
+            if (TryTerminateProcess(processInfo, waitForExitMilliseconds, out string processError))
+            {
+                terminatedProcesses.Add(processInfo);
+            }
+            else
+            {
+                failures.Add(processError);
+            }
+        }
+
+        error = string.Join("; ", failures.ToArray());
+        return failures.Count == 0;
     }
 
     private static List<McpProcessInfo> ListFromPowerShell()
@@ -68,6 +102,7 @@ public static class McpProcessService
 
         int.TryParse(parts[2], out int parentId);
         int.TryParse(parts[4], out int aiId);
+        string binaryPath = NormalizePath(ResolveMainProgramPath(parts[1], parts[6], parts[7]));
         return new McpProcessInfo
         {
             ProcessId = processId,
@@ -76,26 +111,64 @@ public static class McpProcessService
             ParentProcessName = Safe(parts[3]),
             AiProcessId = aiId,
             AiProcessName = Safe(parts[5]),
-            PublishedAt = GetPublishedAt(parts[1], parts[6], parts[7]),
+            PublishedAt = GetPublishedAt(binaryPath),
+            BinaryPath = binaryPath,
             CommandLine = Shorten(CleanCommandLine(parts[7])),
         };
     }
 
-    private static string GetPublishedAt(string processName, string executablePath, string commandLine)
+    private static bool TryTerminateProcess(
+        McpProcessInfo processInfo,
+        int waitForExitMilliseconds,
+        out string error)
     {
-        string path = ResolveMainProgramPath(processName, executablePath, commandLine);
-        if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path))
+        try
         {
-            return "unknown";
-        }
+            using Process process = Process.GetProcessById(processInfo.ProcessId);
+            if (!process.HasExited)
+            {
+                process.Kill();
+            }
 
-        return System.IO.File.GetLastWriteTime(path).ToString("MMdd HHmm");
+            if (!process.WaitForExit(waitForExitMilliseconds))
+            {
+                error = "PID " + processInfo.ProcessId + " did not exit within "
+                    + waitForExitMilliseconds + " ms";
+                return false;
+            }
+
+            error = "";
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            // 进程可能在枚举结束后自行退出，此时目标文件同样已经释放。
+            error = "";
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            error = "";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = "PID " + processInfo.ProcessId + " could not be terminated: " + ex.Message;
+            return false;
+        }
+    }
+
+    private static string GetPublishedAt(string binaryPath)
+    {
+        return string.IsNullOrEmpty(binaryPath) || !File.Exists(binaryPath)
+            ? "unknown"
+            : File.GetLastWriteTime(binaryPath).ToString("MMdd HHmm");
     }
 
     private static string ResolveMainProgramPath(string processName, string executablePath, string commandLine)
     {
         if (string.Equals(processName, "UnityAutorun.Mcp.exe", StringComparison.OrdinalIgnoreCase)
-            && System.IO.File.Exists(executablePath))
+            && File.Exists(executablePath))
         {
             return executablePath;
         }
@@ -117,6 +190,39 @@ public static class McpProcessService
             RegexOptions.IgnoreCase);
 
         return match.Success ? match.Value.Trim('"') : "";
+    }
+
+    private static bool IsSameBinaryPath(string left, string right)
+    {
+        string normalizedLeft = NormalizePath(left);
+        string normalizedRight = NormalizePath(right);
+        if (string.IsNullOrEmpty(normalizedLeft) || string.IsNullOrEmpty(normalizedRight))
+        {
+            return false;
+        }
+
+        StringComparison comparison = Environment.OSVersion.Platform == PlatformID.Win32NT
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        return string.Equals(normalizedLeft, normalizedRight, comparison);
+    }
+
+    private static string NormalizePath(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "";
+        }
+
+        value = value.Trim().Trim('"');
+        try
+        {
+            return Path.GetFullPath(value).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch
+        {
+            return value.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
     }
 
     private static string Shorten(string value)

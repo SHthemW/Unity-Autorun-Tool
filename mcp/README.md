@@ -32,12 +32,20 @@ The installed MCP configuration starts the current published binary only. It doe
 
 Open `Window/Auto Run Window`, press `Publish MCP`, select the MCP install target folder, then press `Install MCP`.
 
-- Press `Publish MCP` to publish the current MCP server version into `mcp~/UnityAutorun.Mcp/bin/Release/net8.0/publish/`.
+- Press `Publish MCP` to stop matching MCP child processes, wait for the published DLL to unlock, publish the current server version into `mcp~/UnityAutorun.Mcp/bin/Release/net8.0/publish/`, and check whether clients reconnect.
 - Select a `.codex` folder to update `config.toml` with a `[mcp_servers.unity_autorun]` entry.
 - Select a `.claude` folder to update `.mcp.json` with a `unity-autorun` entry under `mcpServers`.
 - Press `Preview Nav Map` to render `mcp/ui-nav-map.json` as `mcp/ui-nav-map.preview.html` and open it in the browser.
 
 Installing an MCP means registering a server command with the AI client. The protocol is common, but each client stores the server configuration in its own format.
+
+### Publishing while clients are connected
+
+The editor action matches MCP processes by the full path of the published `UnityAutorun.Mcp.dll` and does not terminate unrelated `dotnet.exe` processes. After publishing, it waits up to 5 seconds for the expected number of client-managed MCP processes to restart.
+
+If every process returns, the completion message includes the new PIDs. If some processes do not return, publication still succeeds, but the Auto Run Console records a Warning and the editor asks you to restart or reconnect the affected AI client sessions.
+
+Unity cannot rebuild a client's stdio connection itself. Direct terminal use of `dotnet publish` also bypasses this process-management flow, so stop affected client connections first when the DLL is locked.
 
 ## Auto Run Window console
 
@@ -47,7 +55,7 @@ Logs are grouped by level:
 
 - `Debug`: detailed navigation, request, and route-resolution diagnostics.
 - `Info`: normal successful operations and completion summaries.
-- `Warning`: user cancellation or interrupted Play Mode flow.
+- `Warning`: user cancellation, interrupted Play Mode flow, or MCP clients that did not reconnect after publication.
 - `Error`: failed requests, exceptions, invalid configuration, and operation failures.
 
 The Console renders each entry with a short prefix:

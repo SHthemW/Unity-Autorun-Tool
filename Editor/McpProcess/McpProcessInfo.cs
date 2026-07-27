@@ -7,5 +7,6 @@ public sealed class McpProcessInfo
     public int AiProcessId;
     public string AiProcessName;
     public string PublishedAt;
+    public string BinaryPath;
     public string CommandLine;
 }

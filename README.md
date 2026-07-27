@@ -94,7 +94,7 @@ The tool creates a runtime `AutoRunHandler` GameObject and marks it as `DontDest
 The `MCP` panel in `Window > Auto Run Window` groups bridge controls, detected MCP processes, install controls, and helper tools.
 
 - `Start` / `Stop` controls the local Unity bridge.
-- `Publish MCP` runs `dotnet publish` for the MCP server.
+- `Publish MCP` stops MCP child processes that point at the current published DLL, waits for the file to unlock, runs `dotnet publish`, and checks whether AI clients reconnect automatically.
 - `Install MCP` updates a selected `.codex/config.toml` or `.claude/.mcp.json`.
 - `Open Terminal` opens a terminal at the tool root.
 - `Open Root` opens this tool folder.
@@ -160,6 +160,16 @@ Release publish output is also archived as a zip under:
 ```text
 mcp~/UnityAutorun.Mcp/bin/Release-Archives/
 ```
+
+### Publishing while MCP is running
+
+The editor `Publish MCP` action matches this tool's MCP child processes by their full binary path. It terminates only those processes, not unrelated `dotnet.exe` instances, and starts publishing only after the processes exit and the published DLL is unlocked.
+
+When MCP processes were running before publication, the tool waits up to 5 seconds after a successful publish for Codex, Claude, or another client to restart the expected number of MCP processes. A complete restart records the new PIDs. A partial or missing restart does not turn a successful publish into a failure; instead, the Auto Run Console records a Warning and the editor displays a reconnect prompt.
+
+Unity cannot recreate an AI client's stdio connection. If the client does not restart MCP automatically, restart or reconnect the affected client session.
+
+Running `dotnet publish` directly in a terminal does not use this process-management flow. Stop the affected MCP client connections first when the published DLL is in use, or use the editor `Publish MCP` action.
 
 The editor `Install MCP` flow registers this command for the selected client:
 

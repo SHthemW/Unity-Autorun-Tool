@@ -56,12 +56,28 @@ public partial class AutoRunWindow
     {
         GUILayout.BeginHorizontal();
 
-        if (GUILayout.Button("Publish MCP", GUILayout.Width(110)))
+        if (GUILayout.Button(
+                new GUIContent(
+                    "Publish MCP",
+                    "Stops matching MCP processes before publishing and waits for clients to reconnect."),
+                GUILayout.Width(110)))
         {
             string message;
-            if (McpPublishService.PublishCurrentVersion(out message))
+            bool published = McpPublishService.PublishCurrentVersion(out message, out bool reconnectPending);
+            RefreshMcpProcesses();
+
+            if (published)
             {
-                AppendConsoleText(message);
+                AppendConsoleText(
+                    message,
+                    reconnectPending ? AutoRunLogLevel.Warning : AutoRunLogLevel.Info);
+                if (reconnectPending)
+                {
+                    EditorUtility.DisplayDialog(
+                        "MCP Published - Reconnect Required",
+                        message,
+                        "OK");
+                }
             }
             else
             {
