@@ -113,12 +113,17 @@ Bridge 默认监听：
 http://127.0.0.1:17331/
 ```
 
+如果端口 `17331` 已被占用，Bridge 会自动逐个尝试后续端口，直到找到可用端口。Auto Run 窗口会显示实际使用的 URL。
+
+选中的端点会发布到当前 Unity 项目的 `Library` 目录。MCP 配置不再保存端口，AI 客户端通过 `get_unity_bridge_port` 动态取得端点。
+
 ## CLI
 
 请从工具根目录运行 CLI。最简单的方式是在 Unity 中打开 `Window > Auto Run Window`，然后点击 `MCP` 面板里的 `Open Terminal`。这种方式同时适用于 UPM Git URL 安装和手动 `Assets/Editor` 安装。
 
 ```powershell
 dotnet run --project mcp~/UnityAutorun.Mcp -- help
+dotnet run --project mcp~/UnityAutorun.Mcp -- bridge-port
 dotnet run --project mcp~/UnityAutorun.Mcp -- status
 dotnet run --project mcp~/UnityAutorun.Mcp -- play
 dotnet run --project mcp~/UnityAutorun.Mcp -- stop
@@ -139,8 +144,7 @@ dotnet run --project mcp~/UnityAutorun.Mcp -- mock-bridge
 
 | 变量 | 默认值 | 含义 |
 | --- | --- | --- |
-| `UNITY_AUTORUN_HOST` | `127.0.0.1` | Unity Bridge host。 |
-| `UNITY_AUTORUN_PORT` | `17331` | Unity Bridge port。 |
+| `UNITY_AUTORUN_PROJECT_ROOT` | 安装时自动检测 | 使用其动态 Bridge 端点的 Unity 项目根目录。 |
 | `UNITY_AUTORUN_TOOL_ROOT` | 安装时自动检测 | MCP 导航图操作使用的工具根目录。 |
 
 ## MCP Server
@@ -165,6 +169,7 @@ dotnet mcp~/UnityAutorun.Mcp/bin/Release/net8.0/publish/UnityAutorun.Mcp.dll mcp
 
 可用 MCP 工具：
 
+- `get_unity_bridge_port`
 - `unity_status`
 - `unity_play`
 - `unity_stop`
@@ -188,11 +193,12 @@ dotnet mcp~/UnityAutorun.Mcp/bin/Release/net8.0/publish/UnityAutorun.Mcp.dll mcp
 
 ## HTTP Bridge
 
-先启动 Bridge，然后调用：
+先启动 Bridge，再使用 `get_unity_bridge_port` 返回或 Auto Run 窗口显示的 URL：
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:17331/status
-Invoke-RestMethod http://127.0.0.1:17331/rpc `
+$bridgeUrl = "<动态发布的 Bridge URL>"
+Invoke-RestMethod "${bridgeUrl}status"
+Invoke-RestMethod "${bridgeUrl}rpc" `
   -Method Post `
   -ContentType application/json `
   -Body '{"id":"1","command":"click_button","payload":{"name":"StartButton","framework":"ugui"}}'
@@ -260,7 +266,7 @@ Auto Run Window 内置本地 Console，用于显示工具消息。日志级别�
 ## 排障
 
 - 如果 `Install MCP` 失败，先点击 `Publish MCP`，并确认选择的文件夹名称是 `.codex` 或 `.claude`。
-- 如果 CLI Bridge 调用失败，先在 Unity 中启动 Bridge，并访问 `http://127.0.0.1:17331/status` 验证状态。
+- 如果 CLI Bridge 调用失败，先在 Unity 中启动 Bridge，再通过 `bridge-port` 或 MCP 工具 `get_unity_bridge_port` 检查当前端点。
 - 如果找不到 UGUI 按钮，检查运行时 GameObject 名称、归一化后的名称，以及可选 `text` 字段。
 - 如果路由无法执行，用 `route`、`resolve_ui_route` 或 `get_ui_nav_subgraph` 检查是否存在 unsupported 或 unresolved transition。
 - 如果 `Navigation AutoRun` 没有目标，创建或 merge 真实的 `mcp/ui-nav-map.json`，也可以先用 example map 验证流程。

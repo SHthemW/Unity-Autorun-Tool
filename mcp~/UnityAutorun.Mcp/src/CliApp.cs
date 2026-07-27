@@ -19,7 +19,11 @@ namespace UnityAutorun.Mcp
             var bridge = new BridgeClient();
             JsonNode result = null;
             string command = args[0];
-            if (command == "status")
+            if (command == "bridge-port")
+            {
+                result = bridge.GetEndpointInfo();
+            }
+            else if (command == "status")
             {
                 result = await bridge.GetStatusAsync();
             }
@@ -229,6 +233,7 @@ namespace UnityAutorun.Mcp
             Console.WriteLine("Unity AutoRun MCP\n\n"
                 + "Usage:\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- help\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- bridge-port\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- status\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- play\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- stop\n"

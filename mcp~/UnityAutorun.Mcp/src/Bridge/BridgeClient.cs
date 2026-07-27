@@ -9,24 +9,24 @@ namespace UnityAutorun.Mcp
     public sealed class BridgeClient
     {
         private static readonly HttpClient Http = new HttpClient();
-        private readonly string _host = Environment.GetEnvironmentVariable("UNITY_AUTORUN_HOST") ?? "127.0.0.1";
-        private readonly int _port = int.TryParse(Environment.GetEnvironmentVariable("UNITY_AUTORUN_PORT"), out int port) ? port : 17331;
+        private readonly BridgeEndpointProvider _endpointProvider = new BridgeEndpointProvider();
         private readonly int _retries = int.TryParse(Environment.GetEnvironmentVariable("UNITY_AUTORUN_RETRIES"), out int retries) ? retries : 10;
         private readonly int _retryDelayMs = int.TryParse(Environment.GetEnvironmentVariable("UNITY_AUTORUN_RETRY_DELAY_MS"), out int delay) ? delay : 500;
 
-        private string BaseUrl
+        public JsonObject GetEndpointInfo()
         {
-            get { return $"http://{_host}:{_port}"; }
+            return _endpointProvider.GetInfo();
         }
 
         public Task<JsonNode> GetStatusAsync()
         {
-            return WithRetryAsync(async () => await ParseResponseAsync(await Http.GetAsync($"{BaseUrl}/status")));
+            return WithRetryAsync(async endpoint =>
+                await ParseResponseAsync(await Http.GetAsync($"{endpoint.BaseUrl}/status")));
         }
 
         public Task<JsonNode> CallUnityAsync(string command, JsonObject payload = null)
         {
-            return WithRetryAsync(async () =>
+            return WithRetryAsync(async endpoint =>
             {
                 var request = JsonUtil.Obj(
                     ("id", $"cli-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}"),
@@ -35,7 +35,7 @@ namespace UnityAutorun.Mcp
                 );
                 using (var content = new StringContent(request.ToJsonString(), Encoding.UTF8, "application/json"))
                 {
-                    return await ParseResponseAsync(await Http.PostAsync($"{BaseUrl}/rpc", content));
+                    return await ParseResponseAsync(await Http.PostAsync($"{endpoint.BaseUrl}/rpc", content));
                 }
             });
         }
@@ -51,14 +51,17 @@ namespace UnityAutorun.Mcp
             return JsonNode.Parse(body);
         }
 
-        private async Task<JsonNode> WithRetryAsync(Func<Task<JsonNode>> operation)
+        private async Task<JsonNode> WithRetryAsync(Func<BridgeEndpoint, Task<JsonNode>> operation)
         {
             Exception lastError = null;
+            string lastUrl = null;
             for (int i = 0; i < _retries; i++)
             {
                 try
                 {
-                    return await operation();
+                    BridgeEndpoint endpoint = _endpointProvider.GetRequired();
+                    lastUrl = endpoint.Url;
+                    return await operation(endpoint);
                 }
                 catch (Exception ex)
                 {
@@ -71,7 +74,11 @@ namespace UnityAutorun.Mcp
             }
 
             string message = lastError != null ? lastError.Message : "unknown";
-            throw new InvalidOperationException($"Unity AutoRun bridge is not reachable at {BaseUrl}. Start it from Unity: Window/Auto Run MCP Bridge/Start. Last error: {message}");
+            string endpointText = lastUrl != null ? $" at {lastUrl}" : "";
+            throw new InvalidOperationException(
+                $"Unity AutoRun bridge is not reachable{endpointText}. "
+                + $"Start it from Unity: Window/Auto Run MCP Bridge/Start. Last error: {message}"
+            );
         }
     }
 }

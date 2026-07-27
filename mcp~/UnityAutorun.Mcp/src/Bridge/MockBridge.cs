@@ -11,17 +11,25 @@ namespace UnityAutorun.Mcp
     {
         public static async Task RunAsync()
         {
-            int port = int.TryParse(Environment.GetEnvironmentVariable("UNITY_AUTORUN_PORT"), out int value) ? value : 17331;
+            int port = int.TryParse(Environment.GetEnvironmentVariable("UNITY_AUTORUN_MOCK_PORT"), out int value) ? value : 17331;
             using (var listener = new HttpListener())
             {
                 listener.Prefixes.Add($"http://127.0.0.1:{port}/");
                 listener.Start();
+                BridgeEndpointProvider.PublishForCurrentProcess("127.0.0.1", port);
                 Console.WriteLine($"mock bridge listening on {port}");
 
-                while (true)
+                try
                 {
-                    HttpListenerContext context = await listener.GetContextAsync();
-                    _ = Task.Run(() => HandleAsync(context));
+                    while (true)
+                    {
+                        HttpListenerContext context = await listener.GetContextAsync();
+                        _ = Task.Run(() => HandleAsync(context));
+                    }
+                }
+                finally
+                {
+                    BridgeEndpointProvider.ClearForCurrentProcess();
                 }
             }
         }

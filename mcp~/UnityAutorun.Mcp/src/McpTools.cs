@@ -8,6 +8,7 @@ namespace UnityAutorun.Mcp
         {
             return new JsonArray
             {
+                Tool("get_unity_bridge_port", "Get the host, dynamically assigned port, and URL published by the current Unity project. Call this before Unity bridge tools."),
                 Tool("unity_status", "Check the Unity AutoRun bridge status."),
                 Tool("unity_play", "Request Unity Editor to enter Play Mode."),
                 Tool("unity_stop", "Request Unity Editor to exit Play Mode."),

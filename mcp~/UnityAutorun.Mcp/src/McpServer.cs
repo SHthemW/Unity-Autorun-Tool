@@ -88,7 +88,8 @@ namespace UnityAutorun.Mcp
                     WriteResult(id, JsonUtil.Obj(
                         ("protocolVersion", "2024-11-05"),
                         ("capabilities", JsonUtil.Obj(("tools", new JsonObject()))),
-                        ("serverInfo", JsonUtil.Obj(("name", "unity-autorun"), ("version", "0.1.0")))
+                        ("serverInfo", JsonUtil.Obj(("name", "unity-autorun"), ("version", "0.1.0"))),
+                        ("instructions", "Call get_unity_bridge_port before Unity bridge tools to obtain the endpoint dynamically published by the current project.")
                     ));
                 }
                 else if (method == "notifications/initialized")
@@ -125,6 +126,7 @@ namespace UnityAutorun.Mcp
 
         private async Task<JsonNode> DispatchToolAsync(string name, JsonObject args)
         {
+            if (name == "get_unity_bridge_port") return _bridge.GetEndpointInfo();
             if (name == "unity_status") return await _bridge.GetStatusAsync();
             if (name == "unity_play") return await _bridge.CallUnityAsync("play");
             if (name == "unity_stop") return await _bridge.CallUnityAsync("stop");

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using UnityEditor;
@@ -9,7 +10,14 @@ using UnityEngine;
 public sealed class AutoRunBridgeServer
 {
     public const string Version = "0.1.0";
+    public const string Host = "127.0.0.1";
     public const int DefaultPort = 17331;
+
+    private const int WindowsSharingViolation = 32;
+    private const int MacOsAddressAlreadyInUse = 48;
+    private const int LinuxAddressAlreadyInUse = 98;
+    private const int WindowsAlreadyExists = 183;
+    private const int WindowsAddressAlreadyInUse = 10048;
 
     private readonly object _lock = new();
     private HttpListener _listener;
@@ -17,6 +25,8 @@ public sealed class AutoRunBridgeServer
     private AutoRunBridgeDispatcher _dispatcher;
 
     public bool IsRunning => _listener != null && _listener.IsListening;
+    public int Port { get; private set; } = DefaultPort;
+    public string Url => $"http://{Host}:{Port}/";
 
     public void Start(int port = DefaultPort)
     {
@@ -25,19 +35,57 @@ public sealed class AutoRunBridgeServer
             return;
         }
 
-        _dispatcher = new AutoRunBridgeDispatcher();
-        _listener = new HttpListener();
-        _listener.Prefixes.Add($"http://127.0.0.1:{port}/");
-        _listener.Start();
-        _thread = new Thread(ListenLoop) { IsBackground = true };
-        _thread.Start();
-        EditorApplication.update += _dispatcher.Pump;
-        AutoRunWindow.AppendBridgeConsoleText($"AutoRun MCP bridge started on http://127.0.0.1:{port}/", AutoRunLogLevel.Info);
+        if (port < 1 || port > IPEndPoint.MaxPort)
+        {
+            throw new ArgumentOutOfRangeException(nameof(port), port, $"Port must be between 1 and {IPEndPoint.MaxPort}.");
+        }
+
+        HttpListener listener = StartListener(port, out int selectedPort);
+        var dispatcher = new AutoRunBridgeDispatcher();
+        var thread = new Thread(ListenLoop) { IsBackground = true };
+        bool pumpSubscribed = false;
+
+        try
+        {
+            _listener = listener;
+            Port = selectedPort;
+            _dispatcher = dispatcher;
+            _thread = thread;
+            _thread.Start();
+            EditorApplication.update += _dispatcher.Pump;
+            pumpSubscribed = true;
+            AutoRunBridgeEndpointState.Publish(Host, Port);
+        }
+        catch
+        {
+            if (pumpSubscribed)
+            {
+                EditorApplication.update -= dispatcher.Pump;
+            }
+
+            listener.Close();
+            AutoRunBridgeEndpointState.Clear();
+            _listener = null;
+            _dispatcher = null;
+            _thread = null;
+            throw;
+        }
+
+        if (selectedPort != port)
+        {
+            AutoRunWindow.AppendBridgeConsoleText(
+                $"AutoRun MCP bridge port {port} is occupied; using {selectedPort}.",
+                AutoRunLogLevel.Warning
+            );
+        }
+
+        AutoRunWindow.AppendBridgeConsoleText($"AutoRun MCP bridge started on {Url}", AutoRunLogLevel.Info);
     }
 
     public void Stop()
     {
         bool wasRunning = false;
+        AutoRunBridgeEndpointState.Clear();
         lock (_lock)
         {
             if (_listener == null)
@@ -49,6 +97,7 @@ public sealed class AutoRunBridgeServer
             _listener.Stop();
             _listener.Close();
             _listener = null;
+            _thread = null;
         }
 
         if (_dispatcher != null)
@@ -91,6 +140,53 @@ public sealed class AutoRunBridgeServer
                 return;
             }
         }
+    }
+
+    private static HttpListener StartListener(int startPort, out int selectedPort)
+    {
+        Exception lastPortConflict = null;
+        for (int port = startPort; port <= IPEndPoint.MaxPort; port++)
+        {
+            var listener = new HttpListener();
+            listener.Prefixes.Add($"http://{Host}:{port}/");
+
+            try
+            {
+                listener.Start();
+                selectedPort = port;
+                return listener;
+            }
+            catch (HttpListenerException ex) when (IsPortConflict(ex))
+            {
+                lastPortConflict = ex;
+                listener.Close();
+            }
+            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
+            {
+                lastPortConflict = ex;
+                listener.Close();
+            }
+            catch
+            {
+                listener.Close();
+                throw;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"No available port was found between {startPort} and {IPEndPoint.MaxPort}.",
+            lastPortConflict
+        );
+    }
+
+    private static bool IsPortConflict(HttpListenerException exception)
+    {
+        int errorCode = exception.NativeErrorCode;
+        return errorCode == WindowsSharingViolation
+            || errorCode == MacOsAddressAlreadyInUse
+            || errorCode == LinuxAddressAlreadyInUse
+            || errorCode == WindowsAlreadyExists
+            || errorCode == WindowsAddressAlreadyInUse;
     }
 
     private void HandleContext(HttpListenerContext context)

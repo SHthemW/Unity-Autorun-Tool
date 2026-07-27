@@ -6,6 +6,7 @@ Start the Unity bridge from `Window/Auto Run MCP Bridge/Start`, then use the CLI
 
 ```powershell
 dotnet run --project mcp~/UnityAutorun.Mcp -- help
+dotnet run --project mcp~/UnityAutorun.Mcp -- bridge-port
 dotnet run --project mcp~/UnityAutorun.Mcp -- status
 dotnet run --project mcp~/UnityAutorun.Mcp -- list-buttons --framework all
 dotnet run --project mcp~/UnityAutorun.Mcp -- click --name StartButton --framework ugui
@@ -18,8 +19,8 @@ dotnet run --project mcp~/UnityAutorun.Mcp -- mock-bridge
 
 Environment variables:
 
-- `UNITY_AUTORUN_HOST`: bridge host, default `127.0.0.1`
-- `UNITY_AUTORUN_PORT`: bridge port, default `17331`
+- `UNITY_AUTORUN_PROJECT_ROOT`: Unity project whose dynamically published bridge endpoint is used
+- `UNITY_AUTORUN_TOOL_ROOT`: tool root used by nav-map operations
 
 ## MCP Server
 
@@ -73,6 +74,7 @@ The publish output is also archived under `mcp~/UnityAutorun.Mcp/bin/Release-Arc
 
 The server exposes:
 
+- `get_unity_bridge_port`
 - `unity_status`
 - `unity_play`
 - `unity_stop`
@@ -135,11 +137,12 @@ Use `mcp/ui-nav-map.example.json` as the reference shape.
 
 ## Unity Bridge Protocol
 
-The Unity Editor bridge listens on `http://127.0.0.1:17331/` after it is started.
+The Unity Editor bridge starts at port `17331` and increments until an available port is found. It publishes the selected endpoint under the Unity project's `Library` directory. MCP configuration does not contain a fixed port; call `get_unity_bridge_port` to retrieve it dynamically.
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:17331/status
-Invoke-RestMethod http://127.0.0.1:17331/rpc `
+$bridgeUrl = "<URL returned by get_unity_bridge_port>"
+Invoke-RestMethod "${bridgeUrl}status"
+Invoke-RestMethod "${bridgeUrl}rpc" `
   -Method Post `
   -ContentType application/json `
   -Body '{"id":"1","command":"click_button","payload":{"name":"StartButton","framework":"ugui"}}'

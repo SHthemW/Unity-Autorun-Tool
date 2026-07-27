@@ -8,7 +8,8 @@ public static class AutoRunBridgeController
 
     public static bool IsEnabled => SessionState.GetBool(BridgeEnabledKey, false);
     public static bool IsRunning => Server.IsRunning;
-    public static string Url => $"http://127.0.0.1:{AutoRunBridgeServer.DefaultPort}/";
+    public static int Port => Server.Port;
+    public static string Url => Server.Url;
 
     static AutoRunBridgeController()
     {

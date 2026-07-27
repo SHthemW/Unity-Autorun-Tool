@@ -1,0 +1,237 @@
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Text;
+using System.Text.Json.Nodes;
+
+namespace UnityAutorun.Mcp
+{
+    public sealed class BridgeEndpointProvider
+    {
+        private const string ProjectRootEnvironmentVariable = "UNITY_AUTORUN_PROJECT_ROOT";
+        private const string ToolRootEnvironmentVariable = "UNITY_AUTORUN_TOOL_ROOT";
+        private const string StateDirectoryName = "UnityAutorunTool";
+        private const string StateFileName = "bridge-endpoint.json";
+
+        public BridgeEndpoint GetRequired()
+        {
+            string stateFilePath = GetStateFilePath();
+            if (!File.Exists(stateFilePath))
+            {
+                throw new InvalidOperationException(
+                    $"Unity AutoRun has not published a bridge endpoint for this project. "
+                    + $"Start it from Unity: Window/Auto Run MCP Bridge/Start. Expected state file: {stateFilePath}"
+                );
+            }
+
+            JsonObject state;
+            try
+            {
+                state = JsonNode.Parse(File.ReadAllText(stateFilePath))?.AsObject();
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Cannot read Unity AutoRun bridge endpoint state: {ex.Message}", ex);
+            }
+
+            string host = state?["host"]?.GetValue<string>();
+            int port = state?["port"]?.GetValue<int>() ?? 0;
+            int processId = state?["processId"]?.GetValue<int>() ?? 0;
+            if (string.IsNullOrWhiteSpace(host) || port < 1 || port > 65535 || processId < 1)
+            {
+                throw new InvalidOperationException($"Unity AutoRun bridge endpoint state is invalid: {stateFilePath}");
+            }
+
+            if (!IsProcessRunning(processId))
+            {
+                throw new InvalidOperationException(
+                    $"Unity AutoRun bridge endpoint state is stale because process {processId} is not running: {stateFilePath}"
+                );
+            }
+
+            return new BridgeEndpoint(
+                host,
+                port,
+                processId,
+                state?["projectRoot"]?.GetValue<string>(),
+                state?["updatedAtUtc"]?.GetValue<string>(),
+                stateFilePath
+            );
+        }
+
+        private static bool IsProcessRunning(int processId)
+        {
+            try
+            {
+                using (Process process = Process.GetProcessById(processId))
+                {
+                    return !process.HasExited;
+                }
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+            catch (Exception)
+            {
+                return true;
+            }
+        }
+
+        public JsonObject GetInfo()
+        {
+            try
+            {
+                BridgeEndpoint endpoint = GetRequired();
+                return JsonUtil.Obj(
+                    ("ok", true),
+                    ("code", "ok"),
+                    ("message", "Unity AutoRun bridge endpoint was provided dynamically."),
+                    ("data", JsonUtil.Obj(
+                        ("host", endpoint.Host),
+                        ("port", endpoint.Port),
+                        ("url", endpoint.Url),
+                        ("processId", endpoint.ProcessId),
+                        ("projectRoot", endpoint.ProjectRoot),
+                        ("updatedAtUtc", endpoint.UpdatedAtUtc)
+                    ))
+                );
+            }
+            catch (Exception ex)
+            {
+                return JsonUtil.Obj(
+                    ("ok", false),
+                    ("code", "bridge_endpoint_unavailable"),
+                    ("message", ex.Message),
+                    ("data", new JsonObject())
+                );
+            }
+        }
+
+        public static void PublishForCurrentProcess(string host, int port)
+        {
+            string projectRoot = ResolveProjectRoot();
+            string stateFilePath = GetStateFilePath();
+            string directory = Path.GetDirectoryName(stateFilePath);
+            Directory.CreateDirectory(directory);
+
+            JsonObject state = JsonUtil.Obj(
+                ("host", host),
+                ("port", port),
+                ("url", $"http://{host}:{port}/"),
+                ("processId", Environment.ProcessId),
+                ("projectRoot", projectRoot.Replace('\\', '/')),
+                ("updatedAtUtc", DateTime.UtcNow.ToString("O"))
+            );
+
+            string temporaryPath = stateFilePath + "." + Environment.ProcessId + ".tmp";
+            try
+            {
+                File.WriteAllText(temporaryPath, state.ToJsonString(), new UTF8Encoding(false));
+                if (File.Exists(stateFilePath))
+                {
+                    File.Delete(stateFilePath);
+                }
+
+                File.Move(temporaryPath, stateFilePath);
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath))
+                {
+                    File.Delete(temporaryPath);
+                }
+            }
+        }
+
+        public static void ClearForCurrentProcess()
+        {
+            try
+            {
+                string stateFilePath = GetStateFilePath();
+                if (!File.Exists(stateFilePath))
+                {
+                    return;
+                }
+
+                JsonObject state = JsonNode.Parse(File.ReadAllText(stateFilePath))?.AsObject();
+                if (state?["processId"]?.GetValue<int>() == Environment.ProcessId)
+                {
+                    File.Delete(stateFilePath);
+                }
+            }
+            catch (Exception)
+            {
+                // Runtime discovery cleanup must not hide the original shutdown reason.
+            }
+        }
+
+        private static string GetStateFilePath()
+        {
+            return Path.Combine(ResolveProjectRoot(), "Library", StateDirectoryName, StateFileName);
+        }
+
+        private static string ResolveProjectRoot()
+        {
+            string configured = Environment.GetEnvironmentVariable(ProjectRootEnvironmentVariable);
+            if (!string.IsNullOrWhiteSpace(configured))
+            {
+                return Path.GetFullPath(configured);
+            }
+
+            string startPath = Environment.GetEnvironmentVariable(ToolRootEnvironmentVariable);
+            if (string.IsNullOrWhiteSpace(startPath))
+            {
+                startPath = Environment.CurrentDirectory;
+            }
+
+            var directory = new DirectoryInfo(Path.GetFullPath(startPath));
+            while (directory != null)
+            {
+                if (Directory.Exists(Path.Combine(directory.FullName, "Assets"))
+                    && Directory.Exists(Path.Combine(directory.FullName, "ProjectSettings")))
+                {
+                    return directory.FullName;
+                }
+
+                directory = directory.Parent;
+            }
+
+            throw new InvalidOperationException(
+                $"Cannot resolve the Unity project root. Set {ProjectRootEnvironmentVariable} or run from inside a Unity project."
+            );
+        }
+    }
+
+    public sealed class BridgeEndpoint
+    {
+        public BridgeEndpoint(
+            string host,
+            int port,
+            int processId,
+            string projectRoot,
+            string updatedAtUtc,
+            string stateFilePath)
+        {
+            Host = host;
+            Port = port;
+            ProcessId = processId;
+            ProjectRoot = projectRoot;
+            UpdatedAtUtc = updatedAtUtc;
+            StateFilePath = stateFilePath;
+        }
+
+        public string Host { get; }
+        public int Port { get; }
+        public int ProcessId { get; }
+        public string ProjectRoot { get; }
+        public string UpdatedAtUtc { get; }
+        public string StateFilePath { get; }
+        public string BaseUrl => $"http://{Host}:{Port}";
+        public string Url => BaseUrl + "/";
+    }
+}

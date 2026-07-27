@@ -12,8 +12,7 @@ public sealed class McpInstallConfig
     public string Command;
     public List<string> Args;
     public string Cwd;
-    public string Host;
-    public string Port;
+    public string ProjectRoot;
     public string ToolRoot;
     public string PublishedDllPath;
 
@@ -27,8 +26,7 @@ public sealed class McpInstallConfig
             Command = "dotnet",
             Args = new List<string> { publishedDllPath, "mcp" },
             Cwd = toolRoot,
-            Host = "127.0.0.1",
-            Port = AutoRunBridgeServer.DefaultPort.ToString(),
+            ProjectRoot = GetProjectRootDirectory(),
             ToolRoot = toolRoot,
             PublishedDllPath = publishedDllPath
         };
@@ -52,6 +50,17 @@ public sealed class McpInstallConfig
         return mcpFolder.Parent.FullName;
     }
 
+    public static string GetProjectRootDirectory()
+    {
+        DirectoryInfo projectRoot = Directory.GetParent(UnityEngine.Application.dataPath);
+        if (projectRoot == null)
+        {
+            throw new InvalidOperationException("Cannot resolve the Unity project root directory.");
+        }
+
+        return projectRoot.FullName;
+    }
+
     public static string GetPublishedDllPath()
     {
         string projectPath = GetMcpProjectPath();
@@ -71,8 +80,7 @@ public sealed class McpInstallConfig
         builder.AppendLine("enabled = true");
         builder.AppendLine();
         builder.AppendLine("[mcp_servers.unity_autorun.env]");
-        builder.AppendLine("UNITY_AUTORUN_HOST = " + TomlString(Host));
-        builder.AppendLine("UNITY_AUTORUN_PORT = " + TomlString(Port));
+        builder.AppendLine("UNITY_AUTORUN_PROJECT_ROOT = " + TomlString(ProjectRoot));
         builder.AppendLine("UNITY_AUTORUN_TOOL_ROOT = " + TomlString(ToolRoot));
         return builder.ToString().TrimEnd();
     }
@@ -84,8 +92,7 @@ public sealed class McpInstallConfig
         builder.Append("\"command\":\"").Append(JsonEscape(Command)).Append("\",");
         builder.Append("\"args\":").Append(JsonStringArray(Args)).Append(",");
         builder.Append("\"env\":{");
-        builder.Append("\"UNITY_AUTORUN_HOST\":\"").Append(JsonEscape(Host)).Append("\",");
-        builder.Append("\"UNITY_AUTORUN_PORT\":\"").Append(JsonEscape(Port)).Append("\",");
+        builder.Append("\"UNITY_AUTORUN_PROJECT_ROOT\":\"").Append(JsonEscape(ProjectRoot)).Append("\",");
         builder.Append("\"UNITY_AUTORUN_TOOL_ROOT\":\"").Append(JsonEscape(ToolRoot)).Append("\"");
         builder.Append("}");
         builder.Append("}");

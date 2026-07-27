@@ -113,12 +113,17 @@ The bridge listens at:
 http://127.0.0.1:17331/
 ```
 
+If port `17331` is occupied, the bridge automatically tries each following port until one is available. The Auto Run window displays the actual URL in use.
+
+The selected endpoint is published under the current Unity project's `Library` directory. MCP configurations do not store a port; AI clients call `get_unity_bridge_port` to obtain the endpoint dynamically.
+
 ## CLI
 
 Run the CLI from the tool root. The easiest way is to open `Window > Auto Run Window`, then press `Open Terminal` in the `MCP` panel. This works for both UPM Git URL installs and manual `Assets/Editor` installs.
 
 ```powershell
 dotnet run --project mcp~/UnityAutorun.Mcp -- help
+dotnet run --project mcp~/UnityAutorun.Mcp -- bridge-port
 dotnet run --project mcp~/UnityAutorun.Mcp -- status
 dotnet run --project mcp~/UnityAutorun.Mcp -- play
 dotnet run --project mcp~/UnityAutorun.Mcp -- stop
@@ -139,8 +144,7 @@ Environment variables:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `UNITY_AUTORUN_HOST` | `127.0.0.1` | Unity bridge host. |
-| `UNITY_AUTORUN_PORT` | `17331` | Unity bridge port. |
+| `UNITY_AUTORUN_PROJECT_ROOT` | auto-detected by install | Project whose dynamically published bridge endpoint is used. |
 | `UNITY_AUTORUN_TOOL_ROOT` | auto-detected by install | Tool root used by MCP nav-map operations. |
 
 ## MCP Server
@@ -165,6 +169,7 @@ dotnet mcp~/UnityAutorun.Mcp/bin/Release/net8.0/publish/UnityAutorun.Mcp.dll mcp
 
 Available MCP tools:
 
+- `get_unity_bridge_port`
 - `unity_status`
 - `unity_play`
 - `unity_stop`
@@ -188,11 +193,12 @@ Available MCP tools:
 
 ## HTTP Bridge
 
-Start the bridge first, then call:
+Start the bridge first, then use the URL returned by `get_unity_bridge_port` or displayed in the Auto Run window:
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:17331/status
-Invoke-RestMethod http://127.0.0.1:17331/rpc `
+$bridgeUrl = "<dynamically published bridge URL>"
+Invoke-RestMethod "${bridgeUrl}status"
+Invoke-RestMethod "${bridgeUrl}rpc" `
   -Method Post `
   -ContentType application/json `
   -Body '{"id":"1","command":"click_button","payload":{"name":"StartButton","framework":"ugui"}}'
@@ -260,7 +266,7 @@ The toggles only filter visibility. `Clear` removes current entries. Messages ar
 ## Troubleshooting
 
 - If `Install MCP` fails, press `Publish MCP` first and confirm the selected folder is named `.codex` or `.claude`.
-- If CLI bridge calls fail, start the bridge in Unity and verify `http://127.0.0.1:17331/status`.
+- If CLI bridge calls fail, start the bridge in Unity and use `bridge-port` or the MCP tool `get_unity_bridge_port` to inspect the current endpoint.
 - If a UGUI button is not found, check the runtime GameObject name, normalized name, and optional text field.
 - If a route cannot run, inspect it with `route`, `resolve_ui_route`, or `get_ui_nav_subgraph` and check unsupported or unresolved transitions.
 - If `Navigation AutoRun` shows no targets, create or merge a real `mcp/ui-nav-map.json`, or start from the example map to verify the workflow.
