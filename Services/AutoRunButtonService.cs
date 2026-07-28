@@ -35,6 +35,44 @@ public static class AutoRunButtonService
             : ClickUGUI(param, matchIndex);
     }
 
+    public static AutoRunButtonResult ClickForNavigation(
+        AutoRunParam param,
+        int matchIndex)
+    {
+        if (param == null)
+        {
+            return AutoRunButtonResult.Fail(
+                "button_action_required",
+                "err: navigation click action is required.");
+        }
+
+        if (param.isFairyGUI)
+        {
+            return ClickFairyGUI(param);
+        }
+
+        Button button = FindUGUIButton(param, matchIndex);
+        if (button == null)
+        {
+            return AutoRunButtonResult.Fail(
+                "button_not_found",
+                $"err: button '{param.buttonName}' match {matchIndex + 1} not found.");
+        }
+
+        AutoRunButtonResult result = AutoRunPointerService.Click(
+            button,
+            param.buttonName + " match " + (matchIndex + 1));
+        if (result.ok)
+        {
+            result.message += " Path: "
+                + GetHierarchyPath(button.transform)
+                + ", Text: "
+                + GetButtonText(button);
+        }
+
+        return result;
+    }
+
     private static AutoRunButtonResult ClickUGUI(
         AutoRunParam param,
         int matchIndex)
@@ -70,63 +108,6 @@ public static class AutoRunButtonService
     public static int GetButtonMatchCount(AutoRunParam param)
     {
         return param.isFairyGUI ? 1 : FindUGUIButtons(param).Count;
-    }
-
-    public static AutoRunButtonResult ClickInactiveHierarchyUnique(
-        AutoRunParam param)
-    {
-        if (param == null
-            || param.isFairyGUI
-            || !string.Equals(
-                param.matchPolicy,
-                AutoRunParam.MATCH_UNIQUE,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return AutoRunButtonResult.Fail(
-                "inactive_button_fallback_unsupported",
-                "err: inactive-hierarchy fallback requires a unique uGUI selector.");
-        }
-
-        List<Button> candidates = FindContextualUGUIButtons(
-                FindLoadedSceneButtons(),
-                param)
-            .Where(button =>
-                button != null
-                && button.enabled
-                && button.interactable
-                && button.gameObject.activeSelf
-                && !button.gameObject.activeInHierarchy
-                && IsScopeRootActive(button.transform, param.scopeRootName))
-            .OrderBy(
-                button => GetHierarchyOrderKey(button.transform),
-                StringComparer.Ordinal)
-            .ToList();
-        if (candidates.Count != 1)
-        {
-            return AutoRunButtonResult.Fail(
-                "inactive_button_not_unique",
-                $"err: expected one inactive-hierarchy match for '{param.buttonName}', found {candidates.Count}.");
-        }
-
-        Button selected = candidates[0];
-        if (selected.onClick == null)
-        {
-            return AutoRunButtonResult.Fail(
-                "no_click_event",
-                $"err: inactive button '{param.buttonName}' has no click event.");
-        }
-
-        Transform inactiveAncestor = FindFirstInactiveAncestor(
-            selected.transform);
-        selected.onClick.Invoke();
-        return AutoRunButtonResult.Success(
-            $"unique button '{param.buttonName}' was invoked through inactive-hierarchy fallback. "
-            + "Path: "
-            + GetHierarchyPath(selected.transform)
-            + ", inactive ancestor: "
-            + (inactiveAncestor == null
-                ? "unknown"
-                : GetHierarchyPath(inactiveAncestor)));
     }
 
     public static string GetButtonMatchSignature(AutoRunParam param)
@@ -255,20 +236,14 @@ public static class AutoRunButtonService
         }
 
         Button selected = candidates[matchIndex];
-        if (selected.onClick == null)
-        {
-            return AutoRunButtonResult.Fail(
-                "no_click_event",
-                $"err: branch selector '{selected.name}' has no click event.");
-        }
-
-        selected.onClick.Invoke();
-        return AutoRunButtonResult.Success(
-            $"branch selector '{selected.name}' match {matchIndex + 1}/{candidates.Count} is clicked. "
-            + "Path: "
-            + GetHierarchyPath(selected.transform)
-            + ", Text: "
-            + GetButtonText(selected));
+        return AutoRunPointerService.Click(
+            selected,
+            "branch selector "
+                + selected.name
+                + " match "
+                + (matchIndex + 1)
+                + "/"
+                + candidates.Count);
     }
 
     public static AutoRunButtonResult ClickDismissButton(string scopeRootName)
@@ -304,19 +279,16 @@ public static class AutoRunButtonService
         }
 
         Button selected = candidates[0];
-        if (selected.onClick == null)
-        {
-            return AutoRunButtonResult.Fail(
-                "no_click_event",
-                $"err: dismiss button '{selected.name}' has no click event.");
-        }
-
-        selected.onClick.Invoke();
         string scopeMatch = scopedCandidates.Contains(selected)
             ? "scoped"
             : "global fallback";
-        return AutoRunButtonResult.Success(
-            $"dismiss button '{selected.name}' is clicked ({scopeMatch}). Path: {GetHierarchyPath(selected.transform)}");
+        return AutoRunPointerService.Click(
+            selected,
+            "dismiss button "
+                + selected.name
+                + " ("
+                + scopeMatch
+                + ")");
     }
 
     private static Button FindUGUIButton(AutoRunParam param, int matchIndex)
@@ -349,57 +321,27 @@ public static class AutoRunButtonService
         return SelectButtons(textMatchedBtns, param);
     }
 
-    private static List<Button> FindContextualUGUIButtons(
-        IEnumerable<Button> allButtons,
-        AutoRunParam param)
-    {
-        Button[] buttons = allButtons
-            .Where(button => button != null)
-            .ToArray();
-        List<Button> nameMatches = ApplySelectorContext(
-            FindButtonsByName(buttons, param.buttonName),
-            param);
-        if (nameMatches.Count > 0)
-        {
-            return nameMatches;
-        }
-
-        return ApplySelectorContext(
-            buttons.Where(
-                button => GetButtonText(button) == param.buttonText),
-            param);
-    }
-
-    private static IEnumerable<Button> FindLoadedSceneButtons()
-    {
-        return Resources.FindObjectsOfTypeAll<Button>()
-            .Where(button =>
-                button != null
-                && button.gameObject.scene.IsValid()
-                && button.gameObject.scene.isLoaded);
-    }
-
     private static List<Button> SelectButtons(
         List<Button> matches,
         AutoRunParam param)
     {
-        if (matches.Count == 1)
-        {
-            return matches;
-        }
-
-        if (!string.Equals(
-            param.matchPolicy,
-            AutoRunParam.MATCH_FIRST_INTERACTABLE,
-            StringComparison.OrdinalIgnoreCase))
-        {
-            return new List<Button>();
-        }
-
-        return matches
+        List<Button> interactableMatches = matches
             .Where(IsEffectivelyInteractable)
-            .OrderBy(button => GetHierarchyOrderKey(button.transform), StringComparer.Ordinal)
+            .OrderBy(
+                button => GetHierarchyOrderKey(button.transform),
+                StringComparer.Ordinal)
             .ToList();
+        if (string.Equals(
+                param.matchPolicy,
+                AutoRunParam.MATCH_FIRST_INTERACTABLE,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return interactableMatches;
+        }
+
+        return matches.Count == 1
+            ? interactableMatches
+            : new List<Button>();
     }
 
     private static List<Button> ApplySelectorContext(
@@ -444,47 +386,6 @@ public static class AutoRunButtonService
         }
 
         return false;
-    }
-
-    private static bool IsScopeRootActive(
-        Transform transform,
-        string scopeRootName)
-    {
-        if (string.IsNullOrWhiteSpace(scopeRootName))
-        {
-            return false;
-        }
-
-        string normalizedExpected =
-            NormalizeHierarchyName(scopeRootName);
-        for (Transform current = transform;
-            current != null;
-            current = current.parent)
-        {
-            if (NormalizeHierarchyName(current.name)
-                    == normalizedExpected)
-            {
-                return current.gameObject.activeInHierarchy;
-            }
-        }
-
-        return false;
-    }
-
-    private static Transform FindFirstInactiveAncestor(
-        Transform transform)
-    {
-        for (Transform current = transform;
-            current != null;
-            current = current.parent)
-        {
-            if (!current.gameObject.activeSelf)
-            {
-                return current;
-            }
-        }
-
-        return null;
     }
 
     private static bool HierarchyPathEndsWith(Transform transform, string expectedPath)

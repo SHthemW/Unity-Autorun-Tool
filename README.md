@@ -266,8 +266,12 @@ The editor `Navigation AutoRun` panel loads the map, lists navigable target view
 Route execution supports:
 
 - `click` steps backed by UGUI or FairyGUI button actions.
-- `wait` steps that wait for a view to appear.
+- UGUI navigation clicks verified through the active `EventSystem`: the selected button must be interactable and own the top pointer raycast before pointer-down, pointer-up, and pointer-click events are dispatched.
+- `wait` steps that wait for a view to become active, foreground, and stable.
+- Per-control `delay` values as post-click settle time before the next route step starts.
 - cancellation through the editor panel or bridge command.
+
+Navigation never invokes inactive-hierarchy UGUI controls. A covered target is not treated as reached merely because its GameObject exists; the route keeps waiting and reports the blocking pointer target on timeout.
 
 `start_ui_navigation` immediately returns a `navigationId` and stores the pending target in the editor session, allowing it to continue after entering Play Mode or reloading the script domain. `get_ui_navigation_status` returns `navigationStatus`, `navigationPhase`, `terminal`, `elapsedMilliseconds`, and compact target-view matches.
 

@@ -11,7 +11,10 @@ public sealed partial class AutoRunBridgeDispatcher
     private const float RepeatedControlBacktrackTriggerSeconds = 8f;
     private const float RepeatedControlBacktrackTimeoutSeconds = 5f;
     private const float BranchSelectorSettleTimeoutSeconds = 5f;
-    private const float InactiveUniqueControlProbeSeconds = 3f;
+    private const float RepeatedControlDiscoveryDelaySeconds = 3f;
+    private const float NavigationMinimumClickSettleSeconds = 0.1f;
+    private const float NavigationTargetStableSeconds = 0.15f;
+    private const int NavigationTargetStableFrames = 2;
 
     private AutoRunNavigationJob _navigationJob;
 
@@ -257,11 +260,6 @@ public sealed partial class AutoRunBridgeDispatcher
             : 0;
         if (!AutoRunButtonService.HasButton(step.action, matchIndex))
         {
-            if (TryClickInactiveHierarchyControl(step))
-            {
-                return;
-            }
-
             if (TryBeginRepeatedControlDiscovery(step))
             {
                 return;
@@ -278,16 +276,40 @@ public sealed partial class AutoRunBridgeDispatcher
         }
 
         int matchCount = AutoRunButtonService.GetButtonMatchCount(step.action);
-        AutoRunButtonResult result = AutoRunButtonService.Click(
+        AutoRunButtonResult result =
+            AutoRunButtonService.ClickForNavigation(
             step.action,
             matchIndex);
-        _navigationJob.Messages.Add(FormatStepMessage(step, result.message));
         if (!result.ok)
         {
-            CompleteNavigationFail(result.code, result.message);
+            LogNavigationDiagnosticOnce(
+                step,
+                "click-" + result.code + "-" + matchIndex,
+                result.message);
+            if (IsRetryableNavigationClick(result))
+            {
+                RememberUnreachableRepeatedControl(
+                    step,
+                    matchIndex,
+                    matchCount);
+                CompleteNavigationTimeout(
+                    step,
+                    "pointer-reachable button '"
+                        + step.action.buttonName
+                        + "' (controlId="
+                        + step.controlId
+                        + ")");
+                return;
+            }
+
+            CompleteNavigationFail(
+                result.code,
+                result.message);
             return;
         }
 
+        _navigationJob.Messages.Add(
+            FormatStepMessage(step, result.message));
         _navigationJob.ClickedSteps.Add(_navigationJob.CurrentIndex);
         _navigationJob.CurrentClickMatchIndex = matchIndex;
         RememberRepeatedControlProgress(
@@ -297,80 +319,74 @@ public sealed partial class AutoRunBridgeDispatcher
         _navigationJob.LastClickAt = EditorApplication.timeSinceStartup;
         _navigationJob.StepStartedAt = EditorApplication.timeSinceStartup;
         _navigationJob.StepElapsed = 0f;
+        ResetTargetObservation();
         WaitForNavigationClickTarget(step);
-    }
-
-    private bool TryClickInactiveHierarchyControl(
-        AutoRunNavStep step)
-    {
-        if (step.action == null
-            || _navigationJob.StepElapsed
-                < InactiveUniqueControlProbeSeconds
-            || !string.Equals(
-                step.action.matchPolicy,
-                AutoRunParam.MATCH_UNIQUE,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        AutoRunButtonResult result =
-            AutoRunButtonService.ClickInactiveHierarchyUnique(
-                step.action);
-        if (!result.ok)
-        {
-            return false;
-        }
-
-        _navigationJob.Messages.Add(
-            FormatStepMessage(step, result.message));
-        _navigationJob.ClickedSteps.Add(
-            _navigationJob.CurrentIndex);
-        _navigationJob.CurrentClickMatchIndex = 0;
-        _navigationJob.LastClickAt =
-            EditorApplication.timeSinceStartup;
-        _navigationJob.StepStartedAt =
-            EditorApplication.timeSinceStartup;
-        _navigationJob.StepElapsed = 0f;
-        WaitForNavigationClickTarget(step);
-        return true;
     }
 
     private void RunNavigationWaitStep(AutoRunNavStep step)
     {
         string waitForViewId = string.IsNullOrEmpty(step.waitForViewId) ? step.toViewId : step.waitForViewId;
-        if (AutoRunViewService.HasView(waitForViewId))
+        if (IsNavigationTargetStable(
+                waitForViewId,
+                0f,
+                out bool targetActive,
+                out string detail))
         {
-            _navigationJob.Messages.Add(FormatStepMessage(step, $"view '{waitForViewId}' appeared."));
+            _navigationJob.Messages.Add(
+                FormatStepMessage(
+                    step,
+                    $"view '{waitForViewId}' is active, foreground, and stable."));
             AdvanceNavigationStep();
             return;
         }
 
-        CompleteNavigationTimeout(step, $"view '{waitForViewId}'");
+        LogBlockedTargetOnce(step, waitForViewId, detail);
+        CompleteNavigationTargetTimeout(
+            step,
+            waitForViewId,
+            targetActive,
+            detail);
     }
 
     private void WaitForNavigationClickTarget(AutoRunNavStep step)
     {
         string waitForViewId = string.IsNullOrEmpty(step.waitForViewId) ? step.toViewId : step.waitForViewId;
+        float clickSettleSeconds = ResolveClickSettleSeconds(step);
         if (string.IsNullOrEmpty(waitForViewId))
         {
+            if (_navigationJob.StepElapsed >= clickSettleSeconds)
+            {
+                AdvanceNavigationStep();
+            }
+
+            return;
+        }
+
+        if (IsNavigationTargetStable(
+                waitForViewId,
+                clickSettleSeconds,
+                out bool targetActive,
+                out string detail))
+        {
+            _navigationJob.Messages.Add(
+                FormatStepMessage(
+                    step,
+                    $"view '{waitForViewId}' is active, foreground, and stable after {clickSettleSeconds:0.###}s settle time."));
             AdvanceNavigationStep();
             return;
         }
 
-        if (AutoRunViewService.HasView(waitForViewId))
-        {
-            _navigationJob.Messages.Add(FormatStepMessage(step, $"view '{waitForViewId}' appeared."));
-            AdvanceNavigationStep();
-            return;
-        }
-
-        if (TryClickNextRepeatedControl(step))
+        if (!targetActive && TryClickNextRepeatedControl(step))
         {
             return;
         }
 
-        CompleteNavigationTimeout(step, $"view '{waitForViewId}'");
+        LogBlockedTargetOnce(step, waitForViewId, detail);
+        CompleteNavigationTargetTimeout(
+            step,
+            waitForViewId,
+            targetActive,
+            detail);
     }
 
     private bool TryClickNextRepeatedControl(AutoRunNavStep step)
@@ -394,20 +410,198 @@ public sealed partial class AutoRunBridgeDispatcher
             return false;
         }
 
-        AutoRunButtonResult result = AutoRunButtonService.Click(
+        AutoRunButtonResult result =
+            AutoRunButtonService.ClickForNavigation(
             step.action,
             nextMatchIndex);
         _navigationJob.Messages.Add(
             FormatStepMessage(
                 step,
                 $"repeated-control attempt {nextMatchIndex + 1}/{matchCount}: {result.message}"));
+        if (!result.ok
+            && !IsRetryableNavigationClick(result))
+        {
+            CompleteNavigationFail(
+                result.code,
+                result.message);
+            return true;
+        }
+
         _navigationJob.CurrentClickMatchIndex = nextMatchIndex;
         RememberRepeatedControlProgress(
             step,
             nextMatchIndex,
             matchCount);
         _navigationJob.LastClickAt = EditorApplication.timeSinceStartup;
+        if (result.ok)
+        {
+            ResetTargetObservation();
+        }
+
         return true;
+    }
+
+    private void RememberUnreachableRepeatedControl(
+        AutoRunNavStep step,
+        int matchIndex,
+        int matchCount)
+    {
+        if (step.action == null
+            || !string.Equals(
+                step.action.matchPolicy,
+                AutoRunParam.MATCH_FIRST_INTERACTABLE,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _navigationJob.CurrentClickMatchIndex = matchIndex;
+        RememberRepeatedControlProgress(
+            step,
+            matchIndex,
+            matchCount);
+        _navigationJob.LastClickAt =
+            EditorApplication.timeSinceStartup;
+    }
+
+    private static bool IsRetryableNavigationClick(
+        AutoRunButtonResult result)
+    {
+        if (result == null)
+        {
+            return false;
+        }
+
+        return result.code == "button_not_found"
+            || result.code == "button_not_interactable"
+            || result.code == "button_not_pointer_reachable"
+            || result.code == "event_system_not_ready"
+            || result.code == "pointer_click_not_handled";
+    }
+
+    private bool IsNavigationTargetStable(
+        string viewId,
+        float minimumStepElapsed,
+        out bool targetActive,
+        out string detail)
+    {
+        targetActive = AutoRunViewService.HasView(viewId);
+        if (!targetActive)
+        {
+            ResetTargetObservation();
+            detail = "view is not active.";
+            return false;
+        }
+
+        if (!AutoRunViewService.IsViewForeground(
+                viewId,
+                out string foregroundDetail))
+        {
+            ResetTargetObservation();
+            detail = foregroundDetail;
+            return false;
+        }
+
+        double now = EditorApplication.timeSinceStartup;
+        if (_navigationJob.ObservedTargetStepIndex
+                != _navigationJob.CurrentIndex
+            || !string.Equals(
+                _navigationJob.ObservedTargetViewId,
+                viewId,
+                StringComparison.Ordinal))
+        {
+            _navigationJob.ObservedTargetStepIndex =
+                _navigationJob.CurrentIndex;
+            _navigationJob.ObservedTargetViewId = viewId;
+            _navigationJob.TargetReadySince = now;
+            _navigationJob.TargetReadyFrameCount = 0;
+            _navigationJob.LastTargetReadyFrame = -1;
+        }
+
+        int frame = Time.frameCount;
+        if (_navigationJob.LastTargetReadyFrame != frame)
+        {
+            _navigationJob.LastTargetReadyFrame = frame;
+            _navigationJob.TargetReadyFrameCount++;
+        }
+
+        double stableSeconds = now
+            - _navigationJob.TargetReadySince;
+        bool delayElapsed = _navigationJob.StepElapsed
+            >= minimumStepElapsed;
+        bool stable = stableSeconds
+                >= NavigationTargetStableSeconds
+            && _navigationJob.TargetReadyFrameCount
+                >= NavigationTargetStableFrames;
+        detail = !delayElapsed
+            ? $"waiting for {minimumStepElapsed:0.###}s post-click settle delay."
+            : !stable
+                ? "view is foreground but has not remained stable for enough rendered frames."
+                : foregroundDetail;
+        return delayElapsed && stable;
+    }
+
+    private static float ResolveClickSettleSeconds(
+        AutoRunNavStep step)
+    {
+        float configuredDelay = step?.action == null
+            ? 0f
+            : Mathf.Max(0f, step.action.delay);
+        return Mathf.Max(
+            NavigationMinimumClickSettleSeconds,
+            configuredDelay);
+    }
+
+    private void LogBlockedTargetOnce(
+        AutoRunNavStep step,
+        string viewId,
+        string detail)
+    {
+        if (string.IsNullOrEmpty(detail)
+            || detail == "view is not active."
+            || detail.StartsWith(
+                "waiting for ",
+                StringComparison.Ordinal)
+            || detail.StartsWith(
+                "view is foreground",
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        LogNavigationDiagnosticOnce(
+            step,
+            "target-blocked-" + viewId,
+            "target view '"
+                + viewId
+                + "' is active but not foreground-ready: "
+                + detail);
+    }
+
+    private void LogNavigationDiagnosticOnce(
+        AutoRunNavStep step,
+        string diagnostic,
+        string message)
+    {
+        string key = _navigationJob.CurrentIndex
+            + ":"
+            + diagnostic;
+        if (!_navigationJob.NavigationDiagnostics.Add(key))
+        {
+            return;
+        }
+
+        _navigationJob.Messages.Add(
+            FormatStepMessage(step, message));
+    }
+
+    private void ResetTargetObservation()
+    {
+        _navigationJob.ObservedTargetStepIndex = -1;
+        _navigationJob.ObservedTargetViewId = null;
+        _navigationJob.TargetReadySince = 0d;
+        _navigationJob.TargetReadyFrameCount = 0;
+        _navigationJob.LastTargetReadyFrame = -1;
     }
 
     private void RememberRepeatedControlProgress(
@@ -454,7 +648,7 @@ public sealed partial class AutoRunBridgeDispatcher
                 stepIndex);
         if (!knownCheckpoint
             && _navigationJob.StepElapsed
-                < InactiveUniqueControlProbeSeconds)
+                < RepeatedControlDiscoveryDelaySeconds)
         {
             return false;
         }
@@ -802,6 +996,7 @@ public sealed partial class AutoRunBridgeDispatcher
         _navigationJob.StepStartedAt =
             EditorApplication.timeSinceStartup;
         _navigationJob.StepElapsed = 0f;
+        ResetTargetObservation();
     }
 
     private void CompleteNavigationTimeout(AutoRunNavStep step, string target)
@@ -815,6 +1010,40 @@ public sealed partial class AutoRunBridgeDispatcher
         CompleteNavigationFail("navigation_wait_timeout", $"Navigation step '{step.transitionId}' timed out waiting for {target} within {timeout:0.##}s.");
     }
 
+    private void CompleteNavigationTargetTimeout(
+        AutoRunNavStep step,
+        string viewId,
+        bool targetActive,
+        string detail)
+    {
+        float timeout = step.timeout > 0f
+            ? step.timeout
+            : NavigationDefaultStepTimeoutSeconds;
+        if (_navigationJob.StepElapsed < timeout)
+        {
+            return;
+        }
+
+        if (!targetActive)
+        {
+            CompleteNavigationTimeout(
+                step,
+                $"stable foreground view '{viewId}' ({detail})");
+            return;
+        }
+
+        string code = detail != null
+                && detail.StartsWith(
+                    "view is covered",
+                    StringComparison.Ordinal)
+            ? "navigation_target_covered"
+            : "navigation_target_not_ready";
+        CompleteNavigationFail(
+            code,
+            $"Navigation step '{step.transitionId}' found target view '{viewId}', "
+            + $"but it did not become foreground-ready within {timeout:0.##}s: {detail}");
+    }
+
     private void AdvanceNavigationStep()
     {
         _navigationJob.CurrentIndex++;
@@ -822,6 +1051,7 @@ public sealed partial class AutoRunBridgeDispatcher
         _navigationJob.LastClickAt = 0d;
         _navigationJob.StepStartedAt = EditorApplication.timeSinceStartup;
         _navigationJob.StepElapsed = 0f;
+        ResetTargetObservation();
     }
 
     private string FormatStepMessage(AutoRunNavStep step, string message)
@@ -918,6 +1148,8 @@ public sealed partial class AutoRunBridgeDispatcher
             new Dictionary<int, int>();
         public HashSet<string> BacktrackDiagnostics { get; } =
             new HashSet<string>(StringComparer.Ordinal);
+        public HashSet<string> NavigationDiagnostics { get; } =
+            new HashSet<string>(StringComparer.Ordinal);
         public int CurrentIndex { get; set; }
         public int CurrentClickMatchIndex { get; set; } = -1;
         public double LastClickAt { get; set; }
@@ -929,6 +1161,11 @@ public sealed partial class AutoRunBridgeDispatcher
         public string BacktrackScrollFailure { get; set; }
         public bool BacktrackScrollAttempted { get; set; }
         public bool BacktrackBranchSwitchPending { get; set; }
+        public int ObservedTargetStepIndex { get; set; } = -1;
+        public string ObservedTargetViewId { get; set; }
+        public double TargetReadySince { get; set; }
+        public int TargetReadyFrameCount { get; set; }
+        public int LastTargetReadyFrame { get; set; } = -1;
         public float StepElapsed { get; set; }
         public double StepStartedAt { get; set; }
     }

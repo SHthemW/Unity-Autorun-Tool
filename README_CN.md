@@ -266,8 +266,12 @@ Bridge 命令包括：
 路由执行支持：
 
 - 由 UGUI 或 FairyGUI 按钮动作驱动的 `click` step。
-- 等待目标 view 出现的 `wait` step。
+- UGUI 导航点击会通过当前 `EventSystem` 验证：按钮必须可交互，并且是指针射线最上层命中对象，随后才依次派发 pointer-down、pointer-up 和 pointer-click。
+- 等待目标 view 处于活动、前台且状态稳定的 `wait` step。
+- 把控件的 `delay` 作为点击后的稳定等待时间，再执行下一步。
 - 通过编辑器面板或 Bridge 命令取消执行。
+
+导航不会调用非活动层级中的 UGUI 控件。目标 GameObject 即使已经存在，只要仍被其他 UI 遮挡，就不会被判定为到达；超时时会报告阻挡它的指针命中对象。
 
 `start_ui_navigation` 会立即返回一个 `navigationId`，并把待执行目标保存在编辑器会话中，因此进入 Play Mode 或脚本域重载后仍可继续。`get_ui_navigation_status` 返回 `navigationStatus`、`navigationPhase`、`terminal`、`elapsedMilliseconds` 和紧凑的目标视图匹配结果。
 
