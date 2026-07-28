@@ -148,6 +148,7 @@ namespace UnityAutorun.Mcp
             if (name == "save_ui_nav_map") return UiNavMapWriter.Save(args);
             if (name == "get_nav_map_summary") return UiNavMapPatchTools.GetSummary(args);
             if (name == "scan_ui_nav_sources") return UiNavMapSourceScanner.Scan(args);
+            if (name == "trace_ui_navigation_calls") return UiNavMapSourceScanner.TraceNavigationCalls(args);
             if (name == "backfill_ui_nav_map_from_sources") return UiNavMapSourceScanner.Backfill(args);
             if (name == "query_nav_map_items") return UiNavMapPatchTools.QueryItems(args);
             if (name == "get_ui_nav_subgraph") return UiNavMapPatchTools.GetSubgraph(args);

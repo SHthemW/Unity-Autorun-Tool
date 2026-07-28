@@ -17,12 +17,37 @@ public sealed partial class NavigationAutoRunMap
         }
 
         string normalized = NormalizeViewToken(value);
-        NavigationMapView view = Views().FirstOrDefault(item =>
-            item.id == value
-            || item.name == value
-            || IsViewTokenMatch(NormalizeViewToken(item.id), normalized)
-            || IsViewTokenMatch(NormalizeViewToken(item.name), normalized));
+        List<NavigationMapView> views = Views().ToList();
+        NavigationMapView view = views.FirstOrDefault(item =>
+            item.id == value || item.name == value);
+        if (view == null)
+        {
+            view = views.FirstOrDefault(item =>
+                NormalizeViewToken(item.id) == normalized
+                || NormalizeViewToken(item.name) == normalized);
+        }
+
+        if (view == null)
+        {
+            view = views
+                .Where(item =>
+                    IsViewTokenMatch(NormalizeViewToken(item.id), normalized)
+                    || IsViewTokenMatch(NormalizeViewToken(item.name), normalized))
+                .OrderBy(item => ViewTokenDistance(item, normalized))
+                .ThenBy(item => item.id)
+                .FirstOrDefault();
+        }
+
         return view != null ? view.id : value;
+    }
+
+    private static int ViewTokenDistance(NavigationMapView view, string target)
+    {
+        string id = NormalizeViewToken(view?.id);
+        string name = NormalizeViewToken(view?.name);
+        int idDistance = string.IsNullOrEmpty(id) ? int.MaxValue : Math.Abs(id.Length - target.Length);
+        int nameDistance = string.IsNullOrEmpty(name) ? int.MaxValue : Math.Abs(name.Length - target.Length);
+        return Math.Min(idDistance, nameDistance);
     }
 
     private string ResolveOpenViewId(string value)

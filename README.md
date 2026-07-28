@@ -193,6 +193,7 @@ Available MCP tools:
 - `save_ui_nav_map`
 - `get_nav_map_summary`
 - `scan_ui_nav_sources`
+- `trace_ui_navigation_calls`
 - `backfill_ui_nav_map_from_sources`
 - `query_nav_map_items`
 - `get_ui_nav_subgraph`
@@ -209,6 +210,8 @@ Available MCP tools:
 For requests such as "start the game and open a UI view", call `start_ui_navigation` once, then long-poll `get_ui_navigation_status` until `terminal=true`. Unity handles startup, login gates, route resolution, and per-step waits internally, so the AI does not need to repeatedly call `list_buttons`, read the full navigation map, or inspect broad logs.
 
 Bridge tools resolve the dynamically published project endpoint automatically. `get_unity_bridge_port` is diagnostic only and is not a prerequisite for other bridge tools. `get_current_ui_nav_map` returns a summary by default; pass `full=true` only when the complete file is explicitly required.
+
+For navigation-map generation, `scan_ui_nav_sources` reports source coverage and `trace_ui_navigation_calls` returns bounded button call-chain evidence across helper methods and component types. Trace candidates are intentionally not executable edges: the external AI must decide the source view, referenced-view role, transition kind, control metadata, automation, and confidence, then validate and merge an incremental patch. `backfill_ui_nav_map_from_sources` only adds deterministic source-discovered views and unresolved evidence; it never infers controls, transitions, or routes.
 
 ## HTTP Bridge
 

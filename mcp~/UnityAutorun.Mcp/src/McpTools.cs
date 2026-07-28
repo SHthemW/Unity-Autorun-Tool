@@ -20,8 +20,9 @@ namespace UnityAutorun.Mcp
                 Tool("get_current_ui_nav_map", "Return a compact summary of the canonical UI navigation map. Set full=true only when the complete map is explicitly required.", ("full", "boolean")),
                 Tool("save_ui_nav_map", "Save a generated UI navigation map to the canonical Unity-Autorun-Tool/mcp/ui-nav-map.json path. Use this instead of writing the file manually.", ("map", "object"), ("mapJson", "string")),
                 Tool("get_nav_map_summary", "Return compact counts, missing references, isolated views, and high-degree views without returning the full nav map.", ("mapPath", "string")),
-                Tool("scan_ui_nav_sources", "Scan Unity Assets for UIForm ids, prefabs, classes, OpenUIForm calls, procedure flows, and map coverage gaps. Use before generating large nav maps.", ("mapPath", "string"), ("kind", "string"), ("query", "string"), ("offset", "number"), ("limit", "number"), ("includeText", "boolean")),
-                Tool("backfill_ui_nav_map_from_sources", "Generate and merge a source-derived baseline nav map from UIForm ids, prefabs, classes, OpenUIForm calls, procedure flows, and evidence backlog.", ("mapPath", "string"), ("previewOnly", "boolean"), ("includeEvidenceBacklog", "boolean")),
+                Tool("scan_ui_nav_sources", "Scan Unity Assets for UI/view ids, prefabs, classes, source references, coverage gaps, and the count of traceable button call-chain candidates.", ("mapPath", "string"), ("kind", "string"), ("query", "string"), ("offset", "number"), ("limit", "number"), ("includeText", "boolean"), ("knownViewNames", StringArray())),
+                Tool("trace_ui_navigation_calls", "Trace button handlers through a bounded local and cross-type call graph. Returns source/view-reference candidates as evidence only and never creates executable transitions or routes; external AI must decide and submit a patch.", ("mapPath", "string"), ("query", "string"), ("offset", "number"), ("limit", "number"), ("knownViewNames", StringArray())),
+                Tool("backfill_ui_nav_map_from_sources", "Preview or merge deterministic source-discovered views and unresolved evidence. This tool never infers controls, transitions, routes, automation, or confidence.", ("mapPath", "string"), ("previewOnly", "boolean"), ("includeEvidenceBacklog", "boolean")),
                 Tool("query_nav_map_items", "Page through one nav map section by text query. Use section views, controls, transitions, routes, or unresolved.", ("mapPath", "string"), ("section", Enum("views", "controls", "transitions", "routes", "unresolved")), ("query", "string"), ("offset", "number"), ("limit", "number")),
                 Tool("get_ui_nav_subgraph", "Return a local nav map subgraph around a view, from/to target, or query. Use this instead of reading a huge full map.", ("mapPath", "string"), ("viewId", "string"), ("from", "string"), ("to", "string"), ("query", "string"), ("depth", "number")),
                 Tool("validate_ui_nav_map_patch", "Validate an incremental nav map patch against the current canonical map before merging.", ("mapPath", "string"), ("patch", "object"), ("patchJson", "string")),
@@ -60,6 +61,14 @@ namespace UnityAutorun.Mcp
             }
 
             return JsonUtil.Obj(("type", "string"), ("enum", array));
+        }
+
+        private static JsonObject StringArray()
+        {
+            return JsonUtil.Obj(
+                ("type", "array"),
+                ("items", JsonUtil.Obj(("type", "string")))
+            );
         }
     }
 }

@@ -121,12 +121,37 @@ namespace UnityAutorun.Mcp
             }
 
             string normalized = NormalizeViewToken(value);
-            JsonObject view = Objects("views").FirstOrDefault(item =>
-                Text(item, "id") == value
-                || Text(item, "name") == value
-                || IsViewTokenMatch(NormalizeViewToken(Text(item, "id")), normalized)
-                || IsViewTokenMatch(NormalizeViewToken(Text(item, "name")), normalized));
+            List<JsonObject> views = Objects("views").ToList();
+            JsonObject view = views.FirstOrDefault(item =>
+                Text(item, "id") == value || Text(item, "name") == value);
+            if (view == null)
+            {
+                view = views.FirstOrDefault(item =>
+                    NormalizeViewToken(Text(item, "id")) == normalized
+                    || NormalizeViewToken(Text(item, "name")) == normalized);
+            }
+
+            if (view == null)
+            {
+                view = views
+                    .Where(item =>
+                        IsViewTokenMatch(NormalizeViewToken(Text(item, "id")), normalized)
+                        || IsViewTokenMatch(NormalizeViewToken(Text(item, "name")), normalized))
+                    .OrderBy(item => ViewTokenDistance(item, normalized))
+                    .ThenBy(item => Text(item, "id"))
+                    .FirstOrDefault();
+            }
+
             return view?["id"]?.GetValue<string>() ?? value;
+        }
+
+        private static int ViewTokenDistance(JsonObject view, string target)
+        {
+            string id = NormalizeViewToken(Text(view, "id"));
+            string name = NormalizeViewToken(Text(view, "name"));
+            int idDistance = string.IsNullOrEmpty(id) ? int.MaxValue : Math.Abs(id.Length - target.Length);
+            int nameDistance = string.IsNullOrEmpty(name) ? int.MaxValue : Math.Abs(name.Length - target.Length);
+            return Math.Min(idDistance, nameDistance);
         }
 
         private static string NormalizeViewToken(string value)

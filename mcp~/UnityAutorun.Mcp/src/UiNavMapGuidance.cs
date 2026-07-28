@@ -19,6 +19,7 @@ namespace UnityAutorun.Mcp
                     "get_current_ui_nav_map",
                     "get_nav_map_summary",
                     "scan_ui_nav_sources",
+                    "trace_ui_navigation_calls",
                     "backfill_ui_nav_map_from_sources",
                     "query_nav_map_items",
                     "get_ui_nav_subgraph",
@@ -54,10 +55,12 @@ namespace UnityAutorun.Mcp
             return new JsonArray
             {
                 "Call get_nav_map_guidance before starting UI navigation map work.",
-                "Call scan_ui_nav_sources before broad map work to get machine-checkable UIForm, prefab, class, button-binding, OpenUIForm, and procedure-flow coverage gaps.",
+                "Call scan_ui_nav_sources before broad map work to get machine-checkable UI/view, prefab, class, source-reference, and button-binding coverage gaps.",
+                "Call trace_ui_navigation_calls for deep button-handler chains across helper methods and component types. Its output is evidence only, not confirmed graph edges.",
                 "Call get_current_ui_nav_map before changing the map and preserve valid existing entries.",
                 "For large maps or first-time generation, do not generate or rewrite the full map in one pass.",
-                "When scan_ui_nav_sources reports important missing views or open targets, call backfill_ui_nav_map_from_sources with previewOnly=true before manual route/control patches.",
+                "When scan_ui_nav_sources reports important missing views, call backfill_ui_nav_map_from_sources with previewOnly=true. Backfill adds only deterministic views and unresolved evidence; it never infers controls, transitions, routes, automation, or confidence.",
+                "External AI must decide source view, referenced-view role, target view, transition kind, control metadata, automation, and confidence before creating a patch from trace evidence.",
                 "Keep ui-nav-map.json compact and actionable: include only views, controls, transitions, routes, and concise unresolved navigation blockers needed for navigation.",
                 "Do not copy broad source evidence, long code excerpts, or project-wide inventories into ui-nav-map.json.",
                 "Do not stop at clickable prefab buttons. Include indirect state machine, scene loading, event, data context, lifecycle, and project-specific open/show/navigation API chains as flow transitions.",
@@ -72,8 +75,9 @@ namespace UnityAutorun.Mcp
             return "Before UI navigation work, call get_nav_map_guidance. "
                 + "Read the existing map with get_current_ui_nav_map. "
                 + "For large maps or first-time generation, call get_nav_map_summary and scan_ui_nav_sources. "
-                + "Use source coverage gaps to find missing UIForm, prefab, class, button-binding, OpenUIForm, and procedure-flow evidence. "
-                + "When important coverage gaps exist, call backfill_ui_nav_map_from_sources with previewOnly=true before manual route/control patches. "
+                + "Use source coverage gaps to find missing UI/view, prefab, class, button-binding, and source-reference evidence. "
+                + "Call trace_ui_navigation_calls for deep button-handler call chains, including cross-component calls. Treat every candidate as evidence requiring external AI review. "
+                + "When important deterministic view gaps exist, call backfill_ui_nav_map_from_sources with previewOnly=true. It does not generate controls, transitions, routes, automation, or confidence. "
                 + "Then work in small slices with query_nav_map_items or get_ui_nav_subgraph. "
                 + "Generate incremental patches by module, prefab folder, scene, target view, or route family. "
                 + "Keep ui-nav-map.json compact and actionable; do not copy broad source evidence into the map. "
@@ -89,11 +93,13 @@ namespace UnityAutorun.Mcp
             {
                 "Use this get_nav_map_guidance response as the workflow brief before starting UI navigation map work.",
                 "Read Unity UI prefabs, scene roots, UI controller scripts, and surrounding application flow code directly from the project.",
-                "Infer project-specific UI open, close, routing, event, state, and scene APIs from code evidence. Do not require or assume a manually supplied API allowlist.",
+                "As the external AI, infer project-specific UI open, close, routing, event, state, and scene APIs from code evidence. Do not require or assume a manually supplied API allowlist.",
                 "Call get_current_ui_nav_map before changing an existing navigation map and preserve valid entries.",
                 "Call get_nav_map_summary before broad map work to understand current map size and obvious reference issues.",
-                "Call scan_ui_nav_sources before broad map work. Treat coverage.uiFormIdsMissingInMap, prefabsMissingInMap, classesMissingInMap, openTargetsMissingInMap, and buttonBindingViewsMissingInMap as generation backlog.",
-                "Call backfill_ui_nav_map_from_sources with previewOnly=true when source coverage gaps are important, then merge or manually patch the relevant slice through merge_ui_nav_map_patch.",
+                "Call scan_ui_nav_sources before broad map work. Treat coverage.uiFormIdsMissingInMap, prefabsMissingInMap, classesMissingInMap, viewClassesMissingInMap, openTargetsMissingInMap, and buttonBindingViewsMissingInMap as generation backlog.",
+                "Call trace_ui_navigation_calls for deep button flows. Use knownViewNames when the project uses custom view names that source discovery cannot identify.",
+                "Do not convert a trace candidate directly into a transition. Decide whether the referenced view is opened, closed, queried, or unrelated, and resolve ambiguous source views from the supplied call chain and source locations.",
+                "Call backfill_ui_nav_map_from_sources with previewOnly=true when deterministic source view gaps are important. Backfill intentionally returns empty controls, transitions, and routes; create those only in an external-AI-authored patch.",
                 "For large or missing maps, split analysis by UI module, prefab folder, scene, target view, or route family instead of producing one full JSON object.",
                 "For each slice, identify only actionable views, controls, reachability transitions, routes, and unresolved blockers needed for navigation.",
                 "For application startup and scene flows, inspect state machine classes, data context keys, scene loading calls, state changes, lifecycle callbacks, events, and project-specific open/show/navigation calls.",
@@ -175,6 +181,7 @@ namespace UnityAutorun.Mcp
                 "For app-driven transitions, include automation.mode=wait and waitForViewId when automation should wait for the target view to appear.",
                 "Use automation.mode=manual for transitions that require user input, platform auth, payment, or other actions AutoRun cannot perform.",
                 "Set transition confidence from 0.0 to 1.0. Include only short source summaries when useful; keep detailed source evidence out of ui-nav-map.json.",
+                "trace_ui_navigation_calls never assigns transition confidence or automation. The external AI must derive those fields from the call chain, prefab evidence, current map, and any required runtime evidence.",
                 "Do not invent a transition when the target view is unclear. Put uncertain links in unresolved unless a human has confirmed them, in which case use kind=inferred with source.type=human.",
                 "For FairyGUI controls, set framework to fairygui and autoRun.isFairyGUI to true.",
                 "For uGUI controls, set framework to ugui and autoRun.isFairyGUI to false.",
@@ -193,7 +200,9 @@ namespace UnityAutorun.Mcp
                 "Call get_nav_map_guidance before writing the file when available.",
                 "Call get_current_ui_nav_map before generating changes to an existing map.",
                 "Call get_nav_map_summary and scan_ui_nav_sources before broad work or first-time generation.",
-                "Do not consider broad generation complete while scan_ui_nav_sources reports important UIForm, prefab, class, button-binding, OpenUIForm, or procedure-flow coverage gaps that are neither mapped nor recorded in unresolved.",
+                "Call trace_ui_navigation_calls for important source views and targets, especially when a click reaches a view reference through helper methods or another component.",
+                "Do not consider broad generation complete while scan_ui_nav_sources reports important UI/view, prefab, class, button-binding, or source-reference coverage gaps that are neither mapped nor recorded in unresolved.",
+                "Before merging a trace-derived edge, confirm its source view and referenced-view role; a call-chain reference alone is not proof that the view opens.",
                 "For large or first-time maps, call validate_ui_nav_map_patch and merge_ui_nav_map_patch for each slice.",
                 "After merge_ui_nav_map_patch or save_ui_nav_map succeeds, call list_ui_routes with mapPath set to absoluteOutputPath.",
                 "Call resolve_ui_route with from/to or route id for each important target.",
@@ -291,7 +300,8 @@ namespace UnityAutorun.Mcp
             return "Use the unity-autorun MCP tool get_nav_map_guidance first. "
                 + "Read the current map with get_current_ui_nav_map before making changes. "
                 + "Call get_nav_map_summary and scan_ui_nav_sources before broad work. If the map is missing or large, generate it incrementally instead of producing one full JSON object. "
-                + "Use scan coverage gaps as the backlog, and call backfill_ui_nav_map_from_sources with previewOnly=true when important source-backed views or flows are missing. "
+                + "Use scan coverage gaps as the backlog, and call backfill_ui_nav_map_from_sources with previewOnly=true when deterministic source-backed views are missing. Backfill never creates controls, transitions, routes, automation, or confidence. "
+                + "Call trace_ui_navigation_calls for deep button-handler and cross-component chains. Treat its items as evidence and make the graph decisions externally before authoring a patch. "
                 + "Analyze Unity UI prefabs, UI scripts, and surrounding application flow code in slices by module, prefab folder, scene, target view, or route family. "
                 + "Do not stop at direct button clicks; include state changes, scene loading, data context, events, lifecycle, and project-specific open/show/navigation API chains as indirect flow transitions. "
                 + "For startup flows, explicitly model login, auth, update, privacy, notice, tutorial, and loading gates instead of assuming app start reaches the main UI. "

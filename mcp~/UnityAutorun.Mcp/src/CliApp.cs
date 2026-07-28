@@ -67,7 +67,18 @@ namespace UnityAutorun.Mcp
                     ("query", Read(args, "--query", "")),
                     ("offset", ReadInt(args, "--offset", 0)),
                     ("limit", ReadInt(args, "--limit", 50)),
-                    ("includeText", ReadBool(args, "--include-text", true))
+                    ("includeText", ReadBool(args, "--include-text", true)),
+                    ("knownViewNames", ReadMany(args, "--known-view"))
+                ));
+            }
+            else if (command == "trace-nav-calls")
+            {
+                result = UiNavMapSourceScanner.TraceNavigationCalls(JsonUtil.Obj(
+                    ("mapPath", Read(args, "--map")),
+                    ("query", Read(args, "--query", "")),
+                    ("offset", ReadInt(args, "--offset", 0)),
+                    ("limit", ReadInt(args, "--limit", 50)),
+                    ("knownViewNames", ReadMany(args, "--known-view"))
                 ));
             }
             else if (command == "backfill-nav-map")
@@ -256,6 +267,21 @@ namespace UnityAutorun.Mcp
             return bool.TryParse(args[index + 1], out value) ? value : fallback;
         }
 
+        private static JsonArray ReadMany(string[] args, string option)
+        {
+            var result = new JsonArray();
+            for (int i = 0; i < args.Length - 1; i++)
+            {
+                if (args[i] == option && !args[i + 1].StartsWith("--", StringComparison.Ordinal))
+                {
+                    result.Add(args[i + 1]);
+                    i++;
+                }
+            }
+
+            return result;
+        }
+
         private static void PrintUsage()
         {
             Console.WriteLine("Unity AutoRun MCP\n\n"
@@ -270,7 +296,8 @@ namespace UnityAutorun.Mcp
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- click --name ButtonName [--text Text] [--framework ugui|fairygui]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- run-sequence --json-file sequence.json\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- nav-guidance\n"
-                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- scan-nav-sources [--map mcp/ui-nav-map.json]\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- scan-nav-sources [--map mcp/ui-nav-map.json] [--known-view ViewName]\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- trace-nav-calls [--map mcp/ui-nav-map.json] [--query ViewName] [--known-view ViewName]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- backfill-nav-map [--map mcp/ui-nav-map.json] [--preview true|false]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- routes --map mcp/ui-nav-map.example.json\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- route --map mcp/ui-nav-map.example.json --from A --to C\n"
