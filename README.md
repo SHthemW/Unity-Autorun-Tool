@@ -99,7 +99,7 @@ The `MCP` panel in `Window > Auto Run Window` groups bridge controls, detected M
 - `Install MCP` updates a selected `.codex/config.toml` or `.claude/.mcp.json`.
 - `Open Terminal` opens a terminal at the tool root.
 - `Open Root` opens this tool folder.
-- `Preview Nav Map` renders `Gen/ui-nav-map.json` as `Gen/ui-nav-map.preview.html`.
+- `Preview Nav Map` uses the bundled Viz.js / Graphviz layout engine to render `Gen/ui-nav-map.json` as an interactive `Gen/ui-nav-map.preview.html`.
 
 You can also start or stop the bridge from:
 
@@ -260,6 +260,8 @@ The map describes:
 - `candidateDecisions`: compact review results for every static call-chain candidate. This ledger is used only for generation completeness and is ignored by runtime navigation.
 
 The map carries `schemaVersion`, `generatorVersion`, and an incrementing `mapVersion`. Every write refreshes these fields and marks candidate coverage as `review-required`; only successful finalization restores `generation.status=complete`. The editor and MCP route loader reject maps whose format version, generator version, or completion state is stale.
+
+`Preview Nav Map` uses the Graphviz `dot` engine to lay out views that participate in valid transitions and groups parallel transitions between the same pair of views into one edge. Views without a valid transition remain in the sidebar instead of widening the canvas. The preview supports search by name, id, or prefab path, one-click neighborhood focus, hover edge labels, panning, zooming, and fit-to-view. All rendering dependencies are bundled for offline use; the generated HTML does not access an external CDN.
 
 The editor `Navigation AutoRun` panel loads the map, lists navigable target views, filters them by search text, and runs a route with `Go!`. If Unity is not already in Play Mode, it stores the pending target, enters Play Mode, and continues after Play Mode starts.
 

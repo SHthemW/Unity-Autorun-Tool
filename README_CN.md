@@ -99,7 +99,7 @@ AutorunToolData/config.xml
 - `Install MCP` 会更新选中的 `.codex/config.toml` 或 `.claude/.mcp.json`。
 - `Open Terminal` 在工具根目录打开终端。
 - `Open Root` 打开当前工具目录。
-- `Preview Nav Map` 将 `Gen/ui-nav-map.json` 渲染为 `Gen/ui-nav-map.preview.html`。
+- `Preview Nav Map` 使用内置的 Viz.js / Graphviz 自动布局，将 `Gen/ui-nav-map.json` 渲染为可交互的 `Gen/ui-nav-map.preview.html`。
 
 也可以通过独立菜单启动或停止 Bridge：
 
@@ -260,6 +260,8 @@ Bridge 命令包括：
 - `candidateDecisions`：每个静态调用链候选的紧凑审核结果，仅用于生成完整性检查，不参与运行时导航。
 
 导航图包含 `schemaVersion`、`generatorVersion` 和递增的 `mapVersion`。每次写入都会更新版本并把候选覆盖状态置为 `review-required`，最终化成功后才恢复为 `generation.status=complete`。编辑器和 MCP 路由加载器会拒绝格式版本、生成器版本或完成状态不匹配的旧地图，从而避免继续使用未重新生成的文件。
+
+`Preview Nav Map` 会用 Graphviz `dot` 自动排列存在有效 transition 的视图，并将同一对视图之间的重复 transition 聚合为一条边。没有有效 transition 的视图保留在右侧列表中，不再拉宽主图。预览支持按名称、id 或 Prefab 路径搜索，点击节点聚焦相邻路线，悬停查看边标签，以及拖动画布、滚轮缩放和一键适配。所有渲染依赖都随工具离线提供，生成后的 HTML 不访问外部 CDN。
 
 编辑器 `Navigation AutoRun` 面板会加载导航图，列出可导航目标视图，支持搜索过滤，并通过 `Go!` 执行路由。如果 Unity 尚未处于 Play Mode，工具会保存待执行目标，进入 Play Mode，然后在 Play Mode 启动后继续执行。
 
