@@ -92,6 +92,12 @@ namespace UnityAutorun.Mcp
                     item => item.Status == "null-reference")
                     ? "null-reference"
                     : "not-resolved";
+            bool nestedReusableControl =
+                candidate.SourceViewCandidates.Count == 1
+                && !string.Equals(
+                    candidate.Binding.OwnerType,
+                    candidate.SourceViewCandidates[0],
+                    StringComparison.OrdinalIgnoreCase);
 
             return JsonUtil.Obj(
                 ("referenceRoleHint", referenceRole),
@@ -100,6 +106,12 @@ namespace UnityAutorun.Mcp
                 ("recommendedOutcome", recommendation),
                 ("nonTransitionRequiresContradictoryEvidence", strongTopology),
                 ("controlResolution", controlResolution),
+                ("controlMultiplicityHint", nestedReusableControl
+                    ? "potentially-repeated-nested-prefab"
+                    : "view-owned-control"),
+                ("recommendedMatchPolicy", nestedReusableControl
+                    ? "first-interactable-when-any-instance-is-valid"
+                    : "unique"),
                 ("mappedEndpoints", JsonUtil.Obj(
                     ("fromViewIds", StringJsonArray(sourceViewIds)),
                     ("toViewIds", StringJsonArray(targetViewIds))

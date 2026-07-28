@@ -158,45 +158,136 @@ public sealed partial class NavigationAutoRunMap
         return string.IsNullOrEmpty(view.name) ? view.id : view.name;
     }
 
-    private static AutoRunParam NormalizeAutoRun(AutoRunParam autoRun, NavigationMapControl control)
+    private AutoRunParam NormalizeAutoRun(AutoRunParam autoRun, NavigationMapControl control)
     {
+        AutoRunParam normalized;
         if (autoRun == null)
         {
-            return CreateAutoRunFromControl(control);
+            normalized = CreateAutoRunFromControl(control);
         }
-
-        string objectPathButtonName = GetObjectPathLeaf(control?.objectPath);
-        if (!IsDefaultAction(autoRun) && !IsFairyGUIControl(control) && !string.IsNullOrEmpty(objectPathButtonName))
+        else
         {
-            return CopyAutoRunWithButtonName(autoRun, objectPathButtonName);
+            string objectPathButtonName = GetObjectPathLeaf(control?.objectPath);
+            if (!IsDefaultAction(autoRun)
+                && !IsFairyGUIControl(control)
+                && !string.IsNullOrEmpty(objectPathButtonName))
+            {
+                normalized = CopyAutoRunWithButtonName(autoRun, objectPathButtonName);
+            }
+            else if (control == null || !IsDefaultAction(autoRun))
+            {
+                normalized = CopyAutoRun(autoRun);
+            }
+            else
+            {
+                AutoRunParam fallback = CreateAutoRunFromControl(control);
+                if (fallback == null)
+                {
+                    normalized = CopyAutoRun(autoRun);
+                }
+                else
+                {
+                    fallback.delay = autoRun.delay;
+                    fallback.isTest = autoRun.isTest;
+                    normalized = fallback;
+                }
+            }
         }
 
-        if (control == null || !IsDefaultAction(autoRun))
+        return AddControlSelectorContext(normalized, control);
+    }
+
+    private AutoRunParam AddControlSelectorContext(
+        AutoRunParam autoRun,
+        NavigationMapControl control)
+    {
+        if (autoRun == null || control == null || autoRun.isFairyGUI)
         {
             return autoRun;
         }
 
-        AutoRunParam fallback = CreateAutoRunFromControl(control);
-        if (fallback == null)
+        autoRun.objectPath = string.IsNullOrWhiteSpace(autoRun.objectPath)
+            ? control.objectPath
+            : autoRun.objectPath;
+        string scopeRootName = ResolveControlScopeRootName(control);
+        if (string.IsNullOrWhiteSpace(autoRun.scopeRootName))
         {
-            return autoRun;
+            autoRun.scopeRootName = scopeRootName;
         }
 
-        fallback.delay = autoRun.delay;
-        fallback.isTest = autoRun.isTest;
-        return fallback;
+        if (string.IsNullOrWhiteSpace(autoRun.matchPolicy)
+            || autoRun.matchPolicy == AutoRunParam.MATCH_UNIQUE)
+        {
+            autoRun.matchPolicy = IsPotentiallyRepeatedControl(
+                control,
+                scopeRootName)
+                ? AutoRunParam.MATCH_FIRST_INTERACTABLE
+                : AutoRunParam.MATCH_UNIQUE;
+        }
+
+        return autoRun;
     }
 
     private static AutoRunParam CopyAutoRunWithButtonName(AutoRunParam autoRun, string buttonName)
     {
+        AutoRunParam copy = CopyAutoRun(autoRun);
+        copy.buttonName = buttonName;
+        return copy;
+    }
+
+    private static AutoRunParam CopyAutoRun(AutoRunParam autoRun)
+    {
+        if (autoRun == null)
+        {
+            return null;
+        }
+
         return new AutoRunParam
         {
-            buttonName = buttonName,
+            buttonName = autoRun.buttonName,
             buttonText = autoRun.buttonText,
             isFairyGUI = autoRun.isFairyGUI,
             delay = autoRun.delay,
             isTest = autoRun.isTest,
+            objectPath = autoRun.objectPath,
+            scopeRootName = autoRun.scopeRootName,
+            matchPolicy = autoRun.matchPolicy,
         };
+    }
+
+    private string ResolveControlScopeRootName(NavigationMapControl control)
+    {
+        if (control == null
+            || string.IsNullOrWhiteSpace(control.viewId)
+            || !_views.TryGetValue(control.viewId, out NavigationMapView view))
+        {
+            return null;
+        }
+
+        string rootName = GetObjectPathLeaf(view.rootObjectPath);
+        return string.IsNullOrWhiteSpace(rootName) ? view.name : rootName;
+    }
+
+    private static bool IsPotentiallyRepeatedControl(
+        NavigationMapControl control,
+        string scopeRootName)
+    {
+        if (control == null
+            || string.IsNullOrWhiteSpace(control.objectPath)
+            || string.IsNullOrWhiteSpace(scopeRootName))
+        {
+            return false;
+        }
+
+        string normalized = control.objectPath.Replace('\\', '/').Trim('/');
+        int separator = normalized.IndexOf('/');
+        if (separator <= 0)
+        {
+            return false;
+        }
+
+        string ownerRoot = normalized.Substring(0, separator);
+        return NormalizeViewToken(ownerRoot) != NormalizeViewToken(scopeRootName);
     }
 
     private static bool IsFairyGUIControl(NavigationMapControl control)

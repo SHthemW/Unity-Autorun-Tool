@@ -194,7 +194,10 @@ namespace UnityAutorun.Mcp
                 ("buttonName", "Runtime-clickable Unity GameObject name or FairyGUI component name. For uGUI this must be the real prefab/scene object name, not a CodeBind field or C# property name."),
                 ("buttonText", "Visible label text when known; use untitled when unavailable."),
                 ("isFairyGUI", "true for FairyGUI controls, false for uGUI controls."),
-                ("delay", "Seconds to wait after the click, usually 0.2 to 1.0.")
+                ("delay", "Seconds to wait after the click, usually 0.2 to 1.0."),
+                ("objectPath", "Optional uGUI hierarchy suffix used to scope runtime matching. The route resolver inherits control.objectPath when omitted."),
+                ("scopeRootName", "Optional uGUI source-view root used to exclude same-named buttons from other open views. The route resolver derives it from control.viewId when omitted."),
+                ("matchPolicy", "unique by default. Use first-interactable for a reusable nested prefab control such as a visible list or grid item when any matching item can trigger the same navigation edge.")
             );
         }
 
@@ -226,6 +229,7 @@ namespace UnityAutorun.Mcp
                 "For CodeBind-backed uGUI controls, resolve the serialized field reference in the prefab and use the referenced component's GameObject name and hierarchy path. Do not use the CodeBind field/property name as control.name, objectPath, or autoRun.buttonName unless it is also the real GameObject name.",
                 "When buttonBinding.serializedControls contains status=resolved, a transition decision must reference a control on the resolved source view whose name, objectPath leaf, or autoRun.buttonName matches the resolved objectName. Its evidence basis is reported explicitly and still requires external-AI judgment.",
                 "For uGUI controls, objectPath must be the real prefab/scene hierarchy path and autoRun.buttonName must equal the final GameObject name in that path, because AutoRun clicks by Unity object name.",
+                "When a control belongs to a reusable nested prefab rather than the source view root, preserve that prefab-relative objectPath and use autoRun.matchPolicy=first-interactable only when any active matching instance is a valid trigger. Runtime matching scopes candidates by source-view root and hierarchy suffix before selecting deterministically.",
                 "For generated CodeBind files, treat properties such as LoginExButton only as hints. Confirm the serialized prefab object name, usually with separators such as Login_ExButton, before writing autoRun.buttonName.",
                 "Every route step should reference transitionId. Include controlId only when the transition has one.",
                 "Keep generated JSON deterministic: sort views, controls, transitions, routes, unresolved, and candidateDecisions by id.",

@@ -77,5 +77,5 @@ public sealed class AutoRunNavStep
     public bool isAutoRunnable;
     public AutoRunParam action;
     public string waitForViewId;
-    public float timeout = 10f;
+    public float timeout = 15f;
 }

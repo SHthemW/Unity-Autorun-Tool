@@ -163,6 +163,12 @@ public static class NavigationAutoRunLog
                 .Append(" mode=").Append(step.mode)
                 .Append(" control=").Append(Safe(step.controlId))
                 .Append(" action=").Append(step.action == null ? "null" : Safe(step.action.buttonName));
+            if (step.action != null)
+            {
+                builder.Append(" policy=").Append(Safe(step.action.matchPolicy))
+                    .Append(" scope=").Append(Safe(step.action.scopeRootName))
+                    .Append(" path=").Append(Safe(step.action.objectPath));
+            }
         }
 
         if (steps.Count > sampleCount)

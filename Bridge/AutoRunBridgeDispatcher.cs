@@ -285,13 +285,24 @@ public sealed partial class AutoRunBridgeDispatcher
         const double maximumSeconds = 300;
         if (request?.command == "navigate_route")
         {
-            double seconds = 5;
+            double nominalStepSeconds = 0;
             foreach (AutoRunNavStep step in request.payload?.navigationSteps ?? new List<AutoRunNavStep>())
             {
-                seconds += step != null && step.timeout > 0 ? step.timeout : 15;
+                nominalStepSeconds +=
+                    step != null && step.timeout > 0
+                        ? step.timeout
+                        : 15;
             }
 
-            return TimeSpan.FromSeconds(Math.Max(defaultSeconds, Math.Min(maximumSeconds, seconds)));
+            // A route can revisit an earlier repeated-control step while it
+            // explores virtualized pages and conditional branches. Its bridge
+            // lifetime therefore must outlive the sum of the nominal step
+            // timeouts instead of expiring during a valid backtrack.
+            double seconds = 30 + nominalStepSeconds * 8;
+            return TimeSpan.FromSeconds(
+                Math.Max(
+                    defaultSeconds,
+                    Math.Min(maximumSeconds, seconds)));
         }
 
         if (request?.command == "run_sequence")

@@ -8,6 +8,8 @@ public sealed class AutoRunParam
 {
     public const string DEFAULT_NAME = "unnamed";
     public const string DEFAULT_TEXT = "untitled";
+    public const string MATCH_UNIQUE = "unique";
+    public const string MATCH_FIRST_INTERACTABLE = "first-interactable";
 
     public string buttonName = DEFAULT_NAME;
 
@@ -18,6 +20,12 @@ public sealed class AutoRunParam
     public float delay = 0f;
 
     public bool isTest = false;
+
+    public string objectPath;
+
+    public string scopeRootName;
+
+    public string matchPolicy = MATCH_UNIQUE;
 }
 
 public enum HandlerStatus
