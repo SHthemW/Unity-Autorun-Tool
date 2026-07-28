@@ -11,7 +11,9 @@ namespace UnityAutorun.Mcp
             string absoluteOutputPath = UiNavMapPaths.ResolveDefaultMapPath();
             return JsonUtil.Obj(
                 ("ok", true),
-                ("schemaVersion", "1.0"),
+                ("schemaVersion", UiNavMapMetadata.SchemaVersion),
+                ("generatorVersion", UiNavMapMetadata.GeneratorVersion),
+                ("candidateProtocolVersion", UiNavMapMetadata.CandidateProtocolVersion),
                 ("canonicalPath", absoluteOutputPath),
                 ("requiredTools", new JsonArray
                 {
@@ -20,6 +22,8 @@ namespace UnityAutorun.Mcp
                     "get_nav_map_summary",
                     "scan_ui_nav_sources",
                     "trace_ui_navigation_calls",
+                    "get_ui_nav_candidate_coverage",
+                    "finalize_ui_nav_map_generation",
                     "backfill_ui_nav_map_from_sources",
                     "query_nav_map_items",
                     "get_ui_nav_subgraph",
@@ -37,9 +41,12 @@ namespace UnityAutorun.Mcp
                 ("outputDirectory", Path.GetDirectoryName(absoluteOutputPath)),
                 ("requiredReadTool", "get_current_ui_nav_map"),
                 ("requiredPatchTool", "merge_ui_nav_map_patch"),
+                ("requiredCoverageTool", "get_ui_nav_candidate_coverage"),
+                ("requiredCompletionTool", "finalize_ui_nav_map_generation"),
                 ("outputPathRules", OutputPathRules(absoluteOutputPath)),
                 ("workflow", Workflow()),
                 ("requiredArrays", RequiredArrays()),
+                ("candidateDecisionShape", CandidateDecisionShape()),
                 ("transitionShape", TransitionShape()),
                 ("autoRunActionShape", AutoRunActionShape()),
                 ("generationRules", GenerationRules()),
@@ -57,6 +64,7 @@ namespace UnityAutorun.Mcp
                 "Call get_nav_map_guidance before starting UI navigation map work.",
                 "Call scan_ui_nav_sources before broad map work to get machine-checkable UI/view, prefab, class, source-reference, and button-binding coverage gaps.",
                 "Call trace_ui_navigation_calls for deep button-handler chains across helper methods and component types. Its output is evidence only, not confirmed graph edges.",
+                "For complete generation, call get_ui_nav_candidate_coverage with an empty query, review every returned candidate, copy id and candidateVersion into one candidateDecisions entry per item, and repeat with offset=0 until remaining=0.",
                 "Call get_current_ui_nav_map before changing the map and preserve valid existing entries.",
                 "For large maps or first-time generation, do not generate or rewrite the full map in one pass.",
                 "When scan_ui_nav_sources reports important missing views, call backfill_ui_nav_map_from_sources with previewOnly=true. Backfill adds only deterministic views and unresolved evidence; it never infers controls, transitions, routes, automation, or confidence.",
@@ -66,6 +74,7 @@ namespace UnityAutorun.Mcp
                 "Do not stop at clickable prefab buttons. Include indirect state machine, scene loading, event, data context, lifecycle, and project-specific open/show/navigation API chains as flow transitions.",
                 "Build small patches by UI module, prefab folder, scene, target view, or route family. Validate with validate_ui_nav_map_patch and persist with merge_ui_nav_map_patch.",
                 "Do not write ui-nav-map.json directly with filesystem operations.",
+                "Do not report generation complete until finalize_ui_nav_map_generation succeeds. It rejects unreviewed candidates and stamps the current schemaVersion, generatorVersion, mapVersion, and candidate set version.",
                 "After saving, validate important paths with list_ui_routes and resolve_ui_route."
             };
         }
@@ -77,6 +86,7 @@ namespace UnityAutorun.Mcp
                 + "For large maps or first-time generation, call get_nav_map_summary and scan_ui_nav_sources. "
                 + "Use source coverage gaps to find missing UI/view, prefab, class, button-binding, and source-reference evidence. "
                 + "Call trace_ui_navigation_calls for deep button-handler call chains, including cross-component calls. Treat every candidate as evidence requiring external AI review. "
+                + "Use get_ui_nav_candidate_coverage with an empty query as the authoritative backlog. Review every item, copy id and candidateVersion into one candidateDecisions entry per candidate, and request the next unreviewed page with offset=0 until remaining is zero. "
                 + "When important deterministic view gaps exist, call backfill_ui_nav_map_from_sources with previewOnly=true. It does not generate controls, transitions, routes, automation, or confidence. "
                 + "Then work in small slices with query_nav_map_items or get_ui_nav_subgraph. "
                 + "Generate incremental patches by module, prefab folder, scene, target view, or route family. "
@@ -84,6 +94,7 @@ namespace UnityAutorun.Mcp
                 + "For startup routes, inspect and model login, auth, update, privacy, notice, tutorial, and loading gates before the main UI. "
                 + "Validate each patch with validate_ui_nav_map_patch and persist it with merge_ui_nav_map_patch. "
                 + "Do not write ui-nav-map.json directly. The canonical path is: " + path + ". "
+                + "Call finalize_ui_nav_map_generation and require completionGatePassed=true before reporting completion. "
                 + "Then validate important paths with list_ui_routes and resolve_ui_route.";
         }
 
@@ -98,7 +109,9 @@ namespace UnityAutorun.Mcp
                 "Call get_nav_map_summary before broad map work to understand current map size and obvious reference issues.",
                 "Call scan_ui_nav_sources before broad map work. Treat coverage.uiFormIdsMissingInMap, prefabsMissingInMap, classesMissingInMap, viewClassesMissingInMap, openTargetsMissingInMap, and buttonBindingViewsMissingInMap as generation backlog.",
                 "Call trace_ui_navigation_calls for deep button flows. Use knownViewNames when the project uses custom view names that source discovery cannot identify.",
+                "Use get_ui_nav_candidate_coverage with query omitted as the authoritative global candidate backlog. A query-scoped result is useful for one module but cannot complete global generation.",
                 "Do not convert a trace candidate directly into a transition. Decide whether the referenced view is opened, closed, queried, or unrelated, and resolve ambiguous source views from the supplied call chain and source locations.",
+                "For each reviewed candidate, copy id and candidateVersion exactly, then merge one candidateDecisions item: outcome=transition with targetId, outcome=unresolved with targetId, or outcome=ignored with a concise reason.",
                 "Call backfill_ui_nav_map_from_sources with previewOnly=true when deterministic source view gaps are important. Backfill intentionally returns empty controls, transitions, and routes; create those only in an external-AI-authored patch.",
                 "For large or missing maps, split analysis by UI module, prefab folder, scene, target view, or route family instead of producing one full JSON object.",
                 "For each slice, identify only actionable views, controls, reachability transitions, routes, and unresolved blockers needed for navigation.",
@@ -111,7 +124,9 @@ namespace UnityAutorun.Mcp
                 "Call validate_ui_nav_map_patch before persisting each patch. Resolve errors; warnings should be reviewed and either fixed or intentionally left in unresolved.",
                 "Call merge_ui_nav_map_patch to persist each validated patch. It creates the canonical skeleton map when no map exists.",
                 "Use save_ui_nav_map only when intentionally replacing the complete map. Do not write ui-nav-map.json with direct filesystem writes.",
-                "Completion gate: before saying the nav map is sufficient, verify important target routes with resolve_ui_route.",
+                "After each candidate-decision patch, call get_ui_nav_candidate_coverage again with offset=0 so already reviewed candidates disappear from the backlog.",
+                "Completion gate: call finalize_ui_nav_map_generation with the same knownViewNames used during analysis. Never say the map is complete unless completionGatePassed=true.",
+                "After finalization, verify important target routes with resolve_ui_route.",
                 "Call run_ui_route when resolve_ui_route reports isFullyAutoRunnable=true or isNavigationRunnable=true, Unity bridge is running, and the user wants execution."
             };
         }
@@ -135,8 +150,20 @@ namespace UnityAutorun.Mcp
                 "controls: clickable controls, usually buttons, with AutoRun action metadata.",
                 "transitions: reachability edges from one view to another. Edges may be caused by user interaction, events, lifecycle callbacks, state machines, scene loading, timers, external SDK callbacks, or manually confirmed inference.",
                 "routes: known or important multi-step paths; omitted routes can still be computed from transitions.",
-                "unresolved: concise uncertain UI links or navigation blockers that need human review."
+                "unresolved: concise uncertain UI links or navigation blockers that need human review.",
+                "candidateDecisions: compact review ledger with exactly one outcome for every current trace candidate. This array is required for the completion gate but ignored by runtime navigation."
             };
+        }
+
+        private static JsonObject CandidateDecisionShape()
+        {
+            return JsonUtil.Obj(
+                ("id", "The exact candidate.navigation.* id returned by get_ui_nav_candidate_coverage."),
+                ("candidateVersion", "The exact candidateVersion returned with the candidate. A changed evidence version makes the old decision unreviewed."),
+                ("outcome", "transition, unresolved, or ignored."),
+                ("targetId", "Required for transition and unresolved outcomes. References the corresponding transition or unresolved id in the same or an earlier patch."),
+                ("reason", "Required for ignored outcomes. Keep it concise and explain why the evidence does not create a navigation edge.")
+            );
         }
 
         private static JsonObject TransitionShape()
@@ -151,7 +178,7 @@ namespace UnityAutorun.Mcp
                 ("effect", "Optional object describing the observed result, usually open-view, close-view, replace-view, show-view, hide-view, or load-scene."),
                 ("automation", "Optional object. Use mode=click when AutoRun can click; mode=wait when the edge is driven by app flow and automation should wait for the target view; mode=manual when human action is required."),
                 ("confidence", "0.0 to 1.0 confidence based on code or asset evidence."),
-                ("source", "Optional short evidence summary. Do not copy broad source text into the canonical map.")
+                ("source", "Optional short evidence summary. Do not copy broad source text into the canonical map; candidate consumption is tracked separately in candidateDecisions.")
             );
         }
 
@@ -182,6 +209,8 @@ namespace UnityAutorun.Mcp
                 "Use automation.mode=manual for transitions that require user input, platform auth, payment, or other actions AutoRun cannot perform.",
                 "Set transition confidence from 0.0 to 1.0. Include only short source summaries when useful; keep detailed source evidence out of ui-nav-map.json.",
                 "trace_ui_navigation_calls never assigns transition confidence or automation. The external AI must derive those fields from the call chain, prefab evidence, current map, and any required runtime evidence.",
+                "Do not use trace pagination alone as proof of completeness. get_ui_nav_candidate_coverage is authoritative because it removes candidates already recorded in candidateDecisions.",
+                "Every candidate returned by get_ui_nav_candidate_coverage must receive one decision with the exact candidateVersion, including duplicate, close-only, queried, generic type-token, and unrelated references; use outcome=ignored with a reason when no graph item should be created.",
                 "Do not invent a transition when the target view is unclear. Put uncertain links in unresolved unless a human has confirmed them, in which case use kind=inferred with source.type=human.",
                 "For FairyGUI controls, set framework to fairygui and autoRun.isFairyGUI to true.",
                 "For uGUI controls, set framework to ugui and autoRun.isFairyGUI to false.",
@@ -189,7 +218,8 @@ namespace UnityAutorun.Mcp
                 "For uGUI controls, objectPath must be the real prefab/scene hierarchy path and autoRun.buttonName must equal the final GameObject name in that path, because AutoRun clicks by Unity object name.",
                 "For generated CodeBind files, treat properties such as LoginExButton only as hints. Confirm the serialized prefab object name, usually with separators such as Login_ExButton, before writing autoRun.buttonName.",
                 "Every route step should reference transitionId. Include controlId only when the transition has one.",
-                "Keep generated JSON deterministic: sort views, controls, transitions, and routes by id."
+                "Keep generated JSON deterministic: sort views, controls, transitions, routes, unresolved, and candidateDecisions by id.",
+                "schemaVersion, generatorVersion, mapVersion, generatedAt, and generation are tool-managed. Do not invent or manually increment them in patches."
             };
         }
 
@@ -201,9 +231,11 @@ namespace UnityAutorun.Mcp
                 "Call get_current_ui_nav_map before generating changes to an existing map.",
                 "Call get_nav_map_summary and scan_ui_nav_sources before broad work or first-time generation.",
                 "Call trace_ui_navigation_calls for important source views and targets, especially when a click reaches a view reference through helper methods or another component.",
+                "Call get_ui_nav_candidate_coverage without a query, review all returned items, merge candidateDecisions, and repeat with offset=0 until remaining=0.",
                 "Do not consider broad generation complete while scan_ui_nav_sources reports important UI/view, prefab, class, button-binding, or source-reference coverage gaps that are neither mapped nor recorded in unresolved.",
                 "Before merging a trace-derived edge, confirm its source view and referenced-view role; a call-chain reference alone is not proof that the view opens.",
                 "For large or first-time maps, call validate_ui_nav_map_patch and merge_ui_nav_map_patch for each slice.",
+                "Call finalize_ui_nav_map_generation and require completionGatePassed=true. A candidate_review_incomplete response is a failed completion gate, not a warning.",
                 "After merge_ui_nav_map_patch or save_ui_nav_map succeeds, call list_ui_routes with mapPath set to absoluteOutputPath.",
                 "Call resolve_ui_route with from/to or route id for each important target.",
                 "For startup targets, resolve routes from app start and from each detected blocking gate view such as login/auth/update/loading to the target. Missing gate routes must be fixed or recorded in unresolved before execution.",
@@ -216,22 +248,34 @@ namespace UnityAutorun.Mcp
         {
             return new JsonArray
             {
-                "A nav map patch is a JSON object with any of these arrays: views, controls, transitions, routes, unresolved.",
+                "A nav map patch is a JSON object with any of these arrays: views, controls, transitions, routes, unresolved, candidateDecisions.",
                 "Each patch should cover one small slice: one UI module, prefab folder, scene, target view, or route family.",
                 "For first-time generation, do not wait until the whole project is analyzed. Merge the first reliable slice; merge later slices incrementally.",
                 "Do not include unchanged existing entries in a patch unless intentionally updating them.",
                 "Patch items with the same id can replace existing items, but merge_ui_nav_map_patch refuses conflicts unless allowConflicts=true.",
                 "Use allowConflicts=true only when the user or strong code evidence confirms the overwrite is intentional.",
+                "When coverage returns reviewStatus=outdated-decision, the new candidateVersion is strong evidence for intentionally replacing that candidateDecisions item after validation.",
                 "If a relationship is uncertain, put it in unresolved rather than inventing a transition.",
-                "After each merge, call get_nav_map_summary to check counts and obvious missing references on large maps."
+                "Every decision must copy the candidateVersion from coverage output. A transition decision must reference a known transition targetId, an unresolved decision must reference a known unresolved targetId, and an ignored decision must include a concise reason.",
+                "After each merge, call get_nav_map_summary to check counts, version status, generation status, and obvious missing references on large maps."
             };
         }
 
         private static JsonObject Example()
         {
             return JsonUtil.Obj(
-                ("schemaVersion", "1.0"),
+                ("schemaVersion", UiNavMapMetadata.SchemaVersion),
+                ("generatorVersion", UiNavMapMetadata.GeneratorVersion),
+                ("mapVersion", 1),
                 ("generatedAt", DateTimeOffset.UtcNow.ToString("o")),
+                ("generation", JsonUtil.Obj(
+                    ("status", "complete"),
+                    ("candidateProtocolVersion", UiNavMapMetadata.CandidateProtocolVersion),
+                    ("candidateSetVersion", "candidate-set.1.0.example"),
+                    ("candidateCount", 2),
+                    ("reviewedCandidateCount", 2),
+                    ("completedAt", DateTimeOffset.UtcNow.ToString("o"))
+                )),
                 ("project", JsonUtil.Obj(("unityProject", "example"), ("source", "prefab-and-code-analysis"))),
                 ("views", new JsonArray
                 {
@@ -290,7 +334,22 @@ namespace UnityAutorun.Mcp
                         })
                     )
                 }),
-                ("unresolved", new JsonArray())
+                ("unresolved", new JsonArray()),
+                ("candidateDecisions", new JsonArray
+                {
+                    JsonUtil.Obj(
+                        ("id", "candidate.navigation.example-a"),
+                        ("candidateVersion", "candidate-evidence.1.0.example-a"),
+                        ("outcome", "transition"),
+                        ("targetId", "transition.a.aa.to.b")
+                    ),
+                    JsonUtil.Obj(
+                        ("id", "candidate.navigation.example-b"),
+                        ("candidateVersion", "candidate-evidence.1.0.example-b"),
+                        ("outcome", "transition"),
+                        ("targetId", "transition.b.flow.to.c")
+                    )
+                })
             );
         }
 
@@ -302,13 +361,15 @@ namespace UnityAutorun.Mcp
                 + "Call get_nav_map_summary and scan_ui_nav_sources before broad work. If the map is missing or large, generate it incrementally instead of producing one full JSON object. "
                 + "Use scan coverage gaps as the backlog, and call backfill_ui_nav_map_from_sources with previewOnly=true when deterministic source-backed views are missing. Backfill never creates controls, transitions, routes, automation, or confidence. "
                 + "Call trace_ui_navigation_calls for deep button-handler and cross-component chains. Treat its items as evidence and make the graph decisions externally before authoring a patch. "
+                + "Use get_ui_nav_candidate_coverage with no query as the authoritative backlog. For every returned item copy id and candidateVersion into exactly one candidateDecisions entry, then request offset=0 again until remaining=0. "
                 + "Analyze Unity UI prefabs, UI scripts, and surrounding application flow code in slices by module, prefab folder, scene, target view, or route family. "
                 + "Do not stop at direct button clicks; include state changes, scene loading, data context, events, lifecycle, and project-specific open/show/navigation API chains as indirect flow transitions. "
                 + "For startup flows, explicitly model login, auth, update, privacy, notice, tutorial, and loading gates instead of assuming app start reaches the main UI. "
                 + "Use query_nav_map_items and get_ui_nav_subgraph to inspect only relevant existing entries. "
-                + "For each slice, create a compact nav map patch with views, controls, transitions, routes, and concise unresolved links. "
+                + "For each slice, create a compact nav map patch with views, controls, transitions, routes, concise unresolved links, and candidate decisions. "
                 + "Validate the patch with validate_ui_nav_map_patch, then persist it with merge_ui_nav_map_patch. "
                 + "Do not write files manually. merge_ui_nav_map_patch writes the exact path: " + absoluteOutputPath + ". "
+                + "Call finalize_ui_nav_map_generation and require completionGatePassed=true; it stamps schemaVersion, generatorVersion, mapVersion, and the reviewed candidate set. "
                 + "After merge_ui_nav_map_patch succeeds, call list_ui_routes and resolve_ui_route to validate important target paths. "
                 + "Only call run_ui_route when resolve_ui_route reports isFullyAutoRunnable=true or isNavigationRunnable=true, Unity bridge is running, and execution is requested.";
         }

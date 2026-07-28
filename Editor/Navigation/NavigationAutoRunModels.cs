@@ -5,10 +5,31 @@ using System.Text;
 [Serializable]
 public sealed class NavigationMapDocument
 {
+    public string schemaVersion;
+    public string generatorVersion;
+    public int mapVersion;
+    public NavigationMapGeneration generation;
     public NavigationMapView[] views;
     public NavigationMapControl[] controls;
     public NavigationMapTransition[] transitions;
     public NavigationMapRoute[] routes;
+}
+
+[Serializable]
+public sealed class NavigationMapGeneration
+{
+    public string status;
+    public string candidateProtocolVersion;
+    public string candidateSetVersion;
+    public int candidateCount;
+    public int reviewedCandidateCount;
+    public string completedAt;
+}
+
+[Serializable]
+public sealed class NavigationPackageDocument
+{
+    public string version;
 }
 
 [Serializable]

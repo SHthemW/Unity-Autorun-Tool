@@ -8,6 +8,9 @@ public sealed partial class NavigationAutoRunMap
 {
     private const string NavMapPath = "Gen/ui-nav-map.json";
     private const string ExampleNavMapPath = "Gen/ui-nav-map.example.json";
+    private const string PackageFileName = "package.json";
+    private const string SupportedSchemaVersion = "2.0";
+    private const string SupportedCandidateProtocolVersion = "1.0";
 
     private readonly NavigationMapDocument _document;
     private readonly Dictionary<string, NavigationMapView> _views;
@@ -44,6 +47,7 @@ public sealed partial class NavigationAutoRunMap
             throw new InvalidOperationException("Invalid nav map: " + path);
         }
 
+        ValidateMapVersion(document, path, root);
         return new NavigationAutoRunMap(document, path);
     }
 
@@ -294,5 +298,43 @@ public sealed partial class NavigationAutoRunMap
         }
 
         throw new FileNotFoundException("Cannot find Gen/ui-nav-map.json or Gen/ui-nav-map.example.json.");
+    }
+
+    private static void ValidateMapVersion(NavigationMapDocument document, string path, string root)
+    {
+        string packagePath = System.IO.Path.Combine(root, PackageFileName);
+        if (!File.Exists(packagePath))
+        {
+            throw new FileNotFoundException("Cannot validate nav map generator version because package.json is missing.", packagePath);
+        }
+
+        NavigationPackageDocument package =
+            JsonUtility.FromJson<NavigationPackageDocument>(File.ReadAllText(packagePath));
+        string expectedGeneratorVersion = package != null ? package.version : null;
+        bool valid = string.Equals(document.schemaVersion, SupportedSchemaVersion, StringComparison.Ordinal)
+            && !string.IsNullOrEmpty(expectedGeneratorVersion)
+            && string.Equals(document.generatorVersion, expectedGeneratorVersion, StringComparison.Ordinal)
+            && document.mapVersion > 0
+            && document.generation != null
+            && string.Equals(document.generation.status, "complete", StringComparison.Ordinal)
+            && string.Equals(
+                document.generation.candidateProtocolVersion,
+                SupportedCandidateProtocolVersion,
+                StringComparison.Ordinal);
+        if (valid)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            "Navigation map is stale or incomplete: "
+            + path
+            + ". Expected schemaVersion="
+            + SupportedSchemaVersion
+            + ", generatorVersion="
+            + expectedGeneratorVersion
+            + ", mapVersion>0, generation.status=complete, and candidateProtocolVersion="
+            + SupportedCandidateProtocolVersion
+            + ". Regenerate and finalize the map with the current MCP server.");
     }
 }

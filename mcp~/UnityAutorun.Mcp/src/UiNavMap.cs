@@ -23,6 +23,7 @@ namespace UnityAutorun.Mcp
             string fullPath = UiNavMapPaths.ResolveMapPath(mapPath);
             JsonObject map = JsonNode.Parse(File.ReadAllText(fullPath))?.AsObject()
                 ?? throw new InvalidOperationException($"Invalid UI nav map: {fullPath}");
+            UiNavMapMetadata.ValidateForExecution(map, fullPath);
             return new UiNavMap(map, fullPath);
         }
 

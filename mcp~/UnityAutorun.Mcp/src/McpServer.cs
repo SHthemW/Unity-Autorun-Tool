@@ -88,7 +88,7 @@ namespace UnityAutorun.Mcp
                     WriteResult(id, JsonUtil.Obj(
                         ("protocolVersion", "2024-11-05"),
                         ("capabilities", JsonUtil.Obj(("tools", new JsonObject()))),
-                        ("serverInfo", JsonUtil.Obj(("name", "unity-autorun"), ("version", "0.1.0"))),
+                        ("serverInfo", JsonUtil.Obj(("name", "unity-autorun"), ("version", UiNavMapMetadata.GeneratorVersion))),
                         ("instructions", "For requests to start Unity and open a UI view, prefer start_ui_navigation followed by get_ui_navigation_status. Bridge tools resolve the dynamically published endpoint automatically; get_unity_bridge_port is diagnostic only.")
                     ));
                 }
@@ -149,6 +149,8 @@ namespace UnityAutorun.Mcp
             if (name == "get_nav_map_summary") return UiNavMapPatchTools.GetSummary(args);
             if (name == "scan_ui_nav_sources") return UiNavMapSourceScanner.Scan(args);
             if (name == "trace_ui_navigation_calls") return UiNavMapSourceScanner.TraceNavigationCalls(args);
+            if (name == "get_ui_nav_candidate_coverage") return UiNavMapSourceScanner.GetCandidateCoverage(args);
+            if (name == "finalize_ui_nav_map_generation") return UiNavMapSourceScanner.FinalizeGeneration(args);
             if (name == "backfill_ui_nav_map_from_sources") return UiNavMapSourceScanner.Backfill(args);
             if (name == "query_nav_map_items") return UiNavMapPatchTools.QueryItems(args);
             if (name == "get_ui_nav_subgraph") return UiNavMapPatchTools.GetSubgraph(args);

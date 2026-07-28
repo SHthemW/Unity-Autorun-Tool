@@ -5,6 +5,7 @@
     <LangVersion>7.3</LangVersion>
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>UnityAutorun.Mcp</AssemblyName>
+    <Version>0.2.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

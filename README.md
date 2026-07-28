@@ -194,6 +194,8 @@ Available MCP tools:
 - `get_nav_map_summary`
 - `scan_ui_nav_sources`
 - `trace_ui_navigation_calls`
+- `get_ui_nav_candidate_coverage`
+- `finalize_ui_nav_map_generation`
 - `backfill_ui_nav_map_from_sources`
 - `query_nav_map_items`
 - `get_ui_nav_subgraph`
@@ -212,6 +214,8 @@ For requests such as "start the game and open a UI view", call `start_ui_navigat
 Bridge tools resolve the dynamically published project endpoint automatically. `get_unity_bridge_port` is diagnostic only and is not a prerequisite for other bridge tools. `get_current_ui_nav_map` returns a summary by default; pass `full=true` only when the complete file is explicitly required.
 
 For navigation-map generation, `scan_ui_nav_sources` reports source coverage and `trace_ui_navigation_calls` returns bounded button call-chain evidence across helper methods and component types. Trace candidates are intentionally not executable edges: the external AI must decide the source view, referenced-view role, transition kind, control metadata, automation, and confidence, then validate and merge an incremental patch. `backfill_ui_nav_map_from_sources` only adds deterministic source-discovered views and unresolved evidence; it never infers controls, transitions, or routes.
+
+Complete generation must use `get_ui_nav_candidate_coverage` without a `query` as the candidate backlog. For every returned candidate, the external AI copies the exact `id` and `candidateVersion` into one `candidateDecisions` item, merges the patch, and requests `offset=0` again until `remaining=0`. Changed source evidence invalidates the old candidate version and returns it to the backlog. The AI must then call `finalize_ui_nav_map_generation`; the tool returns `candidate_review_incomplete` and leaves the map unfinished while any candidate remains unreviewed.
 
 ## HTTP Bridge
 
@@ -253,6 +257,9 @@ The map describes:
 - `transitions`: how one view reaches another.
 - `routes`: reusable paths across transitions.
 - `unresolved`: known gaps that need manual analysis.
+- `candidateDecisions`: compact review results for every static call-chain candidate. This ledger is used only for generation completeness and is ignored by runtime navigation.
+
+The map carries `schemaVersion`, `generatorVersion`, and an incrementing `mapVersion`. Every write refreshes these fields and marks candidate coverage as `review-required`; only successful finalization restores `generation.status=complete`. The editor and MCP route loader reject maps whose format version, generator version, or completion state is stale.
 
 The editor `Navigation AutoRun` panel loads the map, lists navigable target views, filters them by search text, and runs a route with `Go!`. If Unity is not already in Play Mode, it stores the pending target, enters Play Mode, and continues after Play Mode starts.
 
@@ -264,7 +271,7 @@ Route execution supports:
 
 `start_ui_navigation` immediately returns a `navigationId` and stores the pending target in the editor session, allowing it to continue after entering Play Mode or reloading the script domain. `get_ui_navigation_status` returns `navigationStatus`, `navigationPhase`, `terminal`, `elapsedMilliseconds`, and compact target-view matches.
 
-For AI-assisted map generation, first ask the MCP server for `get_nav_map_guidance`, then use the scan, query, validate, and merge tools instead of writing `ui-nav-map.json` directly.
+For AI-assisted map generation, first ask the MCP server for `get_nav_map_guidance`, then use the scan, coverage, query, validate, merge, and finalize tools instead of writing `ui-nav-map.json` directly. Do not report generation complete until the finalization gate succeeds.
 
 ## Console
 

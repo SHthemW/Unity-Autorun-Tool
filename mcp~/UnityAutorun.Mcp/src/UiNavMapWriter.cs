@@ -10,16 +10,21 @@ namespace UnityAutorun.Mcp
         public static JsonObject Save(JsonObject args)
         {
             JsonObject map = ReadMap(args);
+            UiNavMapMetadata.PrepareForWrite(map, true);
             ValidateMap(map);
 
             string path = UiNavMapPaths.ResolveDefaultMapPath();
             Directory.CreateDirectory(Path.GetDirectoryName(path));
-            File.WriteAllText(path, JsonUtil.Pretty(map) + Environment.NewLine, new UTF8Encoding(false));
+            File.WriteAllText(
+                path,
+                JsonUtil.Pretty(UiNavMapPatchTools.SortMap(map)) + Environment.NewLine,
+                new UTF8Encoding(false));
 
             return JsonUtil.Obj(
                 ("ok", true),
                 ("path", path),
-                ("message", "UI navigation map saved.")
+                ("version", UiNavMapMetadata.Describe(map)),
+                ("message", "UI navigation map saved. Candidate coverage must be finalized before route execution.")
             );
         }
 
@@ -47,6 +52,14 @@ namespace UnityAutorun.Mcp
             RequireArray(map, "transitions");
             RequireArray(map, "routes");
             RequireArray(map, "unresolved");
+            RequireArray(map, "candidateDecisions");
+            JsonObject ledgerValidation = UiNavMapPatchTools.ValidateCandidateDecisionLedger(map);
+            if (ledgerValidation["ok"]?.GetValue<bool>() != true)
+            {
+                throw new InvalidOperationException(
+                    "Invalid candidateDecisions: "
+                    + JsonUtil.Pretty(ledgerValidation["errors"]));
+            }
         }
 
         private static void RequireArray(JsonObject map, string key)

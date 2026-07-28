@@ -60,42 +60,48 @@ namespace UnityAutorun.Mcp
                 ("knownViewCount", knownViews.Count),
                 ("navigationCandidateCount", navigationCandidateCount),
                 ("items", items),
-                ("workflowHint", "Use coverage gaps as the source backlog. Call trace_ui_navigation_calls for bounded button call-chain evidence. External AI must decide graph edges and submit them through validate_ui_nav_map_patch and merge_ui_nav_map_patch.")
+                ("workflowHint", "Use coverage gaps as the source backlog. For complete generation, review the authoritative get_ui_nav_candidate_coverage backlog, merge one candidateDecisions entry per item, and require finalize_ui_nav_map_generation to succeed.")
             );
         }
 
         public static JsonObject TraceNavigationCalls(JsonObject args)
         {
-            string assetsRoot = ResolveAssetsRoot();
-            string mapPath = UiNavMapPaths.ResolveMapPath(Text(args, "mapPath"));
             string query = Text(args, "query", "");
             int offset = Math.Max(0, Int(args, "offset", 0));
             int limit = Math.Max(1, Math.Min(200, Int(args, "limit", 50)));
-            List<SourceEvidence> evidence = BuildEvidence(assetsRoot);
-            Dictionary<string, string> knownViews = BuildKnownViews(evidence, LoadMapOrEmpty(mapPath), args);
-            List<NavigationCallCandidate> candidates = BuildSourceCodeNavigationModel(assetsRoot, knownViews)
-                .BuildNavigationCandidates()
-                .Where(item => item.Matches(query))
-                .OrderBy(item => item.SortKey, StringComparer.OrdinalIgnoreCase)
+            CandidateSnapshot snapshot = BuildCandidateSnapshot(args, query);
+            List<NavigationCallCandidate> pageItems = snapshot.Candidates
+                .Skip(offset)
+                .Take(limit)
                 .ToList();
 
             var items = new JsonArray();
-            foreach (NavigationCallCandidate candidate in candidates.Skip(offset).Take(limit))
+            foreach (NavigationCallCandidate candidate in pageItems)
             {
-                items.Add(candidate.ToJson(assetsRoot));
+                items.Add(candidate.ToJson(snapshot.AssetsRoot));
             }
 
+            int nextOffset = offset + pageItems.Count;
+            bool hasMore = nextOffset < snapshot.Candidates.Count;
             return JsonUtil.Obj(
                 ("ok", true),
-                ("path", mapPath),
+                ("path", snapshot.MapPath),
                 ("query", query),
                 ("offset", offset),
                 ("limit", limit),
-                ("total", candidates.Count),
-                ("knownViewCount", knownViews.Count),
+                ("total", snapshot.Candidates.Count),
+                ("knownViewCount", snapshot.KnownViewCount),
+                ("candidateProtocolVersion", UiNavMapMetadata.CandidateProtocolVersion),
+                ("candidateSetVersion", snapshot.CandidateSetVersion),
+                ("page", JsonUtil.Obj(
+                    ("returned", pageItems.Count),
+                    ("hasMore", hasMore),
+                    ("nextOffset", hasMore ? nextOffset : 0),
+                    ("remainingAfterPage", Math.Max(0, snapshot.Candidates.Count - nextOffset))
+                )),
                 ("items", items),
                 ("decisionPolicy", StaticDecisionPolicy()),
-                ("workflowHint", "Treat every item as call-graph evidence, not as a confirmed transition. External AI must determine source view, target role, transition kind, automation, and confidence before validating and merging a patch.")
+                ("workflowHint", "Treat every item as call-graph evidence, not as a confirmed transition. For complete generation use get_ui_nav_candidate_coverage, record one candidateDecisions entry per candidate, and require finalize_ui_nav_map_generation to succeed.")
             );
         }
 
@@ -295,7 +301,8 @@ namespace UnityAutorun.Mcp
                 ("controls", new JsonArray()),
                 ("transitions", new JsonArray()),
                 ("routes", new JsonArray()),
-                ("unresolved", unresolved)
+                ("unresolved", unresolved),
+                ("candidateDecisions", new JsonArray())
             );
         }
 
@@ -387,8 +394,11 @@ namespace UnityAutorun.Mcp
                 ("role", "evidence-only"),
                 ("createsExecutableEdges", false),
                 ("requiresExternalAiDecision", true),
+                ("requiredDecisionLedger", "candidateDecisions"),
+                ("completionTool", "finalize_ui_nav_map_generation"),
                 ("decisionFields", new JsonArray
                 {
+                    "candidateVersion",
                     "fromViewId",
                     "toViewId",
                     "transitionKind",
@@ -586,7 +596,8 @@ namespace UnityAutorun.Mcp
                 ("controls", (patch["controls"] as JsonArray)?.Count ?? 0),
                 ("transitions", (patch["transitions"] as JsonArray)?.Count ?? 0),
                 ("routes", (patch["routes"] as JsonArray)?.Count ?? 0),
-                ("unresolved", (patch["unresolved"] as JsonArray)?.Count ?? 0)
+                ("unresolved", (patch["unresolved"] as JsonArray)?.Count ?? 0),
+                ("candidateDecisions", (patch["candidateDecisions"] as JsonArray)?.Count ?? 0)
             );
         }
 

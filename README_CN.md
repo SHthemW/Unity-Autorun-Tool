@@ -194,6 +194,8 @@ dotnet mcp~/UnityAutorun.Mcp/bin/Release/net8.0/publish/UnityAutorun.Mcp.dll mcp
 - `get_nav_map_summary`
 - `scan_ui_nav_sources`
 - `trace_ui_navigation_calls`
+- `get_ui_nav_candidate_coverage`
+- `finalize_ui_nav_map_generation`
 - `backfill_ui_nav_map_from_sources`
 - `query_nav_map_items`
 - `get_ui_nav_subgraph`
@@ -212,6 +214,8 @@ dotnet mcp~/UnityAutorun.Mcp/bin/Release/net8.0/publish/UnityAutorun.Mcp.dll mcp
 Bridge 工具会自动读取当前项目动态发布的端点。`get_unity_bridge_port` 仅用于诊断，不再是其它 Bridge 工具的前置调用。`get_current_ui_nav_map` 默认返回摘要；只有明确需要完整文件时才传入 `full=true`。
 
 生成导航图时，`scan_ui_nav_sources` 负责报告源码覆盖率，`trace_ui_navigation_calls` 负责返回跨辅助方法和组件类型的有界按钮调用链证据。调用链候选不会直接成为可执行边：外部 AI 必须判断来源界面、被引用界面的角色、跳转类型、控件信息、自动化方式和置信度，再验证并合并增量补丁。`backfill_ui_nav_map_from_sources` 只补充可确定的源码视图和待分析证据，不会推断控件、跳转或路线。
+
+完整生成必须将不带 `query` 的 `get_ui_nav_candidate_coverage` 作为候选待办列表。外部 AI 对每个返回项复制精确的 `id` 和 `candidateVersion`，再写入一个 `candidateDecisions` 决策；合并后继续以 `offset=0` 获取下一批未审候选，直到 `remaining=0`。源码证据变化会使旧决策版本失效并重新进入待办列表。最后必须调用 `finalize_ui_nav_map_generation`；只要仍有未审候选，该工具就会返回 `candidate_review_incomplete` 且不会把地图标记为完成。
 
 ## HTTP Bridge
 
@@ -253,6 +257,9 @@ Bridge 命令包括：
 - `transitions`：从一个视图到另一个视图的方式。
 - `routes`：跨 transition 的可复用路径。
 - `unresolved`：仍需人工分析的缺口。
+- `candidateDecisions`：每个静态调用链候选的紧凑审核结果，仅用于生成完整性检查，不参与运行时导航。
+
+导航图包含 `schemaVersion`、`generatorVersion` 和递增的 `mapVersion`。每次写入都会更新版本并把候选覆盖状态置为 `review-required`，最终化成功后才恢复为 `generation.status=complete`。编辑器和 MCP 路由加载器会拒绝格式版本、生成器版本或完成状态不匹配的旧地图，从而避免继续使用未重新生成的文件。
 
 编辑器 `Navigation AutoRun` 面板会加载导航图，列出可导航目标视图，支持搜索过滤，并通过 `Go!` 执行路由。如果 Unity 尚未处于 Play Mode，工具会保存待执行目标，进入 Play Mode，然后在 Play Mode 启动后继续执行。
 
@@ -264,7 +271,7 @@ Bridge 命令包括：
 
 `start_ui_navigation` 会立即返回一个 `navigationId`，并把待执行目标保存在编辑器会话中，因此进入 Play Mode 或脚本域重载后仍可继续。`get_ui_navigation_status` 返回 `navigationStatus`、`navigationPhase`、`terminal`、`elapsedMilliseconds` 和紧凑的目标视图匹配结果。
 
-如果使用 AI 生成导航图，建议先调用 MCP 工具 `get_nav_map_guidance`，再使用 scan、query、validate、merge 等工具增量更新，不要直接用文件系统写入 `ui-nav-map.json`。
+如果使用 AI 生成导航图，先调用 MCP 工具 `get_nav_map_guidance`，再使用 scan、coverage、query、validate、merge 和 finalize 工具增量更新，不要直接用文件系统写入 `ui-nav-map.json`，也不要在最终化门禁通过前宣告生成完成。
 
 ## Console
 

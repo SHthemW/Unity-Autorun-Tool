@@ -829,9 +829,34 @@ namespace UnityAutorun.Mcp
                     + "|"
                     + reference.Reference.View;
                 Id = "candidate.navigation." + StableHash(key);
+                string evidenceKey = key
+                    + "|"
+                    + binding.OwnerType
+                    + "|"
+                    + binding.Handler
+                    + "|"
+                    + reference.Reference.Invocation
+                    + "|"
+                    + reference.Reference.Text
+                    + "|"
+                    + string.Join(
+                        ">",
+                        reference.MethodChain.Select(item =>
+                            item.DeclaringType
+                            + "."
+                            + item.Name
+                            + "@"
+                            + item.Path
+                            + ":"
+                            + item.Line));
+                CandidateVersion = "candidate-evidence."
+                    + UiNavMapMetadata.CandidateProtocolVersion
+                    + "."
+                    + StableHash(evidenceKey);
             }
 
             public string Id { get; }
+            public string CandidateVersion { get; }
             public ButtonBinding Binding { get; }
             public ResolvedViewReference Reference { get; }
             public List<string> SourceViewCandidates { get; }
@@ -902,6 +927,7 @@ namespace UnityAutorun.Mcp
 
                 return JsonUtil.Obj(
                     ("id", Id),
+                    ("candidateVersion", CandidateVersion),
                     ("kind", "button-call-chain"),
                     ("decisionStatus", "requires-ai-review"),
                     ("buttonBinding", JsonUtil.Obj(
@@ -949,7 +975,8 @@ namespace UnityAutorun.Mcp
                             "transitionKind",
                             "control",
                             "automation",
-                            "confidence"
+                            "confidence",
+                            "candidateDecision.candidateVersion"
                         })
                     ))
                 );
