@@ -67,7 +67,7 @@ namespace UnityAutorun.Mcp
             string assetsRoot,
             Dictionary<string, string> knownViews)
         {
-            var model = new SourceCodeNavigationModel(knownViews);
+            var model = new SourceCodeNavigationModel(assetsRoot, knownViews);
             List<string> paths = Directory.EnumerateFiles(assetsRoot, "*.cs", SearchOption.AllDirectories)
                 .Where(path => !IsIgnoredCodePath(path))
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
@@ -318,6 +318,7 @@ namespace UnityAutorun.Mcp
 
         private sealed class SourceCodeNavigationModel
         {
+            private readonly string _assetsRoot;
             private readonly Dictionary<string, Dictionary<string, HandlerFlow>> _handlers =
                 new Dictionary<string, Dictionary<string, HandlerFlow>>(StringComparer.OrdinalIgnoreCase);
 
@@ -331,8 +332,11 @@ namespace UnityAutorun.Mcp
             private readonly HashSet<string> _buttonBindingKeys =
                 new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            public SourceCodeNavigationModel(Dictionary<string, string> knownViews)
+            public SourceCodeNavigationModel(
+                string assetsRoot,
+                Dictionary<string, string> knownViews)
             {
+                _assetsRoot = assetsRoot;
                 _knownViews = knownViews
                     ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             }
@@ -402,6 +406,7 @@ namespace UnityAutorun.Mcp
 
             public List<NavigationCallCandidate> BuildNavigationCandidates()
             {
+                ResolveSerializedControlEvidence(_assetsRoot, ButtonBindings);
                 var candidates = new Dictionary<string, NavigationCallCandidate>(StringComparer.Ordinal);
                 foreach (ButtonBinding binding in ButtonBindings
                     .OrderBy(item => item.OwnerType)
@@ -655,6 +660,20 @@ namespace UnityAutorun.Mcp
             public string Handler { get; }
             public string Path { get; }
             public int Line { get; }
+            public List<SerializedControlEvidence> SerializedControls { get; } =
+                new List<SerializedControlEvidence>();
+
+            public void ReplaceSerializedControls(
+                IEnumerable<SerializedControlEvidence> evidence)
+            {
+                SerializedControls.Clear();
+                if (evidence == null)
+                {
+                    return;
+                }
+
+                SerializedControls.AddRange(evidence);
+            }
         }
 
         private sealed class HandlerFlow
@@ -841,6 +860,10 @@ namespace UnityAutorun.Mcp
                     + "|"
                     + string.Join(
                         ">",
+                        binding.SerializedControls.Select(item => item.Signature))
+                    + "|"
+                    + string.Join(
+                        ">",
                         reference.MethodChain.Select(item =>
                             item.DeclaringType
                             + "."
@@ -884,6 +907,8 @@ namespace UnityAutorun.Mcp
                 }
 
                 return Contains(Binding.OwnerType, query)
+                    || Contains(Id, query)
+                    || Contains(CandidateVersion, query)
                     || Contains(Binding.ControlProperty, query)
                     || Contains(Binding.Handler, query)
                     || Contains(Binding.Path, query)
@@ -897,7 +922,7 @@ namespace UnityAutorun.Mcp
                         || Contains(item.Path, query));
             }
 
-            public JsonObject ToJson(string assetsRoot)
+            public JsonObject ToJson(string assetsRoot, JsonObject map = null)
             {
                 var sourceViews = new JsonArray();
                 foreach (string view in SourceViewCandidates)
@@ -925,7 +950,13 @@ namespace UnityAutorun.Mcp
                     " -> ",
                     Reference.MethodChain.Select(item => item.DeclaringType + "." + item.Name));
 
-                return JsonUtil.Obj(
+                var serializedControls = new JsonArray();
+                foreach (SerializedControlEvidence control in Binding.SerializedControls)
+                {
+                    serializedControls.Add(control.ToJson());
+                }
+
+                JsonObject result = JsonUtil.Obj(
                     ("id", Id),
                     ("candidateVersion", CandidateVersion),
                     ("kind", "button-call-chain"),
@@ -934,6 +965,7 @@ namespace UnityAutorun.Mcp
                         ("ownerType", Binding.OwnerType),
                         ("controlProperty", Binding.ControlProperty),
                         ("handler", Binding.Handler),
+                        ("serializedControls", serializedControls),
                         ("source", JsonUtil.Obj(
                             ("path", RelativeToAssets(assetsRoot, Binding.Path)),
                             ("line", Binding.Line)
@@ -976,10 +1008,13 @@ namespace UnityAutorun.Mcp
                             "control",
                             "automation",
                             "confidence",
-                            "candidateDecision.candidateVersion"
+                            "candidateDecision.candidateVersion",
+                            "candidateDecision.nonTransitionEvidenceWhenRequired"
                         })
                     ))
                 );
+                result["decisionHint"] = BuildCandidateDecisionHint(this, map);
+                return result;
             }
 
             private static bool Contains(string value, string query)

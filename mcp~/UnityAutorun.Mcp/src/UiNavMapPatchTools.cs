@@ -299,6 +299,8 @@ namespace UnityAutorun.Mcp
                 string outcome = Text(decision, "outcome");
                 string targetId = Text(decision, "targetId");
                 string reason = Text(decision, "reason");
+                JsonObject nonTransitionEvidence =
+                    decision["nonTransitionEvidence"] as JsonObject;
 
                 if (NotBlank(id) && !id.StartsWith("candidate.navigation.", StringComparison.Ordinal))
                 {
@@ -328,6 +330,21 @@ namespace UnityAutorun.Mcp
                 else if (outcome == "ignored" && !NotBlank(reason))
                 {
                     errors.Add("Ignored candidate decision must include a concise reason: " + id);
+                }
+
+                if (nonTransitionEvidence != null)
+                {
+                    string evidenceKind = Text(nonTransitionEvidence, "kind");
+                    string evidenceSummary = Text(nonTransitionEvidence, "summary");
+                    if (outcome == "transition")
+                    {
+                        errors.Add("Transition candidate decision must not include nonTransitionEvidence: " + id);
+                    }
+
+                    if (!NotBlank(evidenceKind) || !NotBlank(evidenceSummary))
+                    {
+                        errors.Add("nonTransitionEvidence requires kind and summary: " + id);
+                    }
                 }
             }
         }

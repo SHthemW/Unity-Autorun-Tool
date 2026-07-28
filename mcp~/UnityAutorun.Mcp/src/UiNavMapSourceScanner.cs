@@ -78,7 +78,7 @@ namespace UnityAutorun.Mcp
             var items = new JsonArray();
             foreach (NavigationCallCandidate candidate in pageItems)
             {
-                items.Add(candidate.ToJson(snapshot.AssetsRoot));
+                items.Add(candidate.ToJson(snapshot.AssetsRoot, snapshot.Map));
             }
 
             int nextOffset = offset + pageItems.Count;
@@ -101,7 +101,7 @@ namespace UnityAutorun.Mcp
                 )),
                 ("items", items),
                 ("decisionPolicy", StaticDecisionPolicy()),
-                ("workflowHint", "Treat every item as call-graph evidence, not as a confirmed transition. For complete generation use get_ui_nav_candidate_coverage, record one candidateDecisions entry per candidate, and require finalize_ui_nav_map_generation to succeed.")
+                ("workflowHint", "Treat every item as call-graph evidence requiring external-AI judgment. Use decisionHint, mapped endpoints, and serialized control evidence to make that judgment. Strong topology evidence should become a matching transition unless concrete contrary evidence exists; automation uncertainty does not erase reachability. For complete generation use get_ui_nav_candidate_coverage, record one candidateDecisions entry per candidate, and require finalize_ui_nav_map_generation to succeed.")
             );
         }
 
@@ -404,7 +404,8 @@ namespace UnityAutorun.Mcp
                     "transitionKind",
                     "control",
                     "automation",
-                    "confidence"
+                    "confidence",
+                    "nonTransitionEvidenceWhenRequired"
                 })
             );
         }

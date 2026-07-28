@@ -65,10 +65,12 @@ namespace UnityAutorun.Mcp
                 "Call scan_ui_nav_sources before broad map work to get machine-checkable UI/view, prefab, class, source-reference, and button-binding coverage gaps.",
                 "Call trace_ui_navigation_calls for deep button-handler chains across helper methods and component types. Its output is evidence only, not confirmed graph edges.",
                 "For complete generation, call get_ui_nav_candidate_coverage with an empty query, review every returned candidate, copy id and candidateVersion into one candidateDecisions entry per item, and repeat with offset=0 until remaining=0.",
+                "Use each candidate's decisionHint, mappedEndpoints, and serializedControls as compact review evidence. topologyStrength=strong should become a matching transition unless concrete contradictory evidence exists.",
                 "Call get_current_ui_nav_map before changing the map and preserve valid existing entries.",
                 "For large maps or first-time generation, do not generate or rewrite the full map in one pass.",
                 "When scan_ui_nav_sources reports important missing views, call backfill_ui_nav_map_from_sources with previewOnly=true. Backfill adds only deterministic views and unresolved evidence; it never infers controls, transitions, routes, automation, or confidence.",
                 "External AI must decide source view, referenced-view role, target view, transition kind, control metadata, automation, and confidence before creating a patch from trace evidence.",
+                "Keep reachability separate from AutoRun executability. Missing exact click metadata, async work, branch preconditions, or missing runtime confirmation can lower automation/confidence but do not erase a code-proven navigation edge.",
                 "Keep ui-nav-map.json compact and actionable: include only views, controls, transitions, routes, and concise unresolved navigation blockers needed for navigation.",
                 "Do not copy broad source evidence, long code excerpts, or project-wide inventories into ui-nav-map.json.",
                 "Do not stop at clickable prefab buttons. Include indirect state machine, scene loading, event, data context, lifecycle, and project-specific open/show/navigation API chains as flow transitions.",
@@ -87,6 +89,7 @@ namespace UnityAutorun.Mcp
                 + "Use source coverage gaps to find missing UI/view, prefab, class, button-binding, and source-reference evidence. "
                 + "Call trace_ui_navigation_calls for deep button-handler call chains, including cross-component calls. Treat every candidate as evidence requiring external AI review. "
                 + "Use get_ui_nav_candidate_coverage with an empty query as the authoritative backlog. Review every item, copy id and candidateVersion into one candidateDecisions entry per candidate, and request the next unreviewed page with offset=0 until remaining is zero. "
+                + "When decisionHint.topologyStrength is strong, create a transition whose endpoints match mappedEndpoints. Do not downgrade proven reachability merely because exact AutoRun metadata, async work, branch preconditions, or runtime confirmation are incomplete. "
                 + "When important deterministic view gaps exist, call backfill_ui_nav_map_from_sources with previewOnly=true. It does not generate controls, transitions, routes, automation, or confidence. "
                 + "Then work in small slices with query_nav_map_items or get_ui_nav_subgraph. "
                 + "Generate incremental patches by module, prefab folder, scene, target view, or route family. "
@@ -111,7 +114,9 @@ namespace UnityAutorun.Mcp
                 "Call trace_ui_navigation_calls for deep button flows. Use knownViewNames when the project uses custom view names that source discovery cannot identify.",
                 "Use get_ui_nav_candidate_coverage with query omitted as the authoritative global candidate backlog. A query-scoped result is useful for one module but cannot complete global generation.",
                 "Do not convert a trace candidate directly into a transition. Decide whether the referenced view is opened, closed, queried, or unrelated, and resolve ambiguous source views from the supplied call chain and source locations.",
+                "Use decisionHint as analyzer guidance rather than as a final decision. For topologyStrength=strong, author a matching transition unless source, asset, runtime, or explicit human evidence contradicts reachability.",
                 "For each reviewed candidate, copy id and candidateVersion exactly, then merge one candidateDecisions item: outcome=transition with targetId, outcome=unresolved with targetId, or outcome=ignored with a concise reason.",
+                "For a strong candidate that is not a transition, candidateDecisions must include nonTransitionEvidence.kind and nonTransitionEvidence.summary. Automation uncertainty, async work, branch preconditions, and absent runtime confirmation are not contradictory topology evidence.",
                 "Call backfill_ui_nav_map_from_sources with previewOnly=true when deterministic source view gaps are important. Backfill intentionally returns empty controls, transitions, and routes; create those only in an external-AI-authored patch.",
                 "For large or missing maps, split analysis by UI module, prefab folder, scene, target view, or route family instead of producing one full JSON object.",
                 "For each slice, identify only actionable views, controls, reachability transitions, routes, and unresolved blockers needed for navigation.",
@@ -162,7 +167,8 @@ namespace UnityAutorun.Mcp
                 ("candidateVersion", "The exact candidateVersion returned with the candidate. A changed evidence version makes the old decision unreviewed."),
                 ("outcome", "transition, unresolved, or ignored."),
                 ("targetId", "Required for transition and unresolved outcomes. References the corresponding transition or unresolved id in the same or an earlier patch."),
-                ("reason", "Required for ignored outcomes. Keep it concise and explain why the evidence does not create a navigation edge.")
+                ("reason", "Required for ignored outcomes. Keep it concise and explain why the evidence does not create a navigation edge."),
+                ("nonTransitionEvidence", "Required when decisionHint.topologyStrength=strong but outcome is unresolved or ignored. Object fields: kind=source-contradiction, asset-contradiction, runtime-contradiction, or human-confirmation; summary=the concrete contrary observation. Do not use missing automation metadata, async work, branch preconditions, or absent runtime confirmation.")
             );
         }
 
@@ -209,12 +215,16 @@ namespace UnityAutorun.Mcp
                 "Use automation.mode=manual for transitions that require user input, platform auth, payment, or other actions AutoRun cannot perform.",
                 "Set transition confidence from 0.0 to 1.0. Include only short source summaries when useful; keep detailed source evidence out of ui-nav-map.json.",
                 "trace_ui_navigation_calls never assigns transition confidence or automation. The external AI must derive those fields from the call chain, prefab evidence, current map, and any required runtime evidence.",
+                "Candidate decisionHint is compact analyzer guidance, not an executable edge. mappedEndpoints supplies existing view ids, referenceRoleHint classifies invocation-name evidence, and serializedControls supplies exact-prefab serialized field evidence when naming conventions allow it.",
+                "Keep navigation topology separate from automation. When a single mapped source reaches a single mapped target through a direct or one-hop open/show/navigation invocation and analysis is not truncated, create the reachability transition even if the control must temporarily use automation.mode=manual or omit controlId.",
+                "Do not classify a strong topology candidate as unresolved merely because the handler is async, has data or branch preconditions, lacks runtime confirmation, or lacks exact AutoRun button metadata. These affect trigger details, confidence, and executability rather than whether the edge exists.",
                 "Do not use trace pagination alone as proof of completeness. get_ui_nav_candidate_coverage is authoritative because it removes candidates already recorded in candidateDecisions.",
                 "Every candidate returned by get_ui_nav_candidate_coverage must receive one decision with the exact candidateVersion, including duplicate, close-only, queried, generic type-token, and unrelated references; use outcome=ignored with a reason when no graph item should be created.",
                 "Do not invent a transition when the target view is unclear. Put uncertain links in unresolved unless a human has confirmed them, in which case use kind=inferred with source.type=human.",
                 "For FairyGUI controls, set framework to fairygui and autoRun.isFairyGUI to true.",
                 "For uGUI controls, set framework to ugui and autoRun.isFairyGUI to false.",
                 "For CodeBind-backed uGUI controls, resolve the serialized field reference in the prefab and use the referenced component's GameObject name and hierarchy path. Do not use the CodeBind field/property name as control.name, objectPath, or autoRun.buttonName unless it is also the real GameObject name.",
+                "When buttonBinding.serializedControls contains status=resolved, a transition decision must reference a control on the resolved source view whose name, objectPath leaf, or autoRun.buttonName matches the resolved objectName. Its evidence basis is reported explicitly and still requires external-AI judgment.",
                 "For uGUI controls, objectPath must be the real prefab/scene hierarchy path and autoRun.buttonName must equal the final GameObject name in that path, because AutoRun clicks by Unity object name.",
                 "For generated CodeBind files, treat properties such as LoginExButton only as hints. Confirm the serialized prefab object name, usually with separators such as Login_ExButton, before writing autoRun.buttonName.",
                 "Every route step should reference transitionId. Include controlId only when the transition has one.",
@@ -232,10 +242,11 @@ namespace UnityAutorun.Mcp
                 "Call get_nav_map_summary and scan_ui_nav_sources before broad work or first-time generation.",
                 "Call trace_ui_navigation_calls for important source views and targets, especially when a click reaches a view reference through helper methods or another component.",
                 "Call get_ui_nav_candidate_coverage without a query, review all returned items, merge candidateDecisions, and repeat with offset=0 until remaining=0.",
+                "Treat reviewStatus=semantic-review-required as unfinished work. Replace an endpoint-mismatched transition decision, or turn a strong topology candidate into a matching transition unless concrete nonTransitionEvidence exists.",
                 "Do not consider broad generation complete while scan_ui_nav_sources reports important UI/view, prefab, class, button-binding, or source-reference coverage gaps that are neither mapped nor recorded in unresolved.",
                 "Before merging a trace-derived edge, confirm its source view and referenced-view role; a call-chain reference alone is not proof that the view opens.",
                 "For large or first-time maps, call validate_ui_nav_map_patch and merge_ui_nav_map_patch for each slice.",
-                "Call finalize_ui_nav_map_generation and require completionGatePassed=true. A candidate_review_incomplete response is a failed completion gate, not a warning.",
+                "Call finalize_ui_nav_map_generation and require completionGatePassed=true. candidate_review_incomplete and candidate_semantic_review_incomplete are failed completion gates, not warnings.",
                 "After merge_ui_nav_map_patch or save_ui_nav_map succeeds, call list_ui_routes with mapPath set to absoluteOutputPath.",
                 "Call resolve_ui_route with from/to or route id for each important target.",
                 "For startup targets, resolve routes from app start and from each detected blocking gate view such as login/auth/update/loading to the target. Missing gate routes must be fixed or recorded in unresolved before execution.",
@@ -257,6 +268,7 @@ namespace UnityAutorun.Mcp
                 "When coverage returns reviewStatus=outdated-decision, the new candidateVersion is strong evidence for intentionally replacing that candidateDecisions item after validation.",
                 "If a relationship is uncertain, put it in unresolved rather than inventing a transition.",
                 "Every decision must copy the candidateVersion from coverage output. A transition decision must reference a known transition targetId, an unresolved decision must reference a known unresolved targetId, and an ignored decision must include a concise reason.",
+                "A transition decision must reference an edge whose fromViewId and toViewId match mappedEndpoints when those endpoints are resolved. A strong candidate may be unresolved or ignored only with concrete nonTransitionEvidence.",
                 "After each merge, call get_nav_map_summary to check counts, version status, generation status, and obvious missing references on large maps."
             };
         }
@@ -271,7 +283,7 @@ namespace UnityAutorun.Mcp
                 ("generation", JsonUtil.Obj(
                     ("status", "complete"),
                     ("candidateProtocolVersion", UiNavMapMetadata.CandidateProtocolVersion),
-                    ("candidateSetVersion", "candidate-set.1.0.example"),
+                    ("candidateSetVersion", "candidate-set." + UiNavMapMetadata.CandidateProtocolVersion + ".example"),
                     ("candidateCount", 2),
                     ("reviewedCandidateCount", 2),
                     ("completedAt", DateTimeOffset.UtcNow.ToString("o"))
@@ -339,13 +351,13 @@ namespace UnityAutorun.Mcp
                 {
                     JsonUtil.Obj(
                         ("id", "candidate.navigation.example-a"),
-                        ("candidateVersion", "candidate-evidence.1.0.example-a"),
+                        ("candidateVersion", "candidate-evidence." + UiNavMapMetadata.CandidateProtocolVersion + ".example-a"),
                         ("outcome", "transition"),
                         ("targetId", "transition.a.aa.to.b")
                     ),
                     JsonUtil.Obj(
                         ("id", "candidate.navigation.example-b"),
-                        ("candidateVersion", "candidate-evidence.1.0.example-b"),
+                        ("candidateVersion", "candidate-evidence." + UiNavMapMetadata.CandidateProtocolVersion + ".example-b"),
                         ("outcome", "transition"),
                         ("targetId", "transition.b.flow.to.c")
                     )
@@ -362,6 +374,7 @@ namespace UnityAutorun.Mcp
                 + "Use scan coverage gaps as the backlog, and call backfill_ui_nav_map_from_sources with previewOnly=true when deterministic source-backed views are missing. Backfill never creates controls, transitions, routes, automation, or confidence. "
                 + "Call trace_ui_navigation_calls for deep button-handler and cross-component chains. Treat its items as evidence and make the graph decisions externally before authoring a patch. "
                 + "Use get_ui_nav_candidate_coverage with no query as the authoritative backlog. For every returned item copy id and candidateVersion into exactly one candidateDecisions entry, then request offset=0 again until remaining=0. "
+                + "Use decisionHint, mappedEndpoints, and serializedControls. Strong topology evidence must become a matching transition unless concrete source, asset, runtime, or user-confirmed evidence contradicts it; automation uncertainty, async work, branch preconditions, and absent runtime confirmation are not contradictions. "
                 + "Analyze Unity UI prefabs, UI scripts, and surrounding application flow code in slices by module, prefab folder, scene, target view, or route family. "
                 + "Do not stop at direct button clicks; include state changes, scene loading, data context, events, lifecycle, and project-specific open/show/navigation API chains as indirect flow transitions. "
                 + "For startup flows, explicitly model login, auth, update, privacy, notice, tutorial, and loading gates instead of assuming app start reaches the main UI. "

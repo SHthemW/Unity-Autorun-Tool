@@ -51,10 +51,15 @@ namespace UnityAutorun.Mcp
             ));
             if (coverage["isComplete"]?.GetValue<bool>() != true)
             {
+                int semanticReviewCount = coverage["semanticReviewCount"]?.GetValue<int>() ?? 0;
                 coverage["ok"] = false;
-                coverage["code"] = "candidate_review_incomplete";
+                coverage["code"] = semanticReviewCount > 0
+                    ? "candidate_semantic_review_incomplete"
+                    : "candidate_review_incomplete";
                 coverage["completionGatePassed"] = false;
-                coverage["message"] = "Review every returned candidate, merge one candidateDecisions item per candidate, then call finalize_ui_nav_map_generation again.";
+                coverage["message"] = semanticReviewCount > 0
+                    ? "Some candidate decisions conflict with strong topology evidence or reference mismatched transitions. Replace each returned decision with a matching transition, or provide concrete nonTransitionEvidence, then finalize again."
+                    : "Review every returned candidate, merge one candidateDecisions item per candidate, then call finalize_ui_nav_map_generation again.";
                 return coverage;
             }
 
@@ -87,6 +92,7 @@ namespace UnityAutorun.Mcp
                 ("candidateSetVersion", snapshot.CandidateSetVersion),
                 ("candidateCount", snapshot.AllCandidates.Count),
                 ("reviewedCandidateCount", snapshot.AllCandidates.Count),
+                ("semanticReviewCount", 0),
                 ("completedAt", DateTimeOffset.UtcNow.ToString("o"))
             );
             UiNavMapMetadata.PrepareForWrite(map, false);
@@ -134,6 +140,7 @@ namespace UnityAutorun.Mcp
             return new CandidateSnapshot(
                 assetsRoot,
                 mapPath,
+                map,
                 knownViews.Count,
                 allCandidates,
                 candidates,
@@ -148,25 +155,35 @@ namespace UnityAutorun.Mcp
         {
             int offset = Math.Max(0, Int(args, "offset", 0));
             int limit = Math.Max(1, Math.Min(200, Int(args, "limit", 50)));
-            Dictionary<string, string> reviewedVersions = CandidateDecisionObjects(
+            Dictionary<string, JsonObject> decisionsById = CandidateDecisionObjects(
                     map?["candidateDecisions"] as JsonArray)
                 .Where(item => NotBlank(Text(item, "id")))
                 .GroupBy(item => Text(item, "id"), StringComparer.Ordinal)
                 .ToDictionary(
                     group => group.Key,
-                    group => Text(group.Last(), "candidateVersion"),
+                    group => group.Last(),
+                    StringComparer.Ordinal);
+            Dictionary<string, string> reviewedVersions = decisionsById
+                .ToDictionary(
+                    pair => pair.Key,
+                    pair => Text(pair.Value, "candidateVersion"),
                     StringComparer.Ordinal);
             Dictionary<string, string> allCandidateVersions = snapshot.AllCandidates.ToDictionary(
                 item => item.Id,
                 item => item.CandidateVersion,
                 StringComparer.Ordinal);
+            Dictionary<string, CandidateDecisionReview> reviews = snapshot.Candidates
+                .ToDictionary(
+                    item => item.Id,
+                    item =>
+                    {
+                        JsonObject decision;
+                        decisionsById.TryGetValue(item.Id, out decision);
+                        return ReviewCandidateDecision(item, decision, map);
+                    },
+                    StringComparer.Ordinal);
             List<NavigationCallCandidate> unreviewed = snapshot.Candidates
-                .Where(item =>
-                    !reviewedVersions.ContainsKey(item.Id)
-                    || !string.Equals(
-                        reviewedVersions[item.Id],
-                        item.CandidateVersion,
-                        StringComparison.Ordinal))
+                .Where(item => !reviews[item.Id].IsComplete)
                 .ToList();
             List<NavigationCallCandidate> pageItems = unreviewed
                 .Skip(offset)
@@ -175,15 +192,18 @@ namespace UnityAutorun.Mcp
             var items = new JsonArray();
             foreach (NavigationCallCandidate candidate in pageItems)
             {
-                JsonObject item = candidate.ToJson(snapshot.AssetsRoot);
-                if (reviewedVersions.ContainsKey(candidate.Id))
+                JsonObject item = candidate.ToJson(snapshot.AssetsRoot, map);
+                CandidateDecisionReview review = reviews[candidate.Id];
+                item["reviewStatus"] = review.Status;
+                if (review.Issue != null)
                 {
-                    item["reviewStatus"] = "outdated-decision";
-                    item["previousCandidateVersion"] = reviewedVersions[candidate.Id];
+                    item["semanticReview"] = review.Issue.DeepClone();
                 }
-                else
+
+                JsonObject currentDecision;
+                if (decisionsById.TryGetValue(candidate.Id, out currentDecision))
                 {
-                    item["reviewStatus"] = "unreviewed";
+                    item["currentDecision"] = currentDecision.DeepClone();
                 }
 
                 items.Add(item);
@@ -198,6 +218,8 @@ namespace UnityAutorun.Mcp
                     allCandidateVersions[pair.Key],
                     pair.Value,
                     StringComparison.Ordinal));
+            int semanticReviewCount = reviews.Values.Count(item =>
+                item.Status == "semantic-review-required");
             bool hasMore = nextOffset < unreviewed.Count;
 
             return JsonUtil.Obj(
@@ -213,6 +235,7 @@ namespace UnityAutorun.Mcp
                 ("remaining", unreviewed.Count),
                 ("staleDecisionCount", staleDecisionCount),
                 ("outdatedDecisionCount", outdatedDecisionCount),
+                ("semanticReviewCount", semanticReviewCount),
                 ("isComplete", unreviewed.Count == 0),
                 ("page", JsonUtil.Obj(
                     ("offset", offset),
@@ -225,7 +248,7 @@ namespace UnityAutorun.Mcp
                 ("items", items),
                 ("generation", map?["generation"]?.DeepClone()),
                 ("decisionPolicy", StaticDecisionPolicy()),
-                ("workflowHint", "Review every returned item, copy id and candidateVersion exactly, and merge one candidateDecisions entry with outcome=transition, unresolved, or ignored. For reviewStatus=outdated-decision, replace the existing decision with the new evidence version; this intentional candidate-ledger update may use allowConflicts=true after validation. After each merge request the next unreviewed page with offset=0. Global generation is complete only when query is empty, remaining=0, and finalize_ui_nav_map_generation succeeds.")
+                ("workflowHint", "Review every returned item, copy id and candidateVersion exactly, and merge one candidateDecisions entry with outcome=transition, unresolved, or ignored. For reviewStatus=outdated-decision or semantic-review-required, replace the existing decision after validating the current evidence; this intentional candidate-ledger update may use allowConflicts=true. Strong topology evidence should become a matching transition. Missing exact AutoRun metadata, async work, branch preconditions, or absent runtime confirmation are not contradictory topology evidence. After each merge request the next unreviewed page with offset=0. Global generation is complete only when query is empty, remaining=0, and finalize_ui_nav_map_generation succeeds.")
             );
         }
 
@@ -241,6 +264,7 @@ namespace UnityAutorun.Mcp
             public CandidateSnapshot(
                 string assetsRoot,
                 string mapPath,
+                JsonObject map,
                 int knownViewCount,
                 List<NavigationCallCandidate> allCandidates,
                 List<NavigationCallCandidate> candidates,
@@ -249,6 +273,7 @@ namespace UnityAutorun.Mcp
             {
                 AssetsRoot = assetsRoot;
                 MapPath = mapPath;
+                Map = map;
                 KnownViewCount = knownViewCount;
                 AllCandidates = allCandidates;
                 Candidates = candidates;
@@ -258,6 +283,7 @@ namespace UnityAutorun.Mcp
 
             public string AssetsRoot { get; }
             public string MapPath { get; }
+            public JsonObject Map { get; }
             public int KnownViewCount { get; }
             public List<NavigationCallCandidate> AllCandidates { get; }
             public List<NavigationCallCandidate> Candidates { get; }

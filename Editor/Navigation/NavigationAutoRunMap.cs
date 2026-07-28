@@ -10,7 +10,7 @@ public sealed partial class NavigationAutoRunMap
     private const string ExampleNavMapPath = "Gen/ui-nav-map.example.json";
     private const string PackageFileName = "package.json";
     private const string SupportedSchemaVersion = "2.0";
-    private const string SupportedCandidateProtocolVersion = "1.0";
+    private const string SupportedCandidateProtocolVersion = "1.1";
 
     private readonly NavigationMapDocument _document;
     private readonly Dictionary<string, NavigationMapView> _views;
