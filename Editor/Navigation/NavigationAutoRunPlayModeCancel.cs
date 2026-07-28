@@ -31,6 +31,7 @@ public static class NavigationAutoRunPlayModeCancel
 
         _canceling = true;
         Log("Play Mode stopped. Canceling navigation task. state=" + state, AutoRunLogLevel.Warning);
+        NavigationAutoRunSession.CancelTracked("Play Mode stopped while navigation was running.");
         NavigationAutoRunSession.ClearPending();
         NavigationAutoRunSession.ClearActiveRequest();
         NavigationAutoRunCancelRequest.Start(OnCancelCompleted);

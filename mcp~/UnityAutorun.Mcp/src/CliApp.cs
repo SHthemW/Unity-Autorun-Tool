@@ -33,7 +33,19 @@ namespace UnityAutorun.Mcp
             }
             else if (command == "list-buttons")
             {
-                result = await bridge.CallUnityAsync("list_buttons", JsonUtil.Obj(("framework", Read(args, "--framework", "all"))));
+                result = await bridge.CallUnityAsync("list_buttons", JsonUtil.Obj(
+                    ("framework", Read(args, "--framework", "all")),
+                    ("query", Read(args, "--query")),
+                    ("exact", ReadBool(args, "--exact", false)),
+                    ("limit", ReadInt(args, "--limit", 100)),
+                    ("namesOnly", ReadBool(args, "--names-only", false))
+                ));
+            }
+            else if (command == "is-view-open")
+            {
+                result = await bridge.CallUnityAsync("is_ui_view_open", JsonUtil.Obj(
+                    ("targetViewId", Read(args, "--target"))
+                ));
             }
             else if (command == "click")
             {
@@ -82,6 +94,26 @@ namespace UnityAutorun.Mcp
             {
                 result = await NavigateUiAsync(args, bridge);
             }
+            else if (command == "start-ui-navigation")
+            {
+                result = await bridge.CallUnityAsync("start_ui_navigation", JsonUtil.Obj(
+                    ("targetViewId", Read(args, "--to")),
+                    ("navigationId", Read(args, "--id")),
+                    ("ensurePlayMode", ReadBool(args, "--ensure-play-mode", true))
+                ));
+            }
+            else if (command == "ui-navigation-status")
+            {
+                result = await bridge.CallUnityAsync("get_ui_navigation_status", JsonUtil.Obj(
+                    ("navigationId", Read(args, "--id"))
+                ));
+            }
+            else if (command == "cancel-ui-navigation")
+            {
+                result = await bridge.CallUnityAsync("cancel_ui_navigation", JsonUtil.Obj(
+                    ("navigationId", Read(args, "--id"))
+                ));
+            }
 
             if (result == null)
             {
@@ -125,23 +157,8 @@ namespace UnityAutorun.Mcp
         {
             UiNavMap map = UiNavMap.Load(Read(args, "--map"));
             JsonObject route = Resolve(map, args);
-            if (route["isFullyAutoRunnable"]?.GetValue<bool>() != true)
+            if (route["isNavigationRunnable"]?.GetValue<bool>() != true)
             {
-                if (route["isNavigationRunnable"]?.GetValue<bool>() == true)
-                {
-                    JsonNode navigationResult = await bridge.CallUnityAsync("navigate_route", JsonUtil.Obj(
-                        ("routeId", route["id"]?.DeepClone()),
-                        ("targetViewId", route["toViewId"]?.DeepClone()),
-                        ("navigationSteps", route["navigationSteps"]?.DeepClone() ?? new JsonArray())
-                    ));
-                    if (navigationResult != null)
-                    {
-                        navigationResult["route"] = JsonUtil.Obj(("path", map.Path), ("id", route["id"]?.DeepClone()), ("fromViewId", route["fromViewId"]?.DeepClone()), ("toViewId", route["toViewId"]?.DeepClone()), ("steps", route["steps"]?.DeepClone()));
-                    }
-
-                    return navigationResult;
-                }
-
                 return JsonUtil.Obj(
                     ("ok", false),
                     ("code", "route_not_runnable"),
@@ -150,12 +167,23 @@ namespace UnityAutorun.Mcp
                 );
             }
 
-            JsonNode result = await bridge.CallUnityAsync("run_sequence", JsonUtil.Obj(("actions", route["autoRunSequence"]?.DeepClone())));
-            if (result != null)
+            JsonNode navigationResult = await bridge.CallUnityAsync("navigate_route", JsonUtil.Obj(
+                ("routeId", route["id"]?.DeepClone()),
+                ("targetViewId", route["toViewId"]?.DeepClone()),
+                ("navigationSteps", route["navigationSteps"]?.DeepClone() ?? new JsonArray())
+            ));
+            if (navigationResult != null)
             {
-                result["route"] = JsonUtil.Obj(("path", map.Path), ("id", route["id"]?.DeepClone()), ("fromViewId", route["fromViewId"]?.DeepClone()), ("toViewId", route["toViewId"]?.DeepClone()));
+                navigationResult["route"] = JsonUtil.Obj(
+                    ("path", map.Path),
+                    ("id", route["id"]?.DeepClone()),
+                    ("fromViewId", route["fromViewId"]?.DeepClone()),
+                    ("toViewId", route["toViewId"]?.DeepClone()),
+                    ("steps", route["steps"]?.DeepClone())
+                );
             }
-            return result;
+
+            return navigationResult;
         }
 
         private static async Task<JsonNode> NavigateUiAsync(string[] args, BridgeClient bridge)
@@ -184,7 +212,7 @@ namespace UnityAutorun.Mcp
 
         private static async Task<JsonArray> ListOpenViewsAsync(BridgeClient bridge)
         {
-            JsonNode result = await bridge.CallUnityAsync("list_open_views");
+            JsonNode result = await bridge.CallUnityAsync("list_open_views", JsonUtil.Obj(("limit", 10000)));
             return result?["data"]?["openViews"]?.AsArray() ?? new JsonArray();
         }
 
@@ -237,7 +265,8 @@ namespace UnityAutorun.Mcp
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- status\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- play\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- stop\n"
-                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- list-buttons [--framework ugui|fairygui|all]\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- list-buttons [--framework ugui|fairygui|all] [--query Name] [--exact] [--limit 100] [--names-only]\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- is-view-open --target TargetView\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- click --name ButtonName [--text Text] [--framework ugui|fairygui]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- run-sequence --json-file sequence.json\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- nav-guidance\n"
@@ -247,6 +276,9 @@ namespace UnityAutorun.Mcp
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- route --map mcp/ui-nav-map.example.json --from A --to C\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- run-route --map mcp/ui-nav-map.example.json --from A --to C\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- navigate-ui --map mcp/ui-nav-map.json --to TargetView [--from StartView]\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- start-ui-navigation --to TargetView [--id NavigationId]\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- ui-navigation-status [--id NavigationId]\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- cancel-ui-navigation [--id NavigationId]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- mcp\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- mock-bridge");
         }

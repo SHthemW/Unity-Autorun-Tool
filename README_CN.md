@@ -14,6 +14,7 @@ Unity Autorun Tool 是一个 Unity Editor 扩展，用于自动化 UI 启动流�
 - .NET 8 CLI 与 MCP Server，可供 Codex、Claude 或其他 MCP 客户端调用。
 - 通过 `mcp/ui-nav-map.json` 支持 UI 导航图。
 - 支持对 click / wait 类型 UI 路由进行解析和执行。
+- 支持跨 Play Mode 恢复的异步 UI 导航任务与紧凑状态轮询。
 - 导航图工具覆盖 guidance、源码扫描、patch 校验、merge、summary、subgraph 和 HTML 预览。
 - Auto Run Window 内置 Console，支持 Debug、Info、Warning、Error 过滤。
 
@@ -184,6 +185,7 @@ dotnet mcp~/UnityAutorun.Mcp/bin/Release/net8.0/publish/UnityAutorun.Mcp.dll mcp
 - `unity_play`
 - `unity_stop`
 - `list_buttons`
+- `is_ui_view_open`
 - `click_button`
 - `run_sequence`
 - `get_nav_map_guidance`
@@ -200,6 +202,13 @@ dotnet mcp~/UnityAutorun.Mcp/bin/Release/net8.0/publish/UnityAutorun.Mcp.dll mcp
 - `resolve_ui_route`
 - `run_ui_route`
 - `navigate_ui`
+- `start_ui_navigation`
+- `get_ui_navigation_status`
+- `cancel_ui_navigation`
+
+对于“运行游戏并打开某个界面”这类请求，优先调用一次 `start_ui_navigation`，然后通过 `get_ui_navigation_status` 长轮询到 `terminal=true`。启动、登录门禁、路线解析和逐步等待由 Unity 内部完成，不需要 AI 反复调用 `list_buttons`、读取完整导航图或检查全量日志。
+
+Bridge 工具会自动读取当前项目动态发布的端点。`get_unity_bridge_port` 仅用于诊断，不再是其它 Bridge 工具的前置调用。`get_current_ui_nav_map` 默认返回摘要；只有明确需要完整文件时才传入 `full=true`。
 
 ## HTTP Bridge
 
@@ -221,10 +230,14 @@ Bridge 命令包括：
 - `stop`
 - `list_buttons`
 - `list_open_views`
+- `is_ui_view_open`
 - `click_button`
 - `run_sequence`
 - `navigate_route`
 - `cancel_navigation`
+- `start_ui_navigation`
+- `get_ui_navigation_status`
+- `cancel_ui_navigation`
 
 ## UI 导航图
 
@@ -245,6 +258,8 @@ Bridge 命令包括：
 - 由 UGUI 或 FairyGUI 按钮动作驱动的 `click` step。
 - 等待目标 view 出现的 `wait` step。
 - 通过编辑器面板或 Bridge 命令取消执行。
+
+`start_ui_navigation` 会立即返回一个 `navigationId`，并把待执行目标保存在编辑器会话中，因此进入 Play Mode 或脚本域重载后仍可继续。`get_ui_navigation_status` 返回 `navigationStatus`、`navigationPhase`、`terminal`、`elapsedMilliseconds` 和紧凑的目标视图匹配结果。
 
 如果使用 AI 生成导航图，建议先调用 MCP 工具 `get_nav_map_guidance`，再使用 scan、query、validate、merge 等工具增量更新，不要直接用文件系统写入 `ui-nav-map.json`。
 

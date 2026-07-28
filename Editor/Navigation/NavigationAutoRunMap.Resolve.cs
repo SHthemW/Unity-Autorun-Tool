@@ -117,7 +117,7 @@ public sealed partial class NavigationAutoRunMap
         return IsDefaultAction(controlAutoRun) ? null : controlAutoRun;
     }
 
-    private string ResolveViewRuntimeToken(string viewIdOrName)
+    public string ResolveViewRuntimeToken(string viewIdOrName)
     {
         string viewId = ResolveViewId(viewIdOrName);
         if (!_views.TryGetValue(viewId, out NavigationMapView view))

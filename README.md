@@ -14,6 +14,7 @@ Unity Autorun Tool is a Unity Editor extension for automating UI startup flows, 
 - .NET 8 CLI and MCP server for Codex, Claude, or other MCP-capable clients.
 - UI navigation map support through `mcp/ui-nav-map.json`.
 - Route resolution and execution for click and wait based UI transitions.
+- Asynchronous tracked UI navigation that survives Play Mode transitions and exposes compact progress polling.
 - Navigation map tools for guidance, source scanning, patch validation, merging, summaries, subgraphs, and HTML preview.
 - In-window console with Debug, Info, Warning, and Error filtering.
 
@@ -184,6 +185,7 @@ Available MCP tools:
 - `unity_play`
 - `unity_stop`
 - `list_buttons`
+- `is_ui_view_open`
 - `click_button`
 - `run_sequence`
 - `get_nav_map_guidance`
@@ -200,6 +202,13 @@ Available MCP tools:
 - `resolve_ui_route`
 - `run_ui_route`
 - `navigate_ui`
+- `start_ui_navigation`
+- `get_ui_navigation_status`
+- `cancel_ui_navigation`
+
+For requests such as "start the game and open a UI view", call `start_ui_navigation` once, then long-poll `get_ui_navigation_status` until `terminal=true`. Unity handles startup, login gates, route resolution, and per-step waits internally, so the AI does not need to repeatedly call `list_buttons`, read the full navigation map, or inspect broad logs.
+
+Bridge tools resolve the dynamically published project endpoint automatically. `get_unity_bridge_port` is diagnostic only and is not a prerequisite for other bridge tools. `get_current_ui_nav_map` returns a summary by default; pass `full=true` only when the complete file is explicitly required.
 
 ## HTTP Bridge
 
@@ -221,10 +230,14 @@ Bridge commands include:
 - `stop`
 - `list_buttons`
 - `list_open_views`
+- `is_ui_view_open`
 - `click_button`
 - `run_sequence`
 - `navigate_route`
 - `cancel_navigation`
+- `start_ui_navigation`
+- `get_ui_navigation_status`
+- `cancel_ui_navigation`
 
 ## UI Navigation Map
 
@@ -245,6 +258,8 @@ Route execution supports:
 - `click` steps backed by UGUI or FairyGUI button actions.
 - `wait` steps that wait for a view to appear.
 - cancellation through the editor panel or bridge command.
+
+`start_ui_navigation` immediately returns a `navigationId` and stores the pending target in the editor session, allowing it to continue after entering Play Mode or reloading the script domain. `get_ui_navigation_status` returns `navigationStatus`, `navigationPhase`, `terminal`, `elapsedMilliseconds`, and compact target-view matches.
 
 For AI-assisted map generation, first ask the MCP server for `get_nav_map_guidance`, then use the scan, query, validate, and merge tools instead of writing `ui-nav-map.json` directly.
 

@@ -74,6 +74,7 @@ public sealed class NavigationAutoRunOption
     public string ViewId;
     public string Name;
     public string DisplayName;
+    public string RuntimeToken;
 }
 
 public sealed class NavigationAutoRunPlan

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using UnityEditor;
 using UnityEngine;
@@ -42,7 +43,7 @@ public sealed partial class AutoRunBridgeDispatcher
             _jobs.Enqueue(job);
         }
 
-        if (!job.WaitHandle.WaitOne(TimeSpan.FromSeconds(30)))
+        if (!job.WaitHandle.WaitOne(GetRequestTimeout(request)))
         {
             return AutoRunBridgeResponses.Fail(request.id, "timeout", "Unity bridge request timed out.");
         }
@@ -89,6 +90,7 @@ public sealed partial class AutoRunBridgeDispatcher
         {
             if (shouldComplete)
             {
+                PopulateRuntimeData(job.Response);
                 LogResponse(job.Response);
                 job.WaitHandle.Set();
             }
@@ -112,6 +114,8 @@ public sealed partial class AutoRunBridgeDispatcher
                 return ListButtons(request);
             case "list_open_views":
                 return ListOpenViews(request);
+            case "is_ui_view_open":
+                return IsUiViewOpen(request);
             case "click_button":
                 return ClickButton(request);
             case "run_sequence":
@@ -122,6 +126,12 @@ public sealed partial class AutoRunBridgeDispatcher
                 return job.Response;
             case "cancel_navigation":
                 return CancelNavigation(request);
+            case "start_ui_navigation":
+                return StartTrackedNavigation(request);
+            case "get_ui_navigation_status":
+                return GetTrackedNavigationStatus(request);
+            case "cancel_ui_navigation":
+                return CancelTrackedNavigation(request);
             default:
                 return AutoRunBridgeResponses.Fail(request.id, "unknown_command", $"Unknown command: {request.command}");
         }
@@ -131,12 +141,36 @@ public sealed partial class AutoRunBridgeDispatcher
     {
         AutoRunBridgePayload payload = request.payload ?? new AutoRunBridgePayload();
         string framework = string.IsNullOrEmpty(payload.framework) ? "all" : payload.framework;
-        var buttons = AutoRunButtonService.ListButtons(framework);
-        return AutoRunBridgeResponses.Success(request.id, $"Found {buttons.Count} buttons.", new AutoRunBridgeData
+        List<AutoRunButtonInfo> allButtons = AutoRunButtonService.ListButtons(framework);
+        IEnumerable<AutoRunButtonInfo> matches = allButtons;
+        if (!string.IsNullOrWhiteSpace(payload.query))
+        {
+            matches = payload.exact
+                ? matches.Where(button => string.Equals(button.name, payload.query, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(button.text, payload.query, StringComparison.OrdinalIgnoreCase))
+                : matches.Where(button => ContainsIgnoreCase(button.name, payload.query)
+                    || ContainsIgnoreCase(button.text, payload.query));
+        }
+
+        List<AutoRunButtonInfo> matchedButtons = matches.ToList();
+        int limit = Math.Max(1, Math.Min(200, payload.limit <= 0 ? 100 : payload.limit));
+        List<AutoRunButtonInfo> returnedButtons = matchedButtons.Take(limit).ToList();
+        var data = new AutoRunBridgeData
         {
             framework = framework,
-            buttons = buttons,
-        });
+            buttonCount = matchedButtons.Count,
+            truncated = matchedButtons.Count > returnedButtons.Count,
+        };
+        if (payload.namesOnly)
+        {
+            data.buttonNames = returnedButtons.Select(button => button.name).Distinct().ToList();
+        }
+        else
+        {
+            data.buttons = returnedButtons;
+        }
+
+        return AutoRunBridgeResponses.Success(request.id, $"Found {matchedButtons.Count} matching buttons.", data);
     }
 
     private static AutoRunBridgeResponse ClickButton(AutoRunBridgeRequest request)
@@ -148,11 +182,58 @@ public sealed partial class AutoRunBridgeDispatcher
 
     private static AutoRunBridgeResponse ListOpenViews(AutoRunBridgeRequest request)
     {
-        List<string> openViews = AutoRunViewService.ListOpenViewNames();
-        return AutoRunBridgeResponses.Success(request.id, $"Found {openViews.Count} active view candidates.", new AutoRunBridgeData
+        AutoRunBridgePayload payload = request.payload ?? new AutoRunBridgePayload();
+        int total;
+        List<string> openViews = AutoRunViewService.ListOpenViewNames(
+            payload.query,
+            payload.exact,
+            payload.limit,
+            out total
+        );
+        return AutoRunBridgeResponses.Success(request.id, $"Found {total} matching active view candidates.", new AutoRunBridgeData
         {
             openViews = openViews,
+            openViewCount = total,
+            truncated = total > openViews.Count,
         });
+    }
+
+    private static AutoRunBridgeResponse IsUiViewOpen(AutoRunBridgeRequest request)
+    {
+        AutoRunBridgePayload payload = request.payload ?? new AutoRunBridgePayload();
+        string query = string.IsNullOrEmpty(payload.targetViewId) ? payload.query : payload.targetViewId;
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return AutoRunBridgeResponses.Fail(request.id, "view_required", "targetViewId or query is required.");
+        }
+
+        if (!string.IsNullOrEmpty(payload.targetViewId))
+        {
+            try
+            {
+                query = NavigationAutoRunMap.LoadDefault().ResolveViewRuntimeToken(payload.targetViewId);
+            }
+            catch (Exception)
+            {
+                // Keep arbitrary runtime names usable when the navigation map is unavailable.
+            }
+        }
+
+        int total;
+        List<string> matches = AutoRunViewService.ListOpenViewMatches(query, 10, out total);
+        return AutoRunBridgeResponses.Success(request.id, total > 0 ? "UI view is open." : "UI view is not open.", new AutoRunBridgeData
+        {
+            viewOpen = total > 0,
+            openViewCount = total,
+            openViews = matches,
+            truncated = total > matches.Count,
+        });
+    }
+
+    private static bool ContainsIgnoreCase(string value, string query)
+    {
+        return !string.IsNullOrEmpty(value)
+            && value.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private static AutoRunParam ToParam(AutoRunBridgePayload payload)
@@ -183,6 +264,43 @@ public sealed partial class AutoRunBridgeDispatcher
         {
             AutoRunWindow.AppendBridgeConsoleText(message, AutoRunLogLevel.Debug);
         }
+    }
+
+    private static void PopulateRuntimeData(AutoRunBridgeResponse response)
+    {
+        if (response == null)
+        {
+            return;
+        }
+
+        response.data = response.data ?? new AutoRunBridgeData();
+        response.data.isPlaying = EditorApplication.isPlaying;
+        response.data.unityVersion = Application.unityVersion;
+        response.data.bridgeVersion = AutoRunBridgeServer.Version;
+    }
+
+    private static TimeSpan GetRequestTimeout(AutoRunBridgeRequest request)
+    {
+        const double defaultSeconds = 30;
+        const double maximumSeconds = 300;
+        if (request?.command == "navigate_route")
+        {
+            double seconds = 5;
+            foreach (AutoRunNavStep step in request.payload?.navigationSteps ?? new List<AutoRunNavStep>())
+            {
+                seconds += step != null && step.timeout > 0 ? step.timeout : 15;
+            }
+
+            return TimeSpan.FromSeconds(Math.Max(defaultSeconds, Math.Min(maximumSeconds, seconds)));
+        }
+
+        if (request?.command == "run_sequence")
+        {
+            int count = request.payload?.actions?.Count ?? 0;
+            return TimeSpan.FromSeconds(Math.Max(defaultSeconds, Math.Min(maximumSeconds, count * 10 + 5)));
+        }
+
+        return TimeSpan.FromSeconds(defaultSeconds);
     }
 
     private sealed class AutoRunBridgeJob

@@ -10,6 +10,7 @@ public static class NavigationAutoRunPendingRunner
     private static double _startedAt;
     private static double _lastWaitingForPlayLogAt;
     private static double _lastResolveWaitLogAt;
+    private static double _nextResolveAttemptAt;
     private static string _lastError;
 
     static NavigationAutoRunPendingRunner()
@@ -43,6 +44,7 @@ public static class NavigationAutoRunPendingRunner
 
         if (!EditorApplication.isPlaying)
         {
+            NavigationAutoRunSession.SetTrackedProgress("waiting_for_play_mode");
             LogWaitingForPlayMode();
             return;
         }
@@ -54,6 +56,7 @@ public static class NavigationAutoRunPendingRunner
             _startedAt = EditorApplication.timeSinceStartup;
             _lastResolveWaitLogAt = -1;
             _lastError = null;
+            NavigationAutoRunSession.SetTrackedProgress("resolving_route");
             Log("Pending detected in Play Mode. target=" + NavigationAutoRunSession.TargetViewId
                 + ", name=" + NavigationAutoRunSession.TargetName
                 + ", runId=" + NavigationAutoRunSession.RunId);
@@ -64,6 +67,13 @@ public static class NavigationAutoRunPendingRunner
             return;
         }
 
+        double now = EditorApplication.timeSinceStartup;
+        if (now < _nextResolveAttemptAt)
+        {
+            return;
+        }
+
+        _nextResolveAttemptAt = now + 0.5;
         if (TrySendRequest())
         {
             _requestSent = true;
@@ -78,6 +88,10 @@ public static class NavigationAutoRunPendingRunner
         }
 
         Log("Timed out after " + elapsed.ToString("0.0") + "s. Last error: " + Safe(_lastError), AutoRunLogLevel.Error);
+        NavigationAutoRunSession.FailTracked(
+            "navigation_startup_timeout",
+            "Navigation route could not be resolved within " + StartupTimeoutSeconds.ToString("0") + "s. Last error: " + Safe(_lastError)
+        );
         NavigationAutoRunSession.ClearPending();
         Reset(false);
     }
@@ -93,6 +107,7 @@ public static class NavigationAutoRunPendingRunner
                 + ", openViews=" + NavigationAutoRunLog.FormatOpenViews(openViews));
             NavigationAutoRunPlan plan = map.ResolveToTarget(NavigationAutoRunSession.TargetViewId, openViews);
             Log("Resolved route " + plan.RouteId + ", steps=" + plan.Steps.Count);
+            NavigationAutoRunSession.SetTrackedProgress("starting_route", plan.RouteId);
             NavigationAutoRunRequest.Start(plan, OnCompleted);
             Log("Request started for pending target " + NavigationAutoRunSession.TargetViewId);
             return true;
@@ -100,6 +115,7 @@ public static class NavigationAutoRunPendingRunner
         catch (Exception ex)
         {
             _lastError = ex.Message;
+            NavigationAutoRunSession.SetTrackedProgress("waiting_for_route", null, _lastError);
             return false;
         }
     }
@@ -109,6 +125,7 @@ public static class NavigationAutoRunPendingRunner
         if (response == null)
         {
             Log("Completed with no response.", AutoRunLogLevel.Error);
+            NavigationAutoRunSession.FailTracked("navigation_no_response", "Navigation completed without a response.");
             NavigationAutoRunSession.ClearPending();
             Reset(true);
             return;
@@ -120,6 +137,7 @@ public static class NavigationAutoRunPendingRunner
         {
             _lastError = response.message;
             _requestSent = false;
+            NavigationAutoRunSession.SetTrackedProgress("waiting_for_route", null, _lastError);
             Log("Keeping pending target and retrying route resolution. lastError=" + Safe(_lastError));
             return;
         }
@@ -129,6 +147,7 @@ public static class NavigationAutoRunPendingRunner
             Log("Failed response " + response.code + ": " + response.message, AutoRunLogLevel.Error);
         }
 
+        NavigationAutoRunSession.CompleteTracked(response);
         NavigationAutoRunSession.ClearPending();
         Reset(true);
     }
@@ -170,6 +189,7 @@ public static class NavigationAutoRunPendingRunner
         _startedAt = 0;
         _lastWaitingForPlayLogAt = 0;
         _lastResolveWaitLogAt = 0;
+        _nextResolveAttemptAt = 0;
         _lastError = null;
         if (!keepListening)
         {

@@ -89,7 +89,7 @@ namespace UnityAutorun.Mcp
                         ("protocolVersion", "2024-11-05"),
                         ("capabilities", JsonUtil.Obj(("tools", new JsonObject()))),
                         ("serverInfo", JsonUtil.Obj(("name", "unity-autorun"), ("version", "0.1.0"))),
-                        ("instructions", "Call get_unity_bridge_port before Unity bridge tools to obtain the endpoint dynamically published by the current project.")
+                        ("instructions", "For requests to start Unity and open a UI view, prefer start_ui_navigation followed by get_ui_navigation_status. Bridge tools resolve the dynamically published endpoint automatically; get_unity_bridge_port is diagnostic only.")
                     ));
                 }
                 else if (method == "notifications/initialized")
@@ -130,11 +130,21 @@ namespace UnityAutorun.Mcp
             if (name == "unity_status") return await _bridge.GetStatusAsync();
             if (name == "unity_play") return await _bridge.CallUnityAsync("play");
             if (name == "unity_stop") return await _bridge.CallUnityAsync("stop");
-            if (name == "list_buttons") return await _bridge.CallUnityAsync("list_buttons", JsonUtil.Obj(("framework", Text(args, "framework", "all"))));
+            if (name == "list_buttons") return await _bridge.CallUnityAsync("list_buttons", JsonUtil.Obj(
+                ("framework", Text(args, "framework", "all")),
+                ("query", Text(args, "query")),
+                ("exact", Bool(args, "exact", false)),
+                ("limit", Int(args, "limit", 100)),
+                ("namesOnly", Bool(args, "namesOnly", false))
+            ));
+            if (name == "is_ui_view_open") return await _bridge.CallUnityAsync("is_ui_view_open", JsonUtil.Obj(
+                ("targetViewId", Text(args, "targetViewId")),
+                ("query", Text(args, "query"))
+            ));
             if (name == "click_button") return await _bridge.CallUnityAsync("click_button", JsonUtil.Obj(("name", Text(args, "name")), ("text", Text(args, "text")), ("framework", Text(args, "framework", "ugui"))));
             if (name == "run_sequence") return await _bridge.CallUnityAsync("run_sequence", JsonUtil.Obj(("actions", args["actions"]?.DeepClone() ?? new JsonArray())));
             if (name == "get_nav_map_guidance") return UiNavMapGuidance.Get();
-            if (name == "get_current_ui_nav_map") return UiNavMapReader.GetCurrent();
+            if (name == "get_current_ui_nav_map") return UiNavMapReader.GetCurrent(args);
             if (name == "save_ui_nav_map") return UiNavMapWriter.Save(args);
             if (name == "get_nav_map_summary") return UiNavMapPatchTools.GetSummary(args);
             if (name == "scan_ui_nav_sources") return UiNavMapSourceScanner.Scan(args);
@@ -147,12 +157,27 @@ namespace UnityAutorun.Mcp
             if (name == "resolve_ui_route") return ResolveRoute(args);
             if (name == "run_ui_route") return await RunRouteAsync(args);
             if (name == "navigate_ui") return await NavigateUiAsync(args);
+            if (name == "start_ui_navigation") return await StartUiNavigationAsync(args);
+            if (name == "get_ui_navigation_status") return await GetUiNavigationStatusAsync(args);
+            if (name == "cancel_ui_navigation") return await _bridge.CallUnityAsync("cancel_ui_navigation", JsonUtil.Obj(
+                ("navigationId", Text(args, "navigationId"))
+            ));
             throw new InvalidOperationException($"Unknown tool: {name}");
         }
 
         private static string Text(JsonObject args, string key, string fallback = null)
         {
             return args[key]?.GetValue<string>() ?? fallback;
+        }
+
+        private static bool Bool(JsonObject args, string key, bool fallback)
+        {
+            return args[key]?.GetValue<bool>() ?? fallback;
+        }
+
+        private static int Int(JsonObject args, string key, int fallback)
+        {
+            return args[key]?.GetValue<int>() ?? fallback;
         }
 
         private static void WriteResult(JsonNode id, JsonNode result)

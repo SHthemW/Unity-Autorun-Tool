@@ -1,17 +1,58 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEditor;
 using UnityEngine;
 
 public static class AutoRunViewService
 {
+    private const double CacheDurationSeconds = 0.5;
+    private static List<string> _cachedNames;
+    private static double _cachedAt = -1;
+
     public static List<string> ListOpenViewNames()
     {
+        return new List<string>(GetOpenViewNames());
+    }
+
+    public static List<string> ListOpenViewNames(string query, bool exact, int limit, out int total)
+    {
+        IEnumerable<string> names = GetOpenViewNames();
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            string normalizedQuery = NormalizeViewName(query);
+            names = exact
+                ? names.Where(name => IsViewNameMatch(NormalizeViewName(name), normalizedQuery))
+                : names.Where(name => name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0
+                    || NormalizeViewName(name).Contains(normalizedQuery));
+        }
+
+        List<string> matches = names.ToList();
+        total = matches.Count;
+        int safeLimit = Mathf.Clamp(limit <= 0 ? 100 : limit, 1, 10000);
+        return matches.Take(safeLimit).ToList();
+    }
+
+    public static List<string> ListOpenViewMatches(string viewIdOrName, int limit, out int total)
+    {
+        return ListOpenViewNames(viewIdOrName, true, limit, out total);
+    }
+
+    private static IReadOnlyList<string> GetOpenViewNames()
+    {
+        double now = EditorApplication.timeSinceStartup;
+        if (_cachedNames != null && now - _cachedAt < CacheDurationSeconds)
+        {
+            return _cachedNames;
+        }
+
         var names = new HashSet<string>();
         AddActiveGameObjectIdentifiers(names);
         AddActiveComponentIdentifiers(names);
 
-        return names.OrderBy(name => name).ToList();
+        _cachedNames = names.OrderBy(name => name).ToList();
+        _cachedAt = EditorApplication.timeSinceStartup;
+        return _cachedNames;
     }
 
     public static bool HasView(string viewIdOrName)
@@ -22,7 +63,7 @@ public static class AutoRunViewService
         }
 
         string target = NormalizeViewName(viewIdOrName);
-        return ListOpenViewNames().Any(name => IsViewNameMatch(NormalizeViewName(name), target));
+        return GetOpenViewNames().Any(name => IsViewNameMatch(NormalizeViewName(name), target));
     }
 
     private static void AddViewCandidate(HashSet<string> names, string rawName)

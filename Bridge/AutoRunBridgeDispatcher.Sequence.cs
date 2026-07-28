@@ -5,8 +5,6 @@ using UnityEngine;
 public sealed partial class AutoRunBridgeDispatcher
 {
     private const float SequenceDefaultStepTimeoutSeconds = 10f;
-    private const float SequencePollIntervalSeconds = 1f;
-
     private AutoRunSequenceJob _sequenceJob;
 
     private bool StartSequence(AutoRunBridgeJob job)
@@ -37,8 +35,9 @@ public sealed partial class AutoRunBridgeDispatcher
             return;
         }
 
-        _sequenceJob.Elapsed += SequencePollIntervalSeconds;
-        _sequenceJob.StepElapsed += SequencePollIntervalSeconds;
+        double now = EditorApplication.timeSinceStartup;
+        _sequenceJob.Elapsed = (float)(now - _sequenceJob.StartedAt);
+        _sequenceJob.StepElapsed = (float)(now - _sequenceJob.StepStartedAt);
 
         if (_sequenceJob.CurrentIndex >= _sequenceJob.Actions.Count)
         {
@@ -104,6 +103,7 @@ public sealed partial class AutoRunBridgeDispatcher
         }
 
         _sequenceJob.Job.Response = response;
+        PopulateRuntimeData(response);
         LogResponse(response);
         _sequenceJob.Job.WaitHandle.Set();
         _sequenceJob = null;

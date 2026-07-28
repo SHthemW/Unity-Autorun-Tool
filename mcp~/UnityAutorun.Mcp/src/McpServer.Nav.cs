@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
@@ -22,19 +23,8 @@ namespace UnityAutorun.Mcp
         {
             UiNavMap map = UiNavMap.Load(Text(args, "mapPath"));
             JsonObject route = Resolve(map, args);
-            if (route["isFullyAutoRunnable"]?.GetValue<bool>() != true)
+            if (route["isNavigationRunnable"]?.GetValue<bool>() != true)
             {
-                if (route["isNavigationRunnable"]?.GetValue<bool>() == true)
-                {
-                    JsonNode navigationResult = await _bridge.CallUnityAsync("navigate_route", JsonUtil.Obj(
-                        ("routeId", route["id"]?.DeepClone()),
-                        ("targetViewId", route["toViewId"]?.DeepClone()),
-                        ("navigationSteps", route["navigationSteps"]?.DeepClone() ?? new JsonArray())
-                    ));
-                    AddRouteInfo(navigationResult, map, route, true);
-                    return navigationResult;
-                }
-
                 return JsonUtil.Obj(
                     ("ok", false),
                     ("code", "route_not_runnable"),
@@ -43,9 +33,13 @@ namespace UnityAutorun.Mcp
                 );
             }
 
-            JsonNode result = await _bridge.CallUnityAsync("run_sequence", JsonUtil.Obj(("actions", route["autoRunSequence"]?.DeepClone())));
-            AddRouteInfo(result, map, route, false);
-            return result;
+            JsonNode navigationResult = await _bridge.CallUnityAsync("navigate_route", JsonUtil.Obj(
+                ("routeId", route["id"]?.DeepClone()),
+                ("targetViewId", route["toViewId"]?.DeepClone()),
+                ("navigationSteps", route["navigationSteps"]?.DeepClone() ?? new JsonArray())
+            ));
+            AddRouteInfo(navigationResult, map, route, true);
+            return navigationResult;
         }
 
         private async Task<JsonNode> NavigateUiAsync(JsonObject args)
@@ -62,9 +56,47 @@ namespace UnityAutorun.Mcp
             return result;
         }
 
+        private async Task<JsonNode> StartUiNavigationAsync(JsonObject args)
+        {
+            return await _bridge.CallUnityAsync("start_ui_navigation", JsonUtil.Obj(
+                ("targetViewId", Text(args, "targetViewId") ?? Text(args, "to")),
+                ("navigationId", Text(args, "navigationId")),
+                ("ensurePlayMode", Bool(args, "ensurePlayMode", true))
+            ));
+        }
+
+        private async Task<JsonNode> GetUiNavigationStatusAsync(JsonObject args)
+        {
+            int waitMilliseconds = Math.Max(0, Math.Min(25000, Int(args, "waitMs", 20000)));
+            int pollMilliseconds = Math.Max(100, Math.Min(2000, Int(args, "pollMs", 500)));
+            DateTimeOffset deadline = DateTimeOffset.UtcNow.AddMilliseconds(waitMilliseconds);
+            JsonNode result;
+            do
+            {
+                result = await _bridge.CallUnityAsync("get_ui_navigation_status", JsonUtil.Obj(
+                    ("navigationId", Text(args, "navigationId"))
+                ));
+                if (IsTerminalNavigationStatus(result) || DateTimeOffset.UtcNow >= deadline)
+                {
+                    return result;
+                }
+
+                int remaining = (int)Math.Max(0, (deadline - DateTimeOffset.UtcNow).TotalMilliseconds);
+                await Task.Delay(Math.Min(pollMilliseconds, remaining));
+            }
+            while (true);
+        }
+
+        private static bool IsTerminalNavigationStatus(JsonNode result)
+        {
+            return result == null
+                || result["ok"]?.GetValue<bool>() == false
+                || result["data"]?["terminal"]?.GetValue<bool>() == true;
+        }
+
         private async Task<JsonArray> ListOpenViewsAsync()
         {
-            JsonNode result = await _bridge.CallUnityAsync("list_open_views");
+            JsonNode result = await _bridge.CallUnityAsync("list_open_views", JsonUtil.Obj(("limit", 10000)));
             return result?["data"]?["openViews"]?.AsArray() ?? new JsonArray();
         }
 

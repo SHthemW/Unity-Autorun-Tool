@@ -87,6 +87,7 @@ The server exposes:
 - `unity_play`
 - `unity_stop`
 - `list_buttons`
+- `is_ui_view_open`
 - `click_button`
 - `run_sequence`
 - `get_nav_map_guidance`
@@ -100,6 +101,14 @@ The server exposes:
 - `list_ui_routes`
 - `resolve_ui_route`
 - `run_ui_route`
+- `navigate_ui`
+- `start_ui_navigation`
+- `get_ui_navigation_status`
+- `cancel_ui_navigation`
+
+For execution requests such as "start the game and open a UI view", prefer `start_ui_navigation` and then call `get_ui_navigation_status` until `terminal=true`. This keeps Play Mode startup, login gates, route resolution, and per-step waits inside Unity instead of turning them into repeated model/tool round trips.
+
+Bridge tools resolve the current dynamically published endpoint automatically, so `get_unity_bridge_port` is diagnostic only. `get_current_ui_nav_map` returns a compact summary by default; use `query_nav_map_items` or `get_ui_nav_subgraph` for targeted reads, and request `full=true` only when necessary.
 
 ## Prompting AI to build a nav map
 
@@ -145,7 +154,7 @@ Use `mcp/ui-nav-map.example.json` as the reference shape.
 
 ## Unity Bridge Protocol
 
-The Unity Editor bridge starts at port `17331` and increments until an available port is found. It publishes the selected endpoint under the Unity project's `Library` directory. MCP configuration does not contain a fixed port; call `get_unity_bridge_port` to retrieve it dynamically.
+The Unity Editor bridge starts at port `17331` and increments until an available port is found. It publishes the selected endpoint under the Unity project's `Library` directory. MCP configuration does not contain a fixed port, and bridge tools resolve the published endpoint automatically; use `get_unity_bridge_port` when the endpoint itself needs diagnosis.
 
 ```powershell
 $bridgeUrl = "<URL returned by get_unity_bridge_port>"

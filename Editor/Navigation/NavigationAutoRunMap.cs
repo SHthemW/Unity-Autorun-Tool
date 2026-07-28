@@ -189,6 +189,7 @@ public sealed partial class NavigationAutoRunMap
             ViewId = view.id,
             Name = name,
             DisplayName = name + " (" + view.id + ")",
+            RuntimeToken = ResolveViewRuntimeToken(view.id),
         };
     }
 

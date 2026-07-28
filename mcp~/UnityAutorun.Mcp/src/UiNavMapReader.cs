@@ -6,7 +6,7 @@ namespace UnityAutorun.Mcp
 {
     public static class UiNavMapReader
     {
-        public static JsonObject GetCurrent()
+        public static JsonObject GetCurrent(JsonObject args)
         {
             string path = UiNavMapPaths.ResolveDefaultMapPath();
             if (!File.Exists(path))
@@ -19,6 +19,15 @@ namespace UnityAutorun.Mcp
                 );
             }
 
+            bool full = args?["full"]?.GetValue<bool>() == true;
+            if (!full)
+            {
+                JsonObject summary = UiNavMapPatchTools.GetSummary(JsonUtil.Obj(("mapPath", path)));
+                summary["fullMapIncluded"] = false;
+                summary["message"] = "Full map omitted. Use query_nav_map_items or get_ui_nav_subgraph for targeted reads, or set full=true only when necessary.";
+                return summary;
+            }
+
             JsonNode map = JsonNode.Parse(File.ReadAllText(path));
             if (map == null)
             {
@@ -28,6 +37,7 @@ namespace UnityAutorun.Mcp
             return JsonUtil.Obj(
                 ("ok", true),
                 ("path", path),
+                ("fullMapIncluded", true),
                 ("map", map)
             );
         }

@@ -73,6 +73,7 @@ namespace UnityAutorun.Mcp
             JsonObject automation = transition?["automation"] as JsonObject;
             JsonNode autoRun = ResolveStepAutoRun(step);
             string mode = Text(automation, "mode") ?? (autoRun != null ? "click" : "wait");
+            string waitForViewId = Text(automation, "waitForViewId") ?? Text(transition, "toViewId");
             var result = JsonUtil.Obj(
                 ("transitionId", Text(step, "transitionId")),
                 ("fromViewId", Text(transition, "fromViewId")),
@@ -80,7 +81,7 @@ namespace UnityAutorun.Mcp
                 ("kind", Text(transition, "kind") ?? "interaction"),
                 ("mode", mode),
                 ("isAutoRunnable", autoRun != null),
-                ("waitForViewId", Text(automation, "waitForViewId") ?? Text(transition, "toViewId"))
+                ("waitForViewId", ResolveViewRuntimeToken(waitForViewId))
             );
 
             if (automation?["timeout"] != null)
@@ -94,6 +95,24 @@ namespace UnityAutorun.Mcp
             }
 
             return result;
+        }
+
+        private string ResolveViewRuntimeToken(string viewIdOrName)
+        {
+            string viewId = ResolveViewId(viewIdOrName);
+            JsonObject view = Objects("views").FirstOrDefault(item => Text(item, "id") == viewId);
+            if (view == null)
+            {
+                return viewIdOrName;
+            }
+
+            string rootObjectPath = Text(view, "rootObjectPath");
+            if (!string.IsNullOrEmpty(rootObjectPath))
+            {
+                return rootObjectPath;
+            }
+
+            return Text(view, "name") ?? Text(view, "id");
         }
 
         private bool IsFullyAutoRunnable(JsonObject route, JsonArray autoRunSequence)
