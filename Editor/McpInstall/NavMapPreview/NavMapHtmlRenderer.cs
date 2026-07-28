@@ -13,7 +13,7 @@ public static class NavMapHtmlRenderer
         RenderEdges(builder, graph);
         RenderNodes(builder, graph);
         builder.AppendLine("</svg></div>");
-        builder.AppendLine("<div class=\"legend\">Nodes are views. Arrows are button-click transitions. Generate mcp/ui-nav-map.json to replace the example graph.</div>");
+        builder.AppendLine("<div class=\"legend\">Nodes are views. Arrows are button-click transitions. Generate Gen/ui-nav-map.json to replace the example graph.</div>");
         builder.AppendLine("</body></html>");
         return builder.ToString();
     }

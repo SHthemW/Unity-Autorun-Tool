@@ -12,7 +12,7 @@ Unity Autorun Tool is a Unity Editor extension for automating UI startup flows, 
 - Delayed action sequences for editor Play Mode startup and shutdown workflows.
 - Local HTTP bridge on `127.0.0.1:17331` for external tooling.
 - .NET 8 CLI and MCP server for Codex, Claude, or other MCP-capable clients.
-- UI navigation map support through `mcp/ui-nav-map.json`.
+- UI navigation map support through `Gen/ui-nav-map.json`.
 - Route resolution and execution for click and wait based UI transitions.
 - Asynchronous tracked UI navigation that survives Play Mode transitions and exposes compact progress polling.
 - Navigation map tools for guidance, source scanning, patch validation, merging, summaries, subgraphs, and HTML preview.
@@ -99,7 +99,7 @@ The `MCP` panel in `Window > Auto Run Window` groups bridge controls, detected M
 - `Install MCP` updates a selected `.codex/config.toml` or `.claude/.mcp.json`.
 - `Open Terminal` opens a terminal at the tool root.
 - `Open Root` opens this tool folder.
-- `Preview Nav Map` renders `mcp/ui-nav-map.json` as `mcp/ui-nav-map.preview.html`.
+- `Preview Nav Map` renders `Gen/ui-nav-map.json` as `Gen/ui-nav-map.preview.html`.
 
 You can also start or stop the bridge from:
 
@@ -132,12 +132,12 @@ dotnet run --project mcp~/UnityAutorun.Mcp -- list-buttons --framework all
 dotnet run --project mcp~/UnityAutorun.Mcp -- click --name StartButton --framework ugui
 dotnet run --project mcp~/UnityAutorun.Mcp -- run-sequence --json-file sequence.json
 dotnet run --project mcp~/UnityAutorun.Mcp -- nav-guidance
-dotnet run --project mcp~/UnityAutorun.Mcp -- scan-nav-sources --map mcp/ui-nav-map.json
-dotnet run --project mcp~/UnityAutorun.Mcp -- backfill-nav-map --map mcp/ui-nav-map.json --preview true
-dotnet run --project mcp~/UnityAutorun.Mcp -- routes --map mcp/ui-nav-map.example.json
-dotnet run --project mcp~/UnityAutorun.Mcp -- route --map mcp/ui-nav-map.example.json --from A --to C
-dotnet run --project mcp~/UnityAutorun.Mcp -- run-route --map mcp/ui-nav-map.example.json --from A --to C
-dotnet run --project mcp~/UnityAutorun.Mcp -- navigate-ui --map mcp/ui-nav-map.json --to TargetView
+dotnet run --project mcp~/UnityAutorun.Mcp -- scan-nav-sources --map Gen/ui-nav-map.json
+dotnet run --project mcp~/UnityAutorun.Mcp -- backfill-nav-map --map Gen/ui-nav-map.json --preview true
+dotnet run --project mcp~/UnityAutorun.Mcp -- routes --map Gen/ui-nav-map.example.json
+dotnet run --project mcp~/UnityAutorun.Mcp -- route --map Gen/ui-nav-map.example.json --from A --to C
+dotnet run --project mcp~/UnityAutorun.Mcp -- run-route --map Gen/ui-nav-map.example.json --from A --to C
+dotnet run --project mcp~/UnityAutorun.Mcp -- navigate-ui --map Gen/ui-nav-map.json --to TargetView
 dotnet run --project mcp~/UnityAutorun.Mcp -- mock-bridge
 ```
 
@@ -244,7 +244,7 @@ Bridge commands include:
 
 ## UI Navigation Map
 
-The navigation system uses `mcp/ui-nav-map.json`. If that file does not exist, the editor falls back to `mcp/ui-nav-map.example.json`.
+The navigation system uses `Gen/ui-nav-map.json`. If that file does not exist, the editor falls back to `Gen/ui-nav-map.example.json`.
 
 The map describes:
 
@@ -287,7 +287,7 @@ The toggles only filter visibility. `Clear` removes current entries. Messages ar
 |-- Editor/                      # Unity Editor window, menus, MCP install, processes, nav AutoRun UI
 |-- Services/                    # UGUI/FairyGUI button and active-view discovery
 |-- Util/                        # XML and optional FairyGUI helpers
-|-- mcp/                         # Public nav-map files and MCP user docs
+|-- Gen/                         # Generated nav-map files and the tracked example map
 |-- mcp~/UnityAutorun.Mcp/       # .NET 8 CLI and MCP server source
 ```
 
@@ -297,4 +297,4 @@ The toggles only filter visibility. `Clear` removes current entries. Messages ar
 - If CLI bridge calls fail, start the bridge in Unity and use `bridge-port` or the MCP tool `get_unity_bridge_port` to inspect the current endpoint.
 - If a UGUI button is not found, check the runtime GameObject name, normalized name, and optional text field.
 - If a route cannot run, inspect it with `route`, `resolve_ui_route`, or `get_ui_nav_subgraph` and check unsupported or unresolved transitions.
-- If `Navigation AutoRun` shows no targets, create or merge a real `mcp/ui-nav-map.json`, or start from the example map to verify the workflow.
+- If `Navigation AutoRun` shows no targets, create or merge a real `Gen/ui-nav-map.json`, or start from the example map to verify the workflow.

@@ -5,9 +5,9 @@ using UnityEngine;
 
 public static class McpNavMapPreviewService
 {
-    private const string NavMapPath = "mcp/ui-nav-map.json";
-    private const string ExampleNavMapPath = "mcp/ui-nav-map.example.json";
-    private const string PreviewPath = "mcp/ui-nav-map.preview.html";
+    private const string NavMapPath = "Gen/ui-nav-map.json";
+    private const string ExampleNavMapPath = "Gen/ui-nav-map.example.json";
+    private const string PreviewPath = "Gen/ui-nav-map.preview.html";
 
     public static bool OpenPreview(out string message)
     {
@@ -43,6 +43,6 @@ public static class McpNavMapPreviewService
             return examplePath;
         }
 
-        throw new FileNotFoundException("Cannot find mcp/ui-nav-map.json or mcp/ui-nav-map.example.json.");
+        throw new FileNotFoundException("Cannot find Gen/ui-nav-map.json or Gen/ui-nav-map.example.json.");
     }
 }

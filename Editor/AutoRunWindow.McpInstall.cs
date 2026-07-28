@@ -129,7 +129,7 @@ public partial class AutoRunWindow
         }
 
         GUILayout.Label(
-            "Publish the MCP server, open terminal/root folder, or render mcp/ui-nav-map.json as an HTML graph.",
+            "Publish the MCP server, open terminal/root folder, or render Gen/ui-nav-map.json as an HTML graph.",
             GetSqueezedStyle(EditorStyles.label),
             GUILayout.MinWidth(0),
             GUILayout.ExpandWidth(true)

@@ -6,8 +6,8 @@ using UnityEngine;
 
 public sealed partial class NavigationAutoRunMap
 {
-    private const string NavMapPath = "mcp/ui-nav-map.json";
-    private const string ExampleNavMapPath = "mcp/ui-nav-map.example.json";
+    private const string NavMapPath = "Gen/ui-nav-map.json";
+    private const string ExampleNavMapPath = "Gen/ui-nav-map.example.json";
 
     private readonly NavigationMapDocument _document;
     private readonly Dictionary<string, NavigationMapView> _views;
@@ -293,6 +293,6 @@ public sealed partial class NavigationAutoRunMap
             return examplePath;
         }
 
-        throw new FileNotFoundException("Cannot find mcp/ui-nav-map.json or mcp/ui-nav-map.example.json.");
+        throw new FileNotFoundException("Cannot find Gen/ui-nav-map.json or Gen/ui-nav-map.example.json.");
     }
 }

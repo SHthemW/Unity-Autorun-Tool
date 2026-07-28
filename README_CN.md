@@ -12,7 +12,7 @@ Unity Autorun Tool 是一个 Unity Editor 扩展，用于自动化 UI 启动流�
 - 支持带延迟的动作序列，可用于 Play Mode 启动和退出前流程。
 - 本地 HTTP Bridge，默认监听 `127.0.0.1:17331`。
 - .NET 8 CLI 与 MCP Server，可供 Codex、Claude 或其他 MCP 客户端调用。
-- 通过 `mcp/ui-nav-map.json` 支持 UI 导航图。
+- 通过 `Gen/ui-nav-map.json` 支持 UI 导航图。
 - 支持对 click / wait 类型 UI 路由进行解析和执行。
 - 支持跨 Play Mode 恢复的异步 UI 导航任务与紧凑状态轮询。
 - 导航图工具覆盖 guidance、源码扫描、patch 校验、merge、summary、subgraph 和 HTML 预览。
@@ -99,7 +99,7 @@ AutorunToolData/config.xml
 - `Install MCP` 会更新选中的 `.codex/config.toml` 或 `.claude/.mcp.json`。
 - `Open Terminal` 在工具根目录打开终端。
 - `Open Root` 打开当前工具目录。
-- `Preview Nav Map` 将 `mcp/ui-nav-map.json` 渲染为 `mcp/ui-nav-map.preview.html`。
+- `Preview Nav Map` 将 `Gen/ui-nav-map.json` 渲染为 `Gen/ui-nav-map.preview.html`。
 
 也可以通过独立菜单启动或停止 Bridge：
 
@@ -132,12 +132,12 @@ dotnet run --project mcp~/UnityAutorun.Mcp -- list-buttons --framework all
 dotnet run --project mcp~/UnityAutorun.Mcp -- click --name StartButton --framework ugui
 dotnet run --project mcp~/UnityAutorun.Mcp -- run-sequence --json-file sequence.json
 dotnet run --project mcp~/UnityAutorun.Mcp -- nav-guidance
-dotnet run --project mcp~/UnityAutorun.Mcp -- scan-nav-sources --map mcp/ui-nav-map.json
-dotnet run --project mcp~/UnityAutorun.Mcp -- backfill-nav-map --map mcp/ui-nav-map.json --preview true
-dotnet run --project mcp~/UnityAutorun.Mcp -- routes --map mcp/ui-nav-map.example.json
-dotnet run --project mcp~/UnityAutorun.Mcp -- route --map mcp/ui-nav-map.example.json --from A --to C
-dotnet run --project mcp~/UnityAutorun.Mcp -- run-route --map mcp/ui-nav-map.example.json --from A --to C
-dotnet run --project mcp~/UnityAutorun.Mcp -- navigate-ui --map mcp/ui-nav-map.json --to TargetView
+dotnet run --project mcp~/UnityAutorun.Mcp -- scan-nav-sources --map Gen/ui-nav-map.json
+dotnet run --project mcp~/UnityAutorun.Mcp -- backfill-nav-map --map Gen/ui-nav-map.json --preview true
+dotnet run --project mcp~/UnityAutorun.Mcp -- routes --map Gen/ui-nav-map.example.json
+dotnet run --project mcp~/UnityAutorun.Mcp -- route --map Gen/ui-nav-map.example.json --from A --to C
+dotnet run --project mcp~/UnityAutorun.Mcp -- run-route --map Gen/ui-nav-map.example.json --from A --to C
+dotnet run --project mcp~/UnityAutorun.Mcp -- navigate-ui --map Gen/ui-nav-map.json --to TargetView
 dotnet run --project mcp~/UnityAutorun.Mcp -- mock-bridge
 ```
 
@@ -244,7 +244,7 @@ Bridge 命令包括：
 
 ## UI 导航图
 
-导航系统使用 `mcp/ui-nav-map.json`。如果该文件不存在，编辑器会回退读取 `mcp/ui-nav-map.example.json`。
+导航系统使用 `Gen/ui-nav-map.json`。如果该文件不存在，编辑器会回退读取 `Gen/ui-nav-map.example.json`。
 
 导航图描述：
 
@@ -287,7 +287,7 @@ Auto Run Window 内置本地 Console，用于显示工具消息。日志级别�
 |-- Editor/                      # Unity Editor 窗口、菜单、MCP 安装、进程检测、导航 AutoRun UI
 |-- Services/                    # UGUI/FairyGUI 按钮发现与活动视图发现
 |-- Util/                        # XML 与可选 FairyGUI helper
-|-- mcp/                         # 公开导航图文件与 MCP 使用文档
+|-- Gen/                         # 生成的导航图文件及受版本控制的示例导航图
 |-- mcp~/UnityAutorun.Mcp/       # .NET 8 CLI 与 MCP Server 源码
 ```
 
@@ -297,4 +297,4 @@ Auto Run Window 内置本地 Console，用于显示工具消息。日志级别�
 - 如果 CLI Bridge 调用失败，先在 Unity 中启动 Bridge，再通过 `bridge-port` 或 MCP 工具 `get_unity_bridge_port` 检查当前端点。
 - 如果找不到 UGUI 按钮，检查运行时 GameObject 名称、归一化后的名称，以及可选 `text` 字段。
 - 如果路由无法执行，用 `route`、`resolve_ui_route` 或 `get_ui_nav_subgraph` 检查是否存在 unsupported 或 unresolved transition。
-- 如果 `Navigation AutoRun` 没有目标，创建或 merge 真实的 `mcp/ui-nav-map.json`，也可以先用 example map 验证流程。
+- 如果 `Navigation AutoRun` 没有目标，创建或 merge 真实的 `Gen/ui-nav-map.json`，也可以先用 example map 验证流程。
