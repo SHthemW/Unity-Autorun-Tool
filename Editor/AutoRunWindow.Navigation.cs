@@ -14,12 +14,32 @@ public partial class AutoRunWindow
     private int _navigationTargetIndex;
     private bool _navigationRunning;
     private bool _navigationLoadAttempted;
+    private bool _navigationSelectionLoaded;
     private string _navigationSearchText = "";
     private string _navigationSelectedTargetViewId;
     private NavigationAutoRunOption _pendingNavigationTarget;
     private string _navigationStatusText;
     private bool _navigationCanceled;
     private int _navigationRunId;
+
+    private void ResetNavigationWindowState()
+    {
+        _navigationMap = null;
+        _navigationTargets =
+            new List<NavigationAutoRunOption>();
+        _navigationFilteredTargets =
+            new List<NavigationAutoRunOption>();
+        _navigationTargetNames = new string[0];
+        _navigationTargetIndex = 0;
+        _navigationRunning = false;
+        _navigationLoadAttempted = false;
+        _navigationSelectionLoaded = false;
+        _navigationSelectedTargetViewId = null;
+        _pendingNavigationTarget = null;
+        _navigationStatusText = null;
+        _navigationCanceled = false;
+        _navigationRunId = 0;
+    }
 
     private void RenderNavigationAutoRunPanel()
     {
@@ -75,9 +95,10 @@ public partial class AutoRunWindow
 
     private void EnsureNavigationTargetsLoaded(bool force)
     {
-        if (string.IsNullOrEmpty(_navigationSelectedTargetViewId))
+        if (!_navigationSelectionLoaded)
         {
             _navigationSelectedTargetViewId = EditorPrefs.GetString(NavigationSelectedTargetKey, "");
+            _navigationSelectionLoaded = true;
             LogNavigation("Loaded selected target from EditorPrefs: " + _navigationSelectedTargetViewId);
         }
 
@@ -88,7 +109,6 @@ public partial class AutoRunWindow
 
         if (!force && (_navigationMap != null || _navigationLoadAttempted))
         {
-            SyncNavigationTargetIndexFromSelectedTarget();
             return;
         }
 
@@ -166,15 +186,8 @@ public partial class AutoRunWindow
             return;
         }
 
-        if (_navigationTargetIndex >= _navigationTargetNames.Length)
-        {
-            _navigationTargetIndex = _navigationTargetNames.Length - 1;
-        }
-
-        if (string.IsNullOrEmpty(_navigationSelectedTargetViewId))
-        {
-            SyncSelectedNavigationTarget();
-        }
+        _navigationTargetIndex = 0;
+        SyncSelectedNavigationTarget();
     }
 
     private void RenderNavigationStatus()
@@ -226,6 +239,13 @@ public partial class AutoRunWindow
 
         _navigationTargetIndex = Mathf.Clamp(targetIndex, 0, _navigationFilteredTargets.Count - 1);
         SyncSelectedNavigationTarget();
+        if (!NavigationAutoRunSession.HasPending
+            && !NavigationAutoRunSession.HasActiveRequest)
+        {
+            _pendingNavigationTarget = null;
+        }
+
+        Repaint();
     }
 
     private bool SyncNavigationTargetIndexFromSelectedTarget()
@@ -265,7 +285,8 @@ public partial class AutoRunWindow
 
     private NavigationAutoRunOption GetCurrentNavigationTarget()
     {
-        if (_pendingNavigationTarget != null)
+        if (_pendingNavigationTarget != null
+            && (_navigationRunning || NavigationAutoRunSession.HasPending))
         {
             return _pendingNavigationTarget;
         }
@@ -351,15 +372,6 @@ public partial class AutoRunWindow
             DisplayName = targetName + " (" + targetViewId + ")",
         };
         _pendingNavigationTarget = target;
-        _navigationSelectedTargetViewId = target.ViewId;
-        EditorPrefs.SetString(NavigationSelectedTargetKey, _navigationSelectedTargetViewId);
-
-        int selectedIndex = _navigationFilteredTargets.FindIndex(item => item.ViewId == target.ViewId);
-        if (selectedIndex >= 0)
-        {
-            _navigationTargetIndex = selectedIndex;
-        }
-
         return target;
     }
 

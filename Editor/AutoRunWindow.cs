@@ -49,6 +49,7 @@ public partial class AutoRunWindow : EditorWindow
             0f,
             EditorPrefs.GetFloat(WindowScrollYKey, 0f)
         );
+        ResetNavigationWindowState();
     }
 
     private void OnDisable()
