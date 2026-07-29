@@ -21,9 +21,9 @@ public partial class AutoRunWindow
 
         GUILayout.Label(
             new GUIContent(
-                "MCP stdio processes and detected AI client versions.",
-                "Codex and Claude use the exact process executable with --version. "
-                + "VS Code, Cursor, and Windsurf use the host executable file version."),
+                "MCP stdio processes and their server versions.",
+                "MCP Version is read from the UnityAutorun.Mcp executable or DLL "
+                + "loaded by each process."),
             GetSqueezedStyle(EditorStyles.label),
             GUILayout.MinWidth(0),
             GUILayout.ExpandWidth(true)
@@ -36,7 +36,7 @@ public partial class AutoRunWindow
             "MCP Process",
             "AI PID",
             "AI Process",
-            "AI Version",
+            "MCP Version",
             "Published",
             EditorStyles.boldLabel,
             widths);
@@ -61,7 +61,7 @@ public partial class AutoRunWindow
                 process.ProcessName,
                 process.AiProcessId.ToString(),
                 process.AiProcessName,
-                process.AiVersion,
+                process.McpVersion,
                 process.PublishedAt,
                 EditorStyles.miniLabel,
                 widths);
@@ -73,7 +73,7 @@ public partial class AutoRunWindow
         string mcpProcess,
         string aiPid,
         string aiProcess,
-        string aiVersion,
+        string mcpVersion,
         string published,
         GUIStyle style,
         float[] widths)
@@ -88,7 +88,7 @@ public partial class AutoRunWindow
         GUILayout.Space(McpProcessColumnGap);
         GUILayout.Label(aiProcess, cellStyle, GUILayout.Width(widths[3]));
         GUILayout.Space(McpProcessColumnGap);
-        GUILayout.Label(aiVersion, cellStyle, GUILayout.Width(widths[4]));
+        GUILayout.Label(mcpVersion, cellStyle, GUILayout.Width(widths[4]));
         GUILayout.Space(McpProcessColumnGap);
         GUILayout.Label(published, cellStyle, GUILayout.Width(widths[5]));
         GUILayout.EndHorizontal();
@@ -102,7 +102,7 @@ public partial class AutoRunWindow
             MeasureMcpProcessCell("MCP Process", EditorStyles.boldLabel),
             MeasureMcpProcessCell("AI PID", EditorStyles.boldLabel),
             MeasureMcpProcessCell("AI Process", EditorStyles.boldLabel),
-            MeasureMcpProcessCell("AI Version", EditorStyles.boldLabel),
+            MeasureMcpProcessCell("MCP Version", EditorStyles.boldLabel),
             MeasureMcpProcessCell("Published", EditorStyles.boldLabel),
         };
 
@@ -118,7 +118,7 @@ public partial class AutoRunWindow
             widths[1] = MaxCell(widths[1], process.ProcessName);
             widths[2] = MaxCell(widths[2], process.AiProcessId.ToString());
             widths[3] = MaxCell(widths[3], process.AiProcessName);
-            widths[4] = MaxCell(widths[4], process.AiVersion);
+            widths[4] = MaxCell(widths[4], process.McpVersion);
             widths[5] = MaxCell(widths[5], process.PublishedAt);
         }
 

@@ -94,7 +94,7 @@ AutorunToolData/config.xml
 
 `Window > Auto Run Window` 中的 `MCP` 面板包含 Bridge 控制、MCP 进程检测、安装入口和辅助工具。
 
-- 面板顶部显示当前 Unity AutoRun 版本；`Processes` 表格会在可读取时显示每个 AI 客户端进程的版本。
+- 面板顶部显示当前 Unity AutoRun MCP 版本；`Processes` 表格会显示每个 AI 客户端连接的 MCP 服务端二进制版本。
 - `Start` / `Stop` 控制本地 Unity Bridge。
 - `Publish MCP` 会先终止指向当前发布 DLL 的 MCP 子进程，等待文件解锁后执行 `dotnet publish`，并检测 AI 客户端是否自动重连。
 - `Install MCP` 会更新选中的 `.codex/config.toml` 或 `.claude/.mcp.json`。

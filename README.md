@@ -94,7 +94,7 @@ The tool creates a runtime `AutoRunHandler` GameObject and marks it as `DontDest
 
 The `MCP` panel in `Window > Auto Run Window` groups bridge controls, detected MCP processes, install controls, and helper tools.
 
-- The panel header shows the current Unity AutoRun version, and the `Processes` table reports each AI client process version when it can be detected.
+- The panel header shows the current Unity AutoRun MCP version, and the `Processes` table reports the version of the MCP server binary connected to each AI client.
 - `Start` / `Stop` controls the local Unity bridge.
 - `Publish MCP` stops MCP child processes that point at the current published DLL, waits for the file to unlock, runs `dotnet publish`, and checks whether AI clients reconnect automatically.
 - `Install MCP` updates a selected `.codex/config.toml` or `.claude/.mcp.json`.
