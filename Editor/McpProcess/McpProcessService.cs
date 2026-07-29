@@ -7,6 +7,11 @@ using System.Text.RegularExpressions;
 
 public static class McpProcessService
 {
+    private const int AiVersionCommandTimeoutMilliseconds = 1000;
+    private const int MaxAiVersionLength = 36;
+    private static readonly Dictionary<string, string> AiVersionCache =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
     public static List<McpProcessInfo> ListUnityAutorunProcesses()
     {
         try
@@ -68,12 +73,13 @@ public static class McpProcessService
                 + " -or ($_.Name -eq 'dotnet.exe' -and $_.CommandLine -like '*UnityAutorun.Mcp.dll*' -and $_.CommandLine -like '* mcp*')};"
                 + "$p | ForEach-Object {"
                 + "$item=$_;$parent=$all | Where-Object {$_.ProcessId -eq $item.ParentProcessId} | Select-Object -First 1;"
-                + "$ai=$parent;while($ai -and $ai.Name -notmatch 'codex|claude|cursor|code|windsurf'){"
+                + "$ai=$parent;while($ai -and $ai.Name -notmatch '^(codex(?:-cli)?|claude(?:-code)?|cursor|code(?: - insiders)?|windsurf)(\\.exe)?$'){"
                 + "$ai=$all | Where-Object {$_.ProcessId -eq $ai.ParentProcessId} | Select-Object -First 1};"
                 + "$aiPid=if($ai){$ai.ProcessId}else{0};$aiName=if($ai){$ai.Name}else{'unknown'};"
+                + "$aiExe=if($ai -and $ai.ExecutablePath){$ai.ExecutablePath}else{''};"
                 + "$parentName=if($parent){$parent.Name}else{'unknown'};"
                 + "$exe=if($item.ExecutablePath){$item.ExecutablePath}else{''};"
-                + "Write-Output ($item.ProcessId.ToString()+'|'+$item.Name+'|'+$item.ParentProcessId.ToString()+'|'+$parentName+'|'+$aiPid.ToString()+'|'+$aiName+'|'+$exe+'|'+$item.CommandLine)}\"",
+                + "Write-Output ($item.ProcessId.ToString()+'|'+$item.Name+'|'+$item.ParentProcessId.ToString()+'|'+$parentName+'|'+$aiPid.ToString()+'|'+$aiName+'|'+$exe+'|'+$aiExe+'|'+$item.CommandLine)}\"",
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardOutput = true,
@@ -94,15 +100,16 @@ public static class McpProcessService
 
     private static McpProcessInfo ParseLine(string line)
     {
-        string[] parts = line.Split(new[] { '|' }, 8);
-        if (parts.Length < 8 || !int.TryParse(parts[0], out int processId))
+        string[] parts = line.Split(new[] { '|' }, 9);
+        if (parts.Length < 9 || !int.TryParse(parts[0], out int processId))
         {
             return null;
         }
 
         int.TryParse(parts[2], out int parentId);
         int.TryParse(parts[4], out int aiId);
-        string binaryPath = NormalizePath(ResolveMainProgramPath(parts[1], parts[6], parts[7]));
+        string aiExecutablePath = NormalizePath(parts[7]);
+        string binaryPath = NormalizePath(ResolveMainProgramPath(parts[1], parts[6], parts[8]));
         return new McpProcessInfo
         {
             ProcessId = processId,
@@ -111,9 +118,11 @@ public static class McpProcessService
             ParentProcessName = Safe(parts[3]),
             AiProcessId = aiId,
             AiProcessName = Safe(parts[5]),
+            AiVersion = GetAiVersion(parts[5], aiExecutablePath),
+            AiExecutablePath = aiExecutablePath,
             PublishedAt = GetPublishedAt(binaryPath),
             BinaryPath = binaryPath,
-            CommandLine = Shorten(CleanCommandLine(parts[7])),
+            CommandLine = Shorten(CleanCommandLine(parts[8])),
         };
     }
 
@@ -163,6 +172,142 @@ public static class McpProcessService
         return string.IsNullOrEmpty(binaryPath) || !File.Exists(binaryPath)
             ? "unknown"
             : File.GetLastWriteTime(binaryPath).ToString("MMdd HHmm");
+    }
+
+    private static string GetAiVersion(string processName, string executablePath)
+    {
+        if (string.IsNullOrEmpty(executablePath) || !File.Exists(executablePath))
+        {
+            return "unknown";
+        }
+
+        try
+        {
+            var file = new FileInfo(executablePath);
+            string cacheKey = executablePath
+                + "|"
+                + file.Length
+                + "|"
+                + file.LastWriteTimeUtc.Ticks;
+            if (AiVersionCache.TryGetValue(cacheKey, out string cachedVersion))
+            {
+                return cachedVersion;
+            }
+
+            string version = "";
+            if (UsesVersionCommand(processName))
+            {
+                version = ReadCommandVersion(executablePath);
+            }
+
+            if (string.IsNullOrEmpty(version))
+            {
+                version = ReadFileVersion(executablePath);
+            }
+
+            version = NormalizeVersion(version);
+            if (string.IsNullOrEmpty(version))
+            {
+                version = "unknown";
+            }
+
+            AiVersionCache[cacheKey] = version;
+            return version;
+        }
+        catch
+        {
+            return "unknown";
+        }
+    }
+
+    private static bool UsesVersionCommand(string processName)
+    {
+        string name = Path.GetFileNameWithoutExtension(Safe(processName));
+        return string.Equals(name, "codex", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "codex-cli", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "claude", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "claude-code", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ReadCommandVersion(string executablePath)
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = executablePath,
+                Arguments = "--version",
+                WorkingDirectory = Path.GetDirectoryName(executablePath),
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+
+            using Process process = Process.Start(startInfo);
+            if (process == null)
+            {
+                return "";
+            }
+
+            if (!process.WaitForExit(AiVersionCommandTimeoutMilliseconds))
+            {
+                try
+                {
+                    process.Kill();
+                }
+                catch
+                {
+                    // 仅终止由本方法启动的版本查询子进程。
+                }
+
+                return "";
+            }
+
+            string output = process.StandardOutput.ReadToEnd();
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                return output;
+            }
+
+            return process.StandardError.ReadToEnd();
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    private static string ReadFileVersion(string executablePath)
+    {
+        try
+        {
+            FileVersionInfo info = FileVersionInfo.GetVersionInfo(executablePath);
+            return !string.IsNullOrWhiteSpace(info.ProductVersion)
+                ? info.ProductVersion
+                : info.FileVersion;
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    private static string NormalizeVersion(string value)
+    {
+        string compact = Regex.Replace(value ?? "", "\\s+", " ").Trim();
+        Match match = Regex.Match(
+            compact,
+            "(?<!\\d)(\\d+(?:\\.\\d+)+(?:[-+][0-9A-Za-z.-]+)?)",
+            RegexOptions.IgnoreCase);
+        if (match.Success)
+        {
+            return match.Groups[1].Value;
+        }
+
+        return compact.Length <= MaxAiVersionLength
+            ? compact
+            : compact.Substring(0, MaxAiVersionLength - 3) + "...";
     }
 
     private static string ResolveMainProgramPath(string processName, string executablePath, string commandLine)

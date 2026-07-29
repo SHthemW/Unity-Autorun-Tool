@@ -162,6 +162,19 @@ public partial class AutoRunWindow
     private void RenderMcpPanel()
     {
         BeginPanel("MCP");
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(
+            new GUIContent(
+                "Unity AutoRun MCP",
+                "The version is read from the tool package.json file."),
+            EditorStyles.miniLabel);
+        GUILayout.FlexibleSpace();
+        GUILayout.Label(
+            "v" + McpInstallConfig.GetToolVersion(),
+            EditorStyles.miniBoldLabel);
+        GUILayout.EndHorizontal();
+        GUILayout.Space(2);
+
         if (EditorApplication.timeSinceStartup - _mcpProcessLastRefreshAt > 2)
         {
             RefreshMcpProcesses();

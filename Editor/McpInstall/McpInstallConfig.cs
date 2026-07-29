@@ -8,6 +8,8 @@ public sealed class McpInstallConfig
 {
     public const string PackageName = "com.shthemw.unity-autorun-tool";
     public const string ServerName = "unity-autorun";
+    private const string PackageFileName = "package.json";
+    private static string _toolVersion;
 
     public string Command;
     public List<string> Args;
@@ -35,6 +37,45 @@ public sealed class McpInstallConfig
     public static string GetMcpProjectPath()
     {
         return FindMcpProjectPath();
+    }
+
+    public static string GetToolVersion()
+    {
+        if (!string.IsNullOrEmpty(_toolVersion))
+        {
+            return _toolVersion;
+        }
+
+        try
+        {
+            PackageInfo packageInfo =
+                PackageInfo.FindForAssetPath("Packages/" + PackageName + "/package.json");
+            if (packageInfo != null && !string.IsNullOrEmpty(packageInfo.version))
+            {
+                _toolVersion = packageInfo.version;
+                return _toolVersion;
+            }
+
+            string packagePath = Path.Combine(GetToolRootDirectory(), PackageFileName);
+            if (File.Exists(packagePath))
+            {
+                PackageVersionDocument document =
+                    UnityEngine.JsonUtility.FromJson<PackageVersionDocument>(
+                        File.ReadAllText(packagePath));
+                if (document != null && !string.IsNullOrEmpty(document.version))
+                {
+                    _toolVersion = document.version;
+                    return _toolVersion;
+                }
+            }
+        }
+        catch
+        {
+            // 版本展示不应阻断 MCP 面板的其它功能。
+        }
+
+        _toolVersion = "unknown";
+        return _toolVersion;
     }
 
     public static string GetToolRootDirectory()
@@ -161,5 +202,11 @@ public sealed class McpInstallConfig
     private static string JsonEscape(string value)
     {
         return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+    }
+
+    [Serializable]
+    private sealed class PackageVersionDocument
+    {
+        public string version = "";
     }
 }
