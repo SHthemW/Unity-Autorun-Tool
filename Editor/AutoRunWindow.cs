@@ -3,17 +3,25 @@ using UnityEngine;
 using System.IO;
 using System;
 using System.Collections.Generic;
+using System.Text;
 
 public partial class AutoRunWindow : EditorWindow
 {
     private const int MaxConsoleChars = 20000;
     private const int MaxConsoleEntryChars = 1200;
+    private const float ConsoleViewportHeight = 220f;
+    private const float ConsoleViewportPadding = 3f;
+    private const float ConsoleRowSpacing = 2f;
+    private const float ConsoleScrollbarWidth = 16f;
     private const float WindowVerticalScrollbarWidth = 18f;
     private const float WindowContentPadding = 10f;
     private const float MinimumWindowContentWidth = 260f;
 
-    private readonly List<AutoRunConsoleEntry> _consoleEntries = new List<AutoRunConsoleEntry>();
+    private readonly Queue<AutoRunConsoleEntry> _consoleEntries = new Queue<AutoRunConsoleEntry>();
+    private readonly List<AutoRunConsoleEntry> _visibleConsoleEntries = new List<AutoRunConsoleEntry>();
     private int _consoleCharCount;
+    private bool _consoleViewDirty = true;
+    private bool _consoleShouldScrollToBottom;
     private bool _showDebugLogs = true;
     private bool _showInfoLogs = true;
     private bool _showWarningLogs = true;
@@ -22,7 +30,6 @@ public partial class AutoRunWindow : EditorWindow
     private const string WindowScrollYKey = "UnityAutorunTool.Window.ScrollY";
     private static readonly Dictionary<AutoRunLogLevel, GUIStyle> ConsoleEntryStyles = new Dictionary<AutoRunLogLevel, GUIStyle>();
     private static readonly Dictionary<GUIStyle, GUIStyle> SqueezedStyles = new Dictionary<GUIStyle, GUIStyle>();
-    private static Font _consoleFont;
     private Vector2 _windowScrollPosition;
     private Vector2 _actionScrollPosition;
     private Vector2 _consoleScrollPosition;
@@ -187,7 +194,10 @@ public partial class AutoRunWindow : EditorWindow
     private void ClearConsoleText()
     {
         _consoleEntries.Clear();
+        _visibleConsoleEntries.Clear();
         _consoleCharCount = 0;
+        _consoleViewDirty = false;
+        _consoleShouldScrollToBottom = false;
         _consoleScrollPosition = Vector2.zero;
     }
 
@@ -199,24 +209,31 @@ public partial class AutoRunWindow : EditorWindow
     private void AppendConsoleText(string text, AutoRunLogLevel level)
     {
         if (string.IsNullOrEmpty(text))
+        {
             return;
+        }
+
+        text = text.TrimEnd('\r', '\n');
+        if (text.Length == 0)
+        {
+            return;
+        }
 
         if (text.Length > MaxConsoleEntryChars)
         {
             text = text.Substring(0, MaxConsoleEntryChars) + "... [truncated]";
         }
-        
-        text = text.TrimEnd('\r', '\n');
+
         var entry = new AutoRunConsoleEntry(level, text);
-        _consoleEntries.Add(entry);
+        _consoleEntries.Enqueue(entry);
         _consoleCharCount += entry.Text.Length;
         while (_consoleCharCount > MaxConsoleChars && _consoleEntries.Count > 0)
         {
-            _consoleCharCount -= _consoleEntries[0].Text.Length;
-            _consoleEntries.RemoveAt(0);
+            _consoleCharCount -= _consoleEntries.Dequeue().Text.Length;
         }
 
-        _consoleScrollPosition.y += 100; // Keep scroll at the bottom
+        _consoleViewDirty = true;
+        _consoleShouldScrollToBottom = true;
     }
 
     public static void AppendBridgeConsoleText(string text)
@@ -245,43 +262,83 @@ public partial class AutoRunWindow : EditorWindow
     {
         GUILayout.Label("Console");
         RenderConsoleLevelFilters();
-        if (GUILayout.Button("Clear"))
+
+        EnsureVisibleConsoleEntries();
+        GUILayout.BeginHorizontal();
+        using (new EditorGUI.DisabledScope(_visibleConsoleEntries.Count == 0))
+        {
+            if (GUILayout.Button("Copy Visible", GUILayout.Width(95)))
+            {
+                CopyConsoleEntries(_visibleConsoleEntries);
+            }
+        }
+
+        using (new EditorGUI.DisabledScope(_consoleEntries.Count == 0))
+        {
+            if (GUILayout.Button("Copy All", GUILayout.Width(75)))
+            {
+                CopyConsoleEntries(_consoleEntries);
+            }
+        }
+
+        GUILayout.FlexibleSpace();
+        if (GUILayout.Button("Clear", GUILayout.Width(55)))
         {
             ClearConsoleText();
         }
+        GUILayout.EndHorizontal();
 
-        GUILayout.BeginVertical(EditorStyles.helpBox);
-        _consoleScrollPosition = GUILayout.BeginScrollView(_consoleScrollPosition, GUILayout.Height(220));
-        if (_consoleEntries.Count == 0)
+        Rect consoleRect = GUILayoutUtility.GetRect(
+            GUIContent.none,
+            EditorStyles.helpBox,
+            GUILayout.Height(ConsoleViewportHeight),
+            GUILayout.ExpandWidth(true));
+        GUI.Box(consoleRect, GUIContent.none, EditorStyles.helpBox);
+
+        Rect viewportRect = new Rect(
+            consoleRect.x + ConsoleViewportPadding,
+            consoleRect.y + ConsoleViewportPadding,
+            Mathf.Max(1f, consoleRect.width - ConsoleViewportPadding * 2f),
+            Mathf.Max(1f, consoleRect.height - ConsoleViewportPadding * 2f));
+        float rowHeight = Mathf.Ceil(EditorGUIUtility.singleLineHeight) + ConsoleRowSpacing;
+        int rowCount = Mathf.Max(1, _visibleConsoleEntries.Count);
+        float contentHeight = Mathf.Max(viewportRect.height, rowCount * rowHeight);
+        float contentWidth = Mathf.Max(1f, viewportRect.width - ConsoleScrollbarWidth);
+        Rect contentRect = new Rect(0f, 0f, contentWidth, contentHeight);
+
+        if (_consoleShouldScrollToBottom)
         {
-            GUILayout.Label("No logs.", GetConsoleEntryStyle(AutoRunLogLevel.Debug));
+            _consoleScrollPosition.y = Mathf.Max(0f, contentHeight - viewportRect.height);
+            _consoleShouldScrollToBottom = false;
+        }
+
+        _consoleScrollPosition.x = 0f;
+        _consoleScrollPosition = GUI.BeginScrollView(
+            viewportRect,
+            _consoleScrollPosition,
+            contentRect,
+            false,
+            true);
+
+        if (_visibleConsoleEntries.Count == 0)
+        {
+            string emptyMessage = _consoleEntries.Count == 0
+                ? "No logs."
+                : "No logs match the selected levels.";
+            Rect emptyRect = new Rect(0f, 0f, contentWidth, rowHeight);
+            EditorGUI.SelectableLabel(emptyRect, emptyMessage, GetConsoleEntryStyle(AutoRunLogLevel.Debug));
         }
         else
         {
-            bool hasVisibleEntry = false;
-            foreach (AutoRunConsoleEntry entry in _consoleEntries)
-            {
-                if (!ShouldShowConsoleEntry(entry.Level))
-                {
-                    continue;
-                }
-
-                hasVisibleEntry = true;
-                GUILayout.Label(FormatConsoleEntry(entry), GetConsoleEntryStyle(entry.Level));
-            }
-
-            if (!hasVisibleEntry)
-            {
-                GUILayout.Label("No logs match the selected levels.", GetConsoleEntryStyle(AutoRunLogLevel.Debug));
-            }
+            DrawVisibleConsoleRows(contentWidth, rowHeight, viewportRect.height);
         }
 
-        GUILayout.EndScrollView();
-        GUILayout.EndVertical();
+        GUI.EndScrollView();
     }
 
     private void RenderConsoleLevelFilters()
     {
+        EditorGUI.BeginChangeCheck();
         GUILayout.BeginHorizontal();
         _showDebugLogs = GUILayout.Toggle(_showDebugLogs, "Debug", GUILayout.Width(70));
         _showInfoLogs = GUILayout.Toggle(_showInfoLogs, "Info", GUILayout.Width(60));
@@ -289,6 +346,97 @@ public partial class AutoRunWindow : EditorWindow
         _showErrorLogs = GUILayout.Toggle(_showErrorLogs, "Error", GUILayout.Width(65));
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
+
+        if (EditorGUI.EndChangeCheck())
+        {
+            _consoleViewDirty = true;
+            _consoleShouldScrollToBottom = true;
+        }
+    }
+
+    private void EnsureVisibleConsoleEntries()
+    {
+        if (!_consoleViewDirty)
+        {
+            return;
+        }
+
+        _visibleConsoleEntries.Clear();
+        foreach (AutoRunConsoleEntry entry in _consoleEntries)
+        {
+            if (ShouldShowConsoleEntry(entry.Level))
+            {
+                _visibleConsoleEntries.Add(entry);
+            }
+        }
+
+        _consoleViewDirty = false;
+    }
+
+    private void DrawVisibleConsoleRows(float contentWidth, float rowHeight, float viewportHeight)
+    {
+        int firstVisibleIndex = Mathf.Clamp(
+            Mathf.FloorToInt(_consoleScrollPosition.y / rowHeight),
+            0,
+            _visibleConsoleEntries.Count - 1);
+        int lastVisibleIndex = Mathf.Clamp(
+            Mathf.CeilToInt((_consoleScrollPosition.y + viewportHeight) / rowHeight),
+            firstVisibleIndex,
+            _visibleConsoleEntries.Count - 1);
+
+        for (int index = firstVisibleIndex; index <= lastVisibleIndex; index++)
+        {
+            AutoRunConsoleEntry entry = _visibleConsoleEntries[index];
+            Rect rowRect = new Rect(0f, index * rowHeight, contentWidth, rowHeight);
+            HandleConsoleRowContextMenu(rowRect, entry);
+            EditorGUI.SelectableLabel(rowRect, entry.DisplayText, GetConsoleEntryStyle(entry.Level));
+        }
+    }
+
+    private void HandleConsoleRowContextMenu(Rect rowRect, AutoRunConsoleEntry entry)
+    {
+        Event currentEvent = Event.current;
+        if (currentEvent.type != EventType.ContextClick || !rowRect.Contains(currentEvent.mousePosition))
+        {
+            return;
+        }
+
+        GenericMenu menu = new GenericMenu();
+        menu.AddItem(new GUIContent("Copy Log"), false, () => CopyConsoleEntry(entry));
+        menu.AddItem(new GUIContent("Copy Visible"), false, () => CopyConsoleEntries(_visibleConsoleEntries));
+        menu.AddItem(new GUIContent("Copy All"), false, () => CopyConsoleEntries(_consoleEntries));
+        menu.ShowAsContext();
+        currentEvent.Use();
+    }
+
+    private void CopyConsoleEntry(AutoRunConsoleEntry entry)
+    {
+        EditorGUIUtility.systemCopyBuffer = entry.DisplayText;
+        ShowNotification(new GUIContent("Log copied."));
+    }
+
+    private void CopyConsoleEntries(IEnumerable<AutoRunConsoleEntry> entries)
+    {
+        StringBuilder text = new StringBuilder();
+        int entryCount = 0;
+        foreach (AutoRunConsoleEntry entry in entries)
+        {
+            if (entryCount > 0)
+            {
+                text.AppendLine();
+            }
+
+            text.Append(entry.DisplayText);
+            entryCount++;
+        }
+
+        if (entryCount == 0)
+        {
+            return;
+        }
+
+        EditorGUIUtility.systemCopyBuffer = text.ToString();
+        ShowNotification(new GUIContent(entryCount + " logs copied."));
     }
 
     private bool ShouldShowConsoleEntry(AutoRunLogLevel level)
@@ -308,9 +456,9 @@ public partial class AutoRunWindow : EditorWindow
         }
     }
 
-    private static string FormatConsoleEntry(AutoRunConsoleEntry entry)
+    private static string FormatConsoleEntry(AutoRunLogLevel level, string text)
     {
-        return "[" + GetConsoleLevelPrefix(entry.Level) + "] " + entry.Text;
+        return "[" + GetConsoleLevelPrefix(level) + "] " + text;
     }
 
     private static string GetConsoleLevelPrefix(AutoRunLogLevel level)
@@ -339,31 +487,18 @@ public partial class AutoRunWindow : EditorWindow
 
         style = new GUIStyle(EditorStyles.label)
         {
-            wordWrap = true,
+            wordWrap = false,
             richText = false,
-            font = GetConsoleFont(),
-            fontSize = 12,
-            fixedHeight = 0f,
+            clipping = TextClipping.Clip,
+            alignment = TextAnchor.MiddleLeft,
         };
-        style.margin = new RectOffset(0, 0, 2, 6);
-        style.padding = new RectOffset(0, 0, 3, 3);
-        style.normal.textColor = GetConsoleTextColor(level);
+        Color textColor = GetConsoleTextColor(level);
+        style.normal.textColor = textColor;
+        style.hover.textColor = textColor;
+        style.active.textColor = textColor;
+        style.focused.textColor = textColor;
         ConsoleEntryStyles[level] = style;
         return style;
-    }
-
-    private static Font GetConsoleFont()
-    {
-        if (_consoleFont != null)
-        {
-            return _consoleFont;
-        }
-
-        _consoleFont = Font.CreateDynamicFontFromOSFont(
-            new[] { "Consolas", "Courier New", "Menlo", "Monaco", "monospace" },
-            12
-        );
-        return _consoleFont;
     }
 
     private static Color GetConsoleTextColor(AutoRunLogLevel level)
@@ -387,10 +522,12 @@ public partial class AutoRunWindow : EditorWindow
         {
             Level = level;
             Text = text;
+            DisplayText = FormatConsoleEntry(level, text);
         }
 
         public AutoRunLogLevel Level { get; }
         public string Text { get; }
+        public string DisplayText { get; }
     }
 }
 
