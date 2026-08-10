@@ -38,6 +38,7 @@ namespace UnityAutorun.Mcp
                 ("ok", true),
                 ("path", path),
                 ("fullMapIncluded", true),
+                ("version", UiNavMapMetadata.Describe(map.AsObject())),
                 ("map", map)
             );
         }

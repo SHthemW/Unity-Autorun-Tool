@@ -9,8 +9,24 @@ namespace UnityAutorun.Mcp
 {
     public static class UiNavMapPatchTools
     {
-        private static readonly string[] ArrayKeys = { "views", "controls", "transitions", "routes", "unresolved" };
-        private static readonly string[] IdRequiredKeys = { "views", "controls", "transitions", "routes" };
+        private static readonly string[] ArrayKeys =
+        {
+            "views",
+            "controls",
+            "transitions",
+            "routes",
+            "unresolved",
+            "candidateDecisions"
+        };
+
+        private static readonly string[] IdRequiredKeys =
+        {
+            "views",
+            "controls",
+            "transitions",
+            "routes",
+            "candidateDecisions"
+        };
 
         public static JsonObject GetSummary(JsonObject args)
         {
@@ -21,6 +37,7 @@ namespace UnityAutorun.Mcp
             JsonArray transitions = Array(map, "transitions");
             JsonArray routes = Array(map, "routes");
             JsonArray unresolved = Array(map, "unresolved");
+            JsonArray candidateDecisions = Array(map, "candidateDecisions");
 
             var viewIds = new HashSet<string>(Objects(views).Select(item => Text(item, "id")).Where(NotBlank));
             var referencedViews = new HashSet<string>();
@@ -57,8 +74,11 @@ namespace UnityAutorun.Mcp
                     ("controls", controls.Count),
                     ("transitions", transitions.Count),
                     ("routes", routes.Count),
-                    ("unresolved", unresolved.Count)
+                    ("unresolved", unresolved.Count),
+                    ("candidateDecisions", candidateDecisions.Count)
                 )),
+                ("version", UiNavMapMetadata.Describe(map)),
+                ("generation", map["generation"]?.DeepClone()),
                 ("frameworks", CountBy(Objects(views), "framework")),
                 ("transitionKinds", CountBy(Objects(transitions), "kind")),
                 ("missingViewRefs", StringArray(missingViewRefs.Take(50))),
@@ -138,12 +158,16 @@ namespace UnityAutorun.Mcp
                 ("depth", depth),
                 ("viewIds", StringArray(selectedViews.OrderBy(item => item))),
                 ("map", JsonUtil.Obj(
-                    ("schemaVersion", Text(map, "schemaVersion") ?? "1.0"),
+                    ("schemaVersion", Text(map, "schemaVersion") ?? UiNavMapMetadata.SchemaVersion),
+                    ("generatorVersion", Text(map, "generatorVersion")),
+                    ("mapVersion", map["mapVersion"]?.DeepClone()),
+                    ("generation", map["generation"]?.DeepClone()),
                     ("views", CloneWhere(Array(map, "views"), item => selectedViews.Contains(Text(item, "id")))),
                     ("controls", CloneList(controls)),
                     ("transitions", CloneList(transitions)),
                     ("routes", CloneList(routes)),
-                    ("unresolved", CloneWhere(Array(map, "unresolved"), item => MatchesAny(item, selectedViews)))
+                    ("unresolved", CloneWhere(Array(map, "unresolved"), item => MatchesAny(item, selectedViews))),
+                    ("candidateDecisions", new JsonArray())
                 ))
             );
         }
@@ -186,13 +210,12 @@ namespace UnityAutorun.Mcp
                 }
             }
 
-            map["schemaVersion"] = Text(map, "schemaVersion") ?? "1.0";
-            map["generatedAt"] = DateTimeOffset.UtcNow.ToString("o");
             if (!(map["project"] is JsonObject))
             {
                 map["project"] = JsonUtil.Obj(("source", "incremental-mcp-patches"));
             }
 
+            UiNavMapMetadata.PrepareForWrite(map, true);
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             File.WriteAllText(path, JsonUtil.Pretty(SortMap(map)) + Environment.NewLine, new UTF8Encoding(false));
 
@@ -201,6 +224,7 @@ namespace UnityAutorun.Mcp
                 ("path", path),
                 ("created", created),
                 ("changed", changed),
+                ("version", UiNavMapMetadata.Describe(map)),
                 ("summary", GetSummary(JsonUtil.Obj(("mapPath", path))))
             );
         }
@@ -213,7 +237,13 @@ namespace UnityAutorun.Mcp
 
             foreach (string key in patch.Select(item => item.Key).ToList())
             {
-                if (!ArrayKeys.Contains(key) && key != "schemaVersion" && key != "project" && key != "generatedAt")
+                if (!ArrayKeys.Contains(key)
+                    && key != "schemaVersion"
+                    && key != "generatorVersion"
+                    && key != "mapVersion"
+                    && key != "generation"
+                    && key != "project"
+                    && key != "generatedAt")
                 {
                     warnings.Add("Unknown patch key ignored by merge: " + key);
                 }
@@ -234,6 +264,7 @@ namespace UnityAutorun.Mcp
             }
 
             ValidateReferences(map, patch, errors, warnings);
+            ValidateCandidateDecisions(map, patch, errors, warnings);
 
             return JsonUtil.Obj(
                 ("ok", errors.Count == 0),
@@ -246,8 +277,88 @@ namespace UnityAutorun.Mcp
                     ("controls", Array(patch, "controls").Count),
                     ("transitions", Array(patch, "transitions").Count),
                     ("routes", Array(patch, "routes").Count),
-                    ("unresolved", Array(patch, "unresolved").Count)
+                    ("unresolved", Array(patch, "unresolved").Count),
+                    ("candidateDecisions", Array(patch, "candidateDecisions").Count)
                 ))
+            );
+        }
+
+        private static void ValidateCandidateDecisions(
+            JsonObject map,
+            JsonObject patch,
+            JsonArray errors,
+            JsonArray warnings)
+        {
+            HashSet<string> transitionIds = ExistingAndPatchIds(map, patch, "transitions");
+            HashSet<string> unresolvedIds = ExistingAndPatchIds(map, patch, "unresolved");
+
+            foreach (JsonObject decision in Objects(Array(patch, "candidateDecisions")))
+            {
+                string id = Text(decision, "id");
+                string candidateVersion = Text(decision, "candidateVersion");
+                string outcome = Text(decision, "outcome");
+                string targetId = Text(decision, "targetId");
+                string reason = Text(decision, "reason");
+                JsonObject nonTransitionEvidence =
+                    decision["nonTransitionEvidence"] as JsonObject;
+
+                if (NotBlank(id) && !id.StartsWith("candidate.navigation.", StringComparison.Ordinal))
+                {
+                    warnings.Add("Candidate decision id does not use candidate.navigation.*: " + id);
+                }
+
+                if (!NotBlank(candidateVersion)
+                    || !candidateVersion.StartsWith("candidate-evidence.", StringComparison.Ordinal))
+                {
+                    errors.Add("Candidate decision must copy candidateVersion from coverage output: " + id);
+                }
+
+                if (outcome != "transition" && outcome != "unresolved" && outcome != "ignored")
+                {
+                    errors.Add("Candidate decision outcome must be transition, unresolved, or ignored: " + id);
+                    continue;
+                }
+
+                if (outcome == "transition" && (!NotBlank(targetId) || !transitionIds.Contains(targetId)))
+                {
+                    errors.Add("Transition candidate decision must reference a known transition targetId: " + id);
+                }
+                else if (outcome == "unresolved" && (!NotBlank(targetId) || !unresolvedIds.Contains(targetId)))
+                {
+                    errors.Add("Unresolved candidate decision must reference a known unresolved targetId: " + id);
+                }
+                else if (outcome == "ignored" && !NotBlank(reason))
+                {
+                    errors.Add("Ignored candidate decision must include a concise reason: " + id);
+                }
+
+                if (nonTransitionEvidence != null)
+                {
+                    string evidenceKind = Text(nonTransitionEvidence, "kind");
+                    string evidenceSummary = Text(nonTransitionEvidence, "summary");
+                    if (outcome == "transition")
+                    {
+                        errors.Add("Transition candidate decision must not include nonTransitionEvidence: " + id);
+                    }
+
+                    if (!NotBlank(evidenceKind) || !NotBlank(evidenceSummary))
+                    {
+                        errors.Add("nonTransitionEvidence requires kind and summary: " + id);
+                    }
+                }
+            }
+        }
+
+        internal static JsonObject ValidateCandidateDecisionLedger(JsonObject map)
+        {
+            EnsureArrays(map);
+            var errors = new JsonArray();
+            var warnings = new JsonArray();
+            ValidateCandidateDecisions(Skeleton(), map, errors, warnings);
+            return JsonUtil.Obj(
+                ("ok", errors.Count == 0),
+                ("errors", errors),
+                ("warnings", warnings)
             );
         }
 
@@ -373,7 +484,7 @@ namespace UnityAutorun.Mcp
             return JsonUtil.Obj(("section", key), ("added", added), ("updated", updated));
         }
 
-        private static JsonObject SortMap(JsonObject map)
+        internal static JsonObject SortMap(JsonObject map)
         {
             foreach (string key in ArrayKeys)
             {
@@ -406,7 +517,7 @@ namespace UnityAutorun.Mcp
             throw new InvalidOperationException("Patch tool requires either patch object or patchJson string.");
         }
 
-        private static JsonObject LoadOrSkeleton(string path)
+        internal static JsonObject LoadOrSkeleton(string path)
         {
             if (!File.Exists(path))
             {
@@ -422,18 +533,25 @@ namespace UnityAutorun.Mcp
         private static JsonObject Skeleton()
         {
             return JsonUtil.Obj(
-                ("schemaVersion", "1.0"),
+                ("schemaVersion", UiNavMapMetadata.SchemaVersion),
+                ("generatorVersion", UiNavMapMetadata.GeneratorVersion),
+                ("mapVersion", 0),
                 ("generatedAt", DateTimeOffset.UtcNow.ToString("o")),
                 ("project", JsonUtil.Obj(("source", "incremental-mcp-patches"))),
+                ("generation", JsonUtil.Obj(
+                    ("status", "review-required"),
+                    ("candidateProtocolVersion", UiNavMapMetadata.CandidateProtocolVersion)
+                )),
                 ("views", new JsonArray()),
                 ("controls", new JsonArray()),
                 ("transitions", new JsonArray()),
                 ("routes", new JsonArray()),
-                ("unresolved", new JsonArray())
+                ("unresolved", new JsonArray()),
+                ("candidateDecisions", new JsonArray())
             );
         }
 
-        private static void EnsureArrays(JsonObject map)
+        internal static void EnsureArrays(JsonObject map)
         {
             foreach (string key in ArrayKeys)
             {

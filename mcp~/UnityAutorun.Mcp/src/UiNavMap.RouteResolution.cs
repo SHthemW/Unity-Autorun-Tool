@@ -155,41 +155,100 @@ namespace UnityAutorun.Mcp
             return IsDefaultAction(controlAutoRun) ? null : controlAutoRun;
         }
 
-        private static JsonNode NormalizeAutoRun(JsonNode autoRun, JsonObject control)
+        private JsonNode NormalizeAutoRun(JsonNode autoRun, JsonObject control)
         {
+            JsonNode normalized;
             if (autoRun == null)
             {
-                return CreateAutoRunFromControl(control);
+                normalized = CreateAutoRunFromControl(control);
             }
-
-            string objectPathButtonName = GetObjectPathLeaf(Text(control, "objectPath"));
-            if (!IsDefaultAction(autoRun) && !IsFairyGUIControl(control) && !string.IsNullOrEmpty(objectPathButtonName))
+            else
             {
-                return CloneAutoRunWithButtonName(autoRun, objectPathButtonName);
+                string objectPathButtonName = GetObjectPathLeaf(
+                    Text(control, "objectPath"));
+                if (!IsDefaultAction(autoRun)
+                    && !IsFairyGUIControl(control)
+                    && !string.IsNullOrEmpty(objectPathButtonName))
+                {
+                    normalized = CloneAutoRunWithButtonName(
+                        autoRun,
+                        objectPathButtonName);
+                }
+                else if (control == null || !IsDefaultAction(autoRun))
+                {
+                    normalized = autoRun.DeepClone();
+                }
+                else
+                {
+                    JsonObject fallback = CreateAutoRunFromControl(control);
+                    if (fallback == null)
+                    {
+                        normalized = autoRun.DeepClone();
+                    }
+                    else
+                    {
+                        if (autoRun["delay"] != null)
+                        {
+                            fallback["delay"] = autoRun["delay"].DeepClone();
+                        }
+
+                        if (autoRun["isTest"] != null)
+                        {
+                            fallback["isTest"] = autoRun["isTest"].DeepClone();
+                        }
+
+                        normalized = fallback;
+                    }
+                }
             }
 
-            if (control == null || !IsDefaultAction(autoRun))
+            return AddControlSelectorContext(normalized, control);
+        }
+
+        private JsonNode AddControlSelectorContext(
+            JsonNode autoRun,
+            JsonObject control)
+        {
+            if (autoRun == null
+                || control == null
+                || IsFairyGUIControl(control))
             {
                 return autoRun;
             }
 
-            JsonObject fallback = CreateAutoRunFromControl(control);
-            if (fallback == null)
+            JsonObject result = autoRun.DeepClone().AsObject();
+            string objectPath = Text(result, "objectPath");
+            if (string.IsNullOrWhiteSpace(objectPath))
             {
-                return autoRun;
+                objectPath = Text(control, "objectPath");
+                if (!string.IsNullOrWhiteSpace(objectPath))
+                {
+                    result["objectPath"] = objectPath;
+                }
             }
 
-            if (autoRun["delay"] != null)
+            string scopeRootName = Text(result, "scopeRootName");
+            if (string.IsNullOrWhiteSpace(scopeRootName))
             {
-                fallback["delay"] = autoRun["delay"].DeepClone();
+                scopeRootName = ResolveControlScopeRootName(control);
+                if (!string.IsNullOrWhiteSpace(scopeRootName))
+                {
+                    result["scopeRootName"] = scopeRootName;
+                }
             }
 
-            if (autoRun["isTest"] != null)
+            string matchPolicy = Text(result, "matchPolicy");
+            if (string.IsNullOrWhiteSpace(matchPolicy)
+                || matchPolicy == "unique")
             {
-                fallback["isTest"] = autoRun["isTest"].DeepClone();
+                result["matchPolicy"] = IsPotentiallyRepeatedControl(
+                    control,
+                    scopeRootName)
+                    ? "first-interactable"
+                    : "unique";
             }
 
-            return fallback;
+            return result;
         }
 
         private static JsonNode CloneAutoRunWithButtonName(JsonNode autoRun, string buttonName)
@@ -217,6 +276,60 @@ namespace UnityAutorun.Mcp
                 ("buttonText", Text(control, "text") ?? "untitled"),
                 ("isFairyGUI", string.Equals(Text(control, "framework"), "fairygui", StringComparison.OrdinalIgnoreCase))
             );
+        }
+
+        private string ResolveControlScopeRootName(JsonObject control)
+        {
+            string viewId = Text(control, "viewId");
+            JsonObject view = Objects("views").FirstOrDefault(
+                item => Text(item, "id") == viewId);
+            if (view == null)
+            {
+                return null;
+            }
+
+            string rootName = GetObjectPathLeaf(Text(view, "rootObjectPath"));
+            return string.IsNullOrWhiteSpace(rootName)
+                ? Text(view, "name")
+                : rootName;
+        }
+
+        private static bool IsPotentiallyRepeatedControl(
+            JsonObject control,
+            string scopeRootName)
+        {
+            string objectPath = Text(control, "objectPath");
+            if (string.IsNullOrWhiteSpace(objectPath)
+                || string.IsNullOrWhiteSpace(scopeRootName))
+            {
+                return false;
+            }
+
+            string normalized = objectPath.Replace('\\', '/').Trim('/');
+            int separator = normalized.IndexOf('/');
+            if (separator <= 0)
+            {
+                return false;
+            }
+
+            string ownerRoot = normalized.Substring(0, separator);
+            return NormalizeSelectorToken(ownerRoot)
+                != NormalizeSelectorToken(scopeRootName);
+        }
+
+        private static string NormalizeSelectorToken(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return "";
+            }
+
+            return value
+                .ToLowerInvariant()
+                .Replace("_", "")
+                .Replace("*", "")
+                .Replace("-", "")
+                .Replace(" ", "");
         }
 
         private static string ResolveAutoRunButtonName(JsonObject control)

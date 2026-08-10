@@ -5,7 +5,7 @@ namespace UnityAutorun.Mcp
 {
     public static class UiNavMapPaths
     {
-        public const string DefaultRelativePath = "mcp/ui-nav-map.json";
+        public const string DefaultRelativePath = "Gen/ui-nav-map.json";
 
         public static string ResolveDefaultMapPath()
         {
@@ -56,7 +56,7 @@ namespace UnityAutorun.Mcp
 
         private static bool IsToolRoot(string path)
         {
-            return Directory.Exists(Path.Combine(path, "mcp"))
+            return Directory.Exists(Path.Combine(path, "Gen"))
                 && Directory.Exists(Path.Combine(path, "mcp~"));
         }
     }

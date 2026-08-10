@@ -7,14 +7,16 @@ using System.Text.Json.Nodes;
 
 namespace UnityAutorun.Mcp
 {
-    public static class UiNavMapSourceScanner
+    public static partial class UiNavMapSourceScanner
     {
         private static readonly Regex UiFormIdRegex = new Regex(@"public\s+const\s+int\s+(UIForm[A-Za-z0-9_]+)\s*=", RegexOptions.Compiled);
         private static readonly Regex UiFormTokenRegex = new Regex(@"UIFormId\.(UIForm[A-Za-z0-9_]+)|\b(UIForm[A-Za-z0-9_]+)\b", RegexOptions.Compiled);
-        private static readonly Regex UiFormClassRegex = new Regex(@"\bclass\s+(UIForm[A-Za-z0-9_]+)\b", RegexOptions.Compiled);
-        private static readonly Regex ExButtonFieldRegex = new Regex(@"\b(?:private|public|protected)?\s*(?:Game\.)?ExButton\s+(?:m_)?([A-Za-z0-9_]+ExButton)\b", RegexOptions.Compiled);
-        private static readonly Regex ButtonHandlerRegex = new Regex(@"\b(?<control>[A-Za-z0-9_]+ExButton)\s*(?:\.onClick)?\s*\.\s*(?:Set|SetAsync|AddListener)\s*\(\s*(?<handler>[A-Za-z0-9_]+)\s*\)", RegexOptions.Compiled);
-        private static readonly Regex MethodDeclarationRegex = new Regex(@"\b(?:private|public|protected|internal)?\s*(?:async\s+)?(?:void|UniTask(?:Void)?|Task|IEnumerator|bool|int)\s+(?<name>[A-Za-z0-9_]+)\s*\(", RegexOptions.Compiled);
+        private static readonly Regex ViewClassRegex = new Regex(@"\bclass\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\b", RegexOptions.Compiled);
+        private static readonly Regex ExButtonFieldRegex = new Regex(@"\b(?:private|public|protected|internal)?\s*(?:(?:Game\.)?ExButton|(?:UnityEngine\.UI\.)?Button)\s+(?:m_)?([A-Za-z0-9_]+(?:ExButton|Button))\b", RegexOptions.Compiled);
+        private static readonly Regex ButtonHandlerRegex = new Regex(@"\b(?<control>[A-Za-z0-9_]+(?:ExButton|Button))\s*(?:\.onClick)?\s*\.\s*(?:Set|SetAsync|AddListener)\s*\(\s*(?<handler>[A-Za-z0-9_]+)\s*\)", RegexOptions.Compiled);
+        private static readonly Regex MethodDeclarationRegex = new Regex(
+            @"^\s*(?:(?:private|public|protected|internal|static|virtual|override|abstract|sealed|new|async|extern|unsafe|partial)\s+)*(?:void|bool|byte|sbyte|short|ushort|int|uint|long|ulong|float|double|decimal|char|string|[A-Z][A-Za-z0-9_.]*(?:<[^>{};]+>)?(?:\[\])?)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?:<[^>{};]+>)?\s*\(",
+            RegexOptions.Compiled);
 
         public static JsonObject Scan(JsonObject args)
         {
@@ -26,6 +28,11 @@ namespace UnityAutorun.Mcp
             bool includeText = Bool(args, "includeText", true);
 
             List<SourceEvidence> evidence = BuildEvidence(assetsRoot);
+            JsonObject existingMap = LoadMapOrEmpty(UiNavMapPaths.ResolveMapPath(Text(args, "mapPath")));
+            Dictionary<string, string> knownViews = BuildKnownViews(evidence, existingMap, args);
+            int navigationCandidateCount = BuildSourceCodeNavigationModel(assetsRoot, knownViews)
+                .BuildNavigationCandidates()
+                .Count;
             List<SourceEvidence> filtered = evidence
                 .Where(item => KindMatches(item, kind))
                 .Where(item => QueryMatches(item, query))
@@ -50,8 +57,51 @@ namespace UnityAutorun.Mcp
                 ("total", filtered.Count),
                 ("counts", CountByKind(evidence)),
                 ("coverage", BuildCoverage(evidence, Text(args, "mapPath"))),
+                ("knownViewCount", knownViews.Count),
+                ("navigationCandidateCount", navigationCandidateCount),
                 ("items", items),
-                ("workflowHint", "Use coverage gaps as the source backlog. Model startup gates such as login/auth/update/loading before claiming app-start routes reach the main UI.")
+                ("workflowHint", "Use coverage gaps as the source backlog. For complete generation, review the authoritative get_ui_nav_candidate_coverage backlog, merge one candidateDecisions entry per item, and require finalize_ui_nav_map_generation to succeed.")
+            );
+        }
+
+        public static JsonObject TraceNavigationCalls(JsonObject args)
+        {
+            string query = Text(args, "query", "");
+            int offset = Math.Max(0, Int(args, "offset", 0));
+            int limit = Math.Max(1, Math.Min(200, Int(args, "limit", 50)));
+            CandidateSnapshot snapshot = BuildCandidateSnapshot(args, query);
+            List<NavigationCallCandidate> pageItems = snapshot.Candidates
+                .Skip(offset)
+                .Take(limit)
+                .ToList();
+
+            var items = new JsonArray();
+            foreach (NavigationCallCandidate candidate in pageItems)
+            {
+                items.Add(candidate.ToJson(snapshot.AssetsRoot, snapshot.Map));
+            }
+
+            int nextOffset = offset + pageItems.Count;
+            bool hasMore = nextOffset < snapshot.Candidates.Count;
+            return JsonUtil.Obj(
+                ("ok", true),
+                ("path", snapshot.MapPath),
+                ("query", query),
+                ("offset", offset),
+                ("limit", limit),
+                ("total", snapshot.Candidates.Count),
+                ("knownViewCount", snapshot.KnownViewCount),
+                ("candidateProtocolVersion", UiNavMapMetadata.CandidateProtocolVersion),
+                ("candidateSetVersion", snapshot.CandidateSetVersion),
+                ("page", JsonUtil.Obj(
+                    ("returned", pageItems.Count),
+                    ("hasMore", hasMore),
+                    ("nextOffset", hasMore ? nextOffset : 0),
+                    ("remainingAfterPage", Math.Max(0, snapshot.Candidates.Count - nextOffset))
+                )),
+                ("items", items),
+                ("decisionPolicy", StaticDecisionPolicy()),
+                ("workflowHint", "Treat every item as call-graph evidence requiring external-AI judgment. Use decisionHint, mapped endpoints, and serialized control evidence to make that judgment. Strong topology evidence should become a matching transition unless concrete contrary evidence exists; automation uncertainty does not erase reachability. For complete generation use get_ui_nav_candidate_coverage, record one candidateDecisions entry per candidate, and require finalize_ui_nav_map_generation to succeed.")
             );
         }
 
@@ -71,7 +121,8 @@ namespace UnityAutorun.Mcp
                     ("path", mapPath),
                     ("previewOnly", true),
                     ("patchCounts", PatchCounts(patch)),
-                    ("patch", patch)
+                    ("patch", patch),
+                    ("decisionPolicy", StaticDecisionPolicy())
                 );
             }
 
@@ -82,7 +133,7 @@ namespace UnityAutorun.Mcp
             ));
             result["sourceBackfill"] = JsonUtil.Obj(
                 ("patchCounts", PatchCounts(patch)),
-                ("message", "Source-derived baseline merged. Inspect unresolved evidence and add concrete controls/transitions with merge_ui_nav_map_patch.")
+                ("message", "Deterministic source views and unresolved evidence were merged. No controls, transitions, or routes were inferred. Use trace_ui_navigation_calls, then validate and merge an AI-authored navigation patch.")
             );
             return result;
         }
@@ -91,8 +142,8 @@ namespace UnityAutorun.Mcp
         {
             var evidence = new List<SourceEvidence>();
             AddUiFormIds(evidence, assetsRoot);
-            AddPrefabs(evidence, assetsRoot);
             AddCodeEvidence(evidence, assetsRoot);
+            AddPrefabs(evidence, assetsRoot);
             return evidence;
         }
 
@@ -115,10 +166,14 @@ namespace UnityAutorun.Mcp
 
         private static void AddPrefabs(List<SourceEvidence> evidence, string assetsRoot)
         {
-            foreach (string path in Directory.EnumerateFiles(assetsRoot, "UIForm*.prefab", SearchOption.AllDirectories))
+            HashSet<string> sourceViewNames = EvidenceViews(evidence, "ui-form-id", "ui-form-class", "view-class");
+            foreach (string path in Directory.EnumerateFiles(assetsRoot, "*.prefab", SearchOption.AllDirectories))
             {
                 string view = Path.GetFileNameWithoutExtension(path);
-                evidence.Add(new SourceEvidence("prefab", view, path, 0, "", view));
+                if (LooksLikeViewName(view) || sourceViewNames.Contains(view))
+                {
+                    evidence.Add(new SourceEvidence("prefab", view, path, 0, "", view));
+                }
             }
         }
 
@@ -142,10 +197,17 @@ namespace UnityAutorun.Mcp
                         continue;
                     }
 
-                    Match classMatch = UiFormClassRegex.Match(trimmed);
+                    Match classMatch = ViewClassRegex.Match(trimmed);
                     if (classMatch.Success)
                     {
-                        evidence.Add(new SourceEvidence("ui-form-class", classMatch.Groups[1].Value, path, lineNo, trimmed, classMatch.Groups[1].Value));
+                        string className = classMatch.Groups["name"].Value;
+                        if (LooksLikeViewName(className))
+                        {
+                            string classKind = className.StartsWith("UIForm", StringComparison.Ordinal)
+                                ? "ui-form-class"
+                                : "view-class";
+                            evidence.Add(new SourceEvidence(classKind, className, path, lineNo, trimmed, className));
+                        }
                     }
 
                     Match buttonMatch = ExButtonFieldRegex.Match(trimmed);
@@ -180,6 +242,7 @@ namespace UnityAutorun.Mcp
             var uiFormIds = EvidenceViews(evidence, "ui-form-id");
             var prefabs = EvidenceViews(evidence, "prefab");
             var classes = EvidenceViews(evidence, "ui-form-class");
+            var genericClasses = EvidenceViews(evidence, "view-class");
             var openTargets = EvidenceViews(evidence, "open-ui-form");
             var buttonViews = EvidenceViews(evidence, "button-binding");
             var mappedViews = LoadMappedViews(mapPath);
@@ -188,12 +251,14 @@ namespace UnityAutorun.Mcp
                 ("uiFormIdCount", uiFormIds.Count),
                 ("prefabCount", prefabs.Count),
                 ("uiFormClassCount", classes.Count),
+                ("viewClassCount", genericClasses.Count),
                 ("openTargetCount", openTargets.Count),
                 ("buttonBindingViewCount", buttonViews.Count),
                 ("mappedViewCount", mappedViews.Count),
                 ("uiFormIdsMissingInMap", Missing(uiFormIds, mappedViews)),
                 ("prefabsMissingInMap", Missing(prefabs, mappedViews)),
                 ("classesMissingInMap", Missing(classes, mappedViews)),
+                ("viewClassesMissingInMap", Missing(genericClasses, mappedViews)),
                 ("openTargetsMissingInMap", Missing(openTargets, mappedViews)),
                 ("buttonBindingViewsMissingInMap", Missing(buttonViews, mappedViews))
             );
@@ -202,20 +267,15 @@ namespace UnityAutorun.Mcp
         private static JsonObject BuildSourcePatch(string assetsRoot, JsonObject existingMap, List<SourceEvidence> evidence, bool includeEvidenceBacklog)
         {
             var existingViews = ExistingViewTokens(existingMap);
-            var existingControls = ExistingIds(existingMap, "controls");
-            var existingTransitions = ExistingIds(existingMap, "transitions");
-            var existingRoutes = ExistingIds(existingMap, "routes");
             var existingUnresolved = ExistingIds(existingMap, "unresolved");
             var views = new JsonArray();
-            foreach (string view in EvidenceViews(evidence, "ui-form-id", "prefab", "ui-form-class").OrderBy(item => item))
+            foreach (string view in EvidenceViews(evidence, "ui-form-id", "prefab", "ui-form-class", "view-class").OrderBy(item => item))
             {
                 if (!existingViews.Contains(NormalizeViewId(view)))
                 {
                     views.Add(BuildView(view, assetsRoot, evidence));
                 }
             }
-
-            SourceNavigationPatch sourceNavigation = BuildSourceNavigationPatch(assetsRoot, existingMap, evidence, existingControls, existingTransitions, existingRoutes);
 
             var unresolved = new JsonArray();
             if (includeEvidenceBacklog)
@@ -238,224 +298,12 @@ namespace UnityAutorun.Mcp
 
             return JsonUtil.Obj(
                 ("views", views),
-                ("controls", sourceNavigation.Controls),
-                ("transitions", sourceNavigation.Transitions),
-                ("routes", sourceNavigation.Routes),
-                ("unresolved", unresolved)
+                ("controls", new JsonArray()),
+                ("transitions", new JsonArray()),
+                ("routes", new JsonArray()),
+                ("unresolved", unresolved),
+                ("candidateDecisions", new JsonArray())
             );
-        }
-
-        private static SourceNavigationPatch BuildSourceNavigationPatch(
-            string assetsRoot,
-            JsonObject existingMap,
-            List<SourceEvidence> evidence,
-            HashSet<string> existingControls,
-            HashSet<string> existingTransitions,
-            HashSet<string> existingRoutes)
-        {
-            var result = new SourceNavigationPatch();
-            SourceCodeNavigationModel model = BuildSourceCodeNavigationModel(assetsRoot);
-            foreach (ButtonBinding binding in model.ButtonBindings.OrderBy(item => item.SourceView).ThenBy(item => item.ControlProperty).ThenBy(item => item.Handler))
-            {
-                HandlerFlow handler;
-                if (!model.TryGetHandler(binding.SourceView, binding.Handler, out handler))
-                {
-                    continue;
-                }
-
-                foreach (string targetView in handler.OpenTargets.OrderBy(item => item))
-                {
-                    AddClickOpenTransition(result, assetsRoot, existingMap, existingControls, existingTransitions, existingRoutes, binding, targetView, handler, "open-ui-form", 0.9f);
-                }
-
-                if (handler.FiresLoginRequest && CanInferLoginToOperationFlow(assetsRoot))
-                {
-                    AddClickOpenTransition(result, assetsRoot, existingMap, existingControls, existingTransitions, existingRoutes, binding, "UIFormOperation", handler, "login-flow", 0.8f, 120);
-                }
-            }
-
-            AddStartupLoginGate(result, assetsRoot, existingMap, evidence, existingTransitions, existingRoutes);
-            return result;
-        }
-
-        private static void AddClickOpenTransition(
-            SourceNavigationPatch patch,
-            string assetsRoot,
-            JsonObject existingMap,
-            HashSet<string> existingControls,
-            HashSet<string> existingTransitions,
-            HashSet<string> existingRoutes,
-            ButtonBinding binding,
-            string targetView,
-            HandlerFlow handler,
-            string sourceType,
-            float confidence,
-            int waitTimeout = 0)
-        {
-            string fromViewId = ViewIdForName(existingMap, binding.SourceView);
-            string toViewId = ViewIdForName(existingMap, targetView);
-            if (string.IsNullOrEmpty(fromViewId) || string.IsNullOrEmpty(toViewId) || fromViewId == toViewId)
-            {
-                return;
-            }
-
-            PrefabButtonInfo button = ResolvePrefabButtonInfo(assetsRoot, binding.SourceView, binding.ControlProperty);
-            string controlToken = TokenForControl(binding.ControlProperty, toViewId);
-            string fromToken = TokenForViewId(fromViewId);
-            string toToken = TokenForViewId(toViewId);
-            string controlId = "control." + fromToken + "." + controlToken;
-            string transitionId = "transition." + fromToken + "." + controlToken + ".to." + toToken;
-            string routeId = "route." + fromToken + ".to." + toToken;
-
-            if (!patch.ControlIds.Contains(controlId))
-            {
-                patch.ControlIds.Add(controlId);
-                patch.Controls.Add(JsonUtil.Obj(
-                    ("id", controlId),
-                    ("viewId", fromViewId),
-                    ("type", "button"),
-                    ("name", button.Name),
-                    ("text", "untitled"),
-                    ("objectPath", button.ObjectPath),
-                    ("framework", "ugui"),
-                    ("autoRun", JsonUtil.Obj(
-                        ("buttonName", button.Name),
-                        ("buttonText", "untitled"),
-                        ("isFairyGUI", false),
-                        ("delay", 0.5)
-                    )),
-                    ("source", JsonUtil.Obj(
-                        ("type", "code-bind"),
-                        ("summary", binding.ControlProperty + " is bound to " + binding.Handler + ".")
-                    ))
-                ));
-            }
-
-            if (!patch.TransitionIds.Contains(transitionId))
-            {
-                patch.TransitionIds.Add(transitionId);
-                JsonObject automation = JsonUtil.Obj(("mode", "click"));
-                if (waitTimeout > 0)
-                {
-                    automation["waitForViewId"] = toViewId;
-                    automation["timeout"] = waitTimeout;
-                }
-
-                string summary = sourceType == "login-flow"
-                    ? binding.SourceView + "." + handler.Name + " fires EventArgsSendLoginReq; ProcedureLogin changes into preload/load-game flow; ProcedureLoadGame opens " + targetView + "."
-                    : binding.SourceView + "." + handler.Name + " opens " + targetView + ".";
-
-                patch.Transitions.Add(JsonUtil.Obj(
-                    ("id", transitionId),
-                    ("fromViewId", fromViewId),
-                    ("toViewId", toViewId),
-                    ("kind", "interaction"),
-                    ("controlId", controlId),
-                    ("trigger", JsonUtil.Obj(("type", "user-action"), ("action", "click"), ("controlId", controlId))),
-                    ("effect", JsonUtil.Obj(("type", "open-view"), ("targetViewId", toViewId))),
-                    ("automation", automation),
-                    ("confidence", confidence),
-                    ("source", JsonUtil.Obj(
-                        ("type", sourceType),
-                        ("summary", summary),
-                        ("path", RelativeToAssets(assetsRoot, handler.Path)),
-                        ("line", handler.Line)
-                    ))
-                ));
-            }
-
-            if (!patch.RouteIds.Contains(routeId) && !existingRoutes.Contains(routeId))
-            {
-                patch.RouteIds.Add(routeId);
-                patch.Routes.Add(JsonUtil.Obj(
-                    ("id", routeId),
-                    ("fromViewId", fromViewId),
-                    ("toViewId", toViewId),
-                    ("steps", new JsonArray
-                    {
-                        JsonUtil.Obj(("transitionId", transitionId), ("controlId", controlId))
-                    })
-                ));
-            }
-        }
-
-        private static void AddStartupLoginGate(
-            SourceNavigationPatch patch,
-            string assetsRoot,
-            JsonObject existingMap,
-            List<SourceEvidence> evidence,
-            HashSet<string> existingTransitions,
-            HashSet<string> existingRoutes)
-        {
-            if (!EvidenceViews(evidence, "open-ui-form").Contains("UIFormLogin"))
-            {
-                return;
-            }
-
-            string appStartViewId = ViewIdForName(existingMap, "Application Start");
-            if (string.IsNullOrEmpty(appStartViewId))
-            {
-                appStartViewId = "view.app.start";
-            }
-
-            string loginViewId = ViewIdForName(existingMap, "UIFormLogin");
-            if (string.IsNullOrEmpty(loginViewId))
-            {
-                return;
-            }
-
-            string transitionId = "transition.app.start.to.login";
-            if (!existingTransitions.Contains(transitionId) && !patch.TransitionIds.Contains(transitionId))
-            {
-                patch.TransitionIds.Add(transitionId);
-                patch.Transitions.Add(JsonUtil.Obj(
-                    ("id", transitionId),
-                    ("fromViewId", appStartViewId),
-                    ("toViewId", loginViewId),
-                    ("kind", "lifecycle"),
-                    ("automation", JsonUtil.Obj(("mode", "wait"), ("waitForViewId", loginViewId), ("timeout", 30))),
-                    ("confidence", 0.8),
-                    ("source", JsonUtil.Obj(("type", "procedure-flow"), ("summary", "ProcedureLogin opens UIFormLogin during startup.")))
-                ));
-            }
-
-            string operationViewId = ViewIdForName(existingMap, "UIFormOperation");
-            string loginToOperationTransitionId = "transition.login.login.to." + TokenForViewId(operationViewId);
-            string unsafeDirectTransitionId = "transition.app.start.to.operation";
-            if (!string.IsNullOrEmpty(operationViewId)
-                && existingTransitions.Contains(unsafeDirectTransitionId)
-                && !patch.TransitionIds.Contains(unsafeDirectTransitionId))
-            {
-                patch.TransitionIds.Add(unsafeDirectTransitionId);
-                patch.Transitions.Add(JsonUtil.Obj(
-                    ("id", unsafeDirectTransitionId),
-                    ("fromViewId", appStartViewId),
-                    ("toViewId", operationViewId),
-                    ("kind", "inferred"),
-                    ("automation", JsonUtil.Obj(("mode", "manual"))),
-                    ("confidence", 0.2),
-                    ("source", JsonUtil.Obj(
-                        ("type", "startup-gate-correction"),
-                        ("summary", "Direct startup-to-operation waiting is unsafe because ProcedureLoadGame opens UIFormOperation only after login/preload/load-game gates. Use route.app.start.to.operation instead.")
-                    ))
-                ));
-            }
-
-            string routeId = "route.app.start.to.operation";
-            if (!string.IsNullOrEmpty(operationViewId) && !patch.RouteIds.Contains(routeId))
-            {
-                patch.RouteIds.Add(routeId);
-                patch.Routes.Add(JsonUtil.Obj(
-                    ("id", routeId),
-                    ("fromViewId", appStartViewId),
-                    ("toViewId", operationViewId),
-                    ("steps", new JsonArray
-                    {
-                        JsonUtil.Obj(("transitionId", transitionId)),
-                        JsonUtil.Obj(("transitionId", loginToOperationTransitionId), ("controlId", "control.login.login"))
-                    })
-                ));
-            }
         }
 
         private static JsonObject BuildView(string view, string assetsRoot, List<SourceEvidence> evidence)
@@ -469,7 +317,9 @@ namespace UnityAutorun.Mcp
             );
 
             SourceEvidence prefab = evidence.FirstOrDefault(item => item.Kind == "prefab" && item.View == view);
-            SourceEvidence script = evidence.FirstOrDefault(item => item.Kind == "ui-form-class" && item.View == view);
+            SourceEvidence script = evidence.FirstOrDefault(item =>
+                (item.Kind == "ui-form-class" || item.Kind == "view-class")
+                && item.View == view);
             if (prefab != null)
             {
                 obj["prefabPath"] = RelativeToAssets(assetsRoot, prefab.Path);
@@ -483,50 +333,81 @@ namespace UnityAutorun.Mcp
             return obj;
         }
 
-        private static SourceCodeNavigationModel BuildSourceCodeNavigationModel(string assetsRoot)
+        private static SourceCodeNavigationModel BuildSourceCodeNavigationModel(
+            string assetsRoot,
+            Dictionary<string, string> knownViews)
         {
-            var model = new SourceCodeNavigationModel();
-            foreach (string path in Directory.EnumerateFiles(assetsRoot, "*.cs", SearchOption.AllDirectories))
+            return BuildCallGraphNavigationModel(assetsRoot, knownViews);
+        }
+
+        private static Dictionary<string, string> BuildKnownViews(
+            List<SourceEvidence> evidence,
+            JsonObject existingMap,
+            JsonObject args)
+        {
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string view in EvidenceViews(evidence, "ui-form-id", "prefab", "ui-form-class", "view-class"))
             {
-                if (IsIgnoredCodePath(path))
-                {
-                    continue;
-                }
-
-                string sourceView = InferSourceViewFromPath(path);
-                if (!NotBlank(sourceView))
-                {
-                    continue;
-                }
-
-                string[] lines = File.ReadAllLines(path);
-                for (int i = 0; i < lines.Length; i++)
-                {
-                    string line = lines[i];
-                    foreach (Match match in ButtonHandlerRegex.Matches(line))
-                    {
-                        model.ButtonBindings.Add(new ButtonBinding(sourceView, match.Groups["control"].Value, match.Groups["handler"].Value, path, i + 1));
-                    }
-
-                    Match methodMatch = MethodDeclarationRegex.Match(line);
-                    if (!methodMatch.Success)
-                    {
-                        continue;
-                    }
-
-                    int endIndex;
-                    List<string> body = ExtractMethodBody(lines, i, out endIndex);
-                    if (body.Count == 0)
-                    {
-                        continue;
-                    }
-
-                    HandlerFlow flow = BuildHandlerFlow(methodMatch.Groups["name"].Value, sourceView, path, i + 1, body);
-                    model.AddHandler(flow);
-                }
+                AddKnownView(result, view);
             }
 
-            return model;
+            foreach (JsonObject view in existingMap?["views"]?.AsArray().OfType<JsonObject>() ?? Enumerable.Empty<JsonObject>())
+            {
+                AddKnownView(result, Text(view, "name"));
+                AddKnownView(result, LastPathSegment(Text(view, "rootObjectPath")));
+            }
+
+            foreach (string view in StringArray(args, "knownViewNames"))
+            {
+                AddKnownView(result, view);
+            }
+
+            return result;
+        }
+
+        private static void AddKnownView(Dictionary<string, string> knownViews, string view)
+        {
+            if (!NotBlank(view) || !Regex.IsMatch(view, @"^[A-Za-z_][A-Za-z0-9_]*$"))
+            {
+                return;
+            }
+
+            knownViews[view] = view;
+        }
+
+        private static string LastPathSegment(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            string normalized = value.Replace('\\', '/').TrimEnd('/');
+            int separator = normalized.LastIndexOf('/');
+            return separator >= 0 ? normalized.Substring(separator + 1) : normalized;
+        }
+
+        private static JsonObject StaticDecisionPolicy()
+        {
+            return JsonUtil.Obj(
+                ("stage", "static-analysis"),
+                ("role", "evidence-only"),
+                ("createsExecutableEdges", false),
+                ("requiresExternalAiDecision", true),
+                ("requiredDecisionLedger", "candidateDecisions"),
+                ("completionTool", "finalize_ui_nav_map_generation"),
+                ("decisionFields", new JsonArray
+                {
+                    "candidateVersion",
+                    "fromViewId",
+                    "toViewId",
+                    "transitionKind",
+                    "control",
+                    "automation",
+                    "confidence",
+                    "nonTransitionEvidenceWhenRequired"
+                })
+            );
         }
 
         private static List<string> ExtractMethodBody(string[] lines, int startIndex, out int endIndex)
@@ -553,6 +434,14 @@ namespace UnityAutorun.Mcp
 
                 if (opened)
                 {
+                    if (body.Count == 0 && i > startIndex)
+                    {
+                        for (int skipped = startIndex; skipped < i; skipped++)
+                        {
+                            body.Add(string.Empty);
+                        }
+                    }
+
                     body.Add(line);
                 }
 
@@ -564,153 +453,6 @@ namespace UnityAutorun.Mcp
             }
 
             return opened ? body : new List<string>();
-        }
-
-        private static HandlerFlow BuildHandlerFlow(string name, string sourceView, string path, int line, List<string> body)
-        {
-            var flow = new HandlerFlow(name, sourceView, path, line);
-            foreach (string rawLine in body)
-            {
-                string trimmed = rawLine.Trim();
-                if (trimmed.Contains("EventArgsSendLoginReq"))
-                {
-                    flow.FiresLoginRequest = true;
-                }
-
-                if (!trimmed.Contains("OpenUIForm"))
-                {
-                    continue;
-                }
-
-                foreach (string view in ExtractUiForms(trimmed))
-                {
-                    if (IsConcreteUiFormTarget(view))
-                    {
-                        flow.OpenTargets.Add(view);
-                    }
-                }
-            }
-
-            return flow;
-        }
-
-        private static bool CanInferLoginToOperationFlow(string assetsRoot)
-        {
-            return FileContains(assetsRoot, "ProcedureLogin.cs", "ChangeState<ProcedurePreload>")
-                && FileContains(assetsRoot, "ProcedureLoadGame.cs", "OpenUIFormAsync(UIFormId.UIFormOperation");
-        }
-
-        private static bool FileContains(string root, string fileName, string text)
-        {
-            foreach (string path in Directory.EnumerateFiles(root, fileName, SearchOption.AllDirectories))
-            {
-                if (IsIgnoredCodePath(path))
-                {
-                    continue;
-                }
-
-                if (File.ReadAllText(path).Contains(text))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static PrefabButtonInfo ResolvePrefabButtonInfo(string assetsRoot, string sourceView, string controlProperty)
-        {
-            string fallbackName = controlProperty;
-            string prefabPath = Directory.EnumerateFiles(assetsRoot, sourceView + ".prefab", SearchOption.AllDirectories).FirstOrDefault();
-            if (prefabPath == null)
-            {
-                return new PrefabButtonInfo(fallbackName, sourceView + "/" + fallbackName);
-            }
-
-            string text = File.ReadAllText(prefabPath);
-            string fieldName = "m_" + controlProperty;
-            string componentId = MatchValue(text, @"\b" + Regex.Escape(fieldName) + @":\s*\{fileID:\s*(-?\d+)\}");
-            string gameObjectId = FindReferencedGameObjectId(text, componentId);
-            string objectName = FindGameObjectName(text, gameObjectId) ?? fallbackName;
-            return new PrefabButtonInfo(objectName, sourceView + "/" + objectName);
-        }
-
-        private static string FindReferencedGameObjectId(string prefabText, string componentId)
-        {
-            if (string.IsNullOrEmpty(componentId))
-            {
-                return null;
-            }
-
-            Match block = Regex.Match(prefabText, @"--- !u!\d+ &" + Regex.Escape(componentId) + @"\s*(?<body>.*?)(?=\r?\n--- !u!|\z)", RegexOptions.Singleline);
-            return block.Success ? MatchValue(block.Groups["body"].Value, @"m_GameObject:\s*\{fileID:\s*(-?\d+)\}") : null;
-        }
-
-        private static string FindGameObjectName(string prefabText, string gameObjectId)
-        {
-            if (string.IsNullOrEmpty(gameObjectId))
-            {
-                return null;
-            }
-
-            Match block = Regex.Match(prefabText, @"--- !u!1 &" + Regex.Escape(gameObjectId) + @"\s*(?<body>.*?)(?=\r?\n--- !u!|\z)", RegexOptions.Singleline);
-            return block.Success ? MatchValue(block.Groups["body"].Value, @"m_Name:\s*(.+)")?.Trim() : null;
-        }
-
-        private static string MatchValue(string text, string pattern)
-        {
-            Match match = Regex.Match(text ?? "", pattern);
-            return match.Success ? match.Groups[1].Value : null;
-        }
-
-        private static string ViewIdForName(JsonObject existingMap, string view)
-        {
-            if (string.IsNullOrWhiteSpace(view))
-            {
-                return null;
-            }
-
-            string normalized = NormalizeViewId(view);
-            foreach (JsonObject item in existingMap?["views"]?.AsArray().OfType<JsonObject>() ?? Enumerable.Empty<JsonObject>())
-            {
-                string id = Text(item, "id");
-                if (NormalizeViewId(id) == normalized
-                    || NormalizeViewId(Text(item, "name")) == normalized
-                    || NormalizeViewId(Text(item, "rootObjectPath")) == normalized)
-                {
-                    return id;
-                }
-            }
-
-            if (view == "Application Start")
-            {
-                return "view.app.start";
-            }
-
-            return view.StartsWith("view.", StringComparison.Ordinal) ? view : ViewIdForName(view);
-        }
-
-        private static string TokenForControl(string controlProperty, string toViewId)
-        {
-            string token = controlProperty;
-            if (token.EndsWith("ExButton", StringComparison.Ordinal))
-            {
-                token = token.Substring(0, token.Length - "ExButton".Length);
-            }
-
-            return NormalizeViewId(token);
-        }
-
-        private static string TokenForViewId(string viewId)
-        {
-            return NormalizeViewId(viewId);
-        }
-
-        private static bool IsConcreteUiFormTarget(string view)
-        {
-            return NotBlank(view)
-                && view.StartsWith("UIForm", StringComparison.Ordinal)
-                && view != "UIFormAsset";
         }
 
         private static bool LooksLikeNavigationLine(string line)
@@ -855,7 +597,8 @@ namespace UnityAutorun.Mcp
                 ("controls", (patch["controls"] as JsonArray)?.Count ?? 0),
                 ("transitions", (patch["transitions"] as JsonArray)?.Count ?? 0),
                 ("routes", (patch["routes"] as JsonArray)?.Count ?? 0),
-                ("unresolved", (patch["unresolved"] as JsonArray)?.Count ?? 0)
+                ("unresolved", (patch["unresolved"] as JsonArray)?.Count ?? 0),
+                ("candidateDecisions", (patch["candidateDecisions"] as JsonArray)?.Count ?? 0)
             );
         }
 
@@ -895,8 +638,27 @@ namespace UnityAutorun.Mcp
 
         private static string InferSourceViewFromPath(string path)
         {
-            Match match = Regex.Match(Path.GetFileNameWithoutExtension(path), @"^(UIForm[A-Za-z0-9_]+)");
-            return match.Success ? match.Groups[1].Value : null;
+            string fileName = Path.GetFileNameWithoutExtension(path);
+            int partialSeparator = fileName.IndexOf('.');
+            string typeName = partialSeparator >= 0 ? fileName.Substring(0, partialSeparator) : fileName;
+            return LooksLikeViewName(typeName) ? typeName : null;
+        }
+
+        private static bool LooksLikeViewName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            return value.StartsWith("UIForm", StringComparison.Ordinal)
+                || value.EndsWith("View", StringComparison.Ordinal)
+                || value.EndsWith("Window", StringComparison.Ordinal)
+                || value.EndsWith("Panel", StringComparison.Ordinal)
+                || value.EndsWith("Screen", StringComparison.Ordinal)
+                || value.EndsWith("Dialog", StringComparison.Ordinal)
+                || value.EndsWith("Popup", StringComparison.Ordinal)
+                || value.EndsWith("Page", StringComparison.Ordinal);
         }
 
         private static string ResolveAssetsRoot()
@@ -999,6 +761,16 @@ namespace UnityAutorun.Mcp
             return obj?[key]?.GetValue<bool>() ?? fallback;
         }
 
+        private static IEnumerable<string> StringArray(JsonObject obj, string key)
+        {
+            JsonArray values = obj?[key] as JsonArray;
+            return values == null
+                ? Enumerable.Empty<string>()
+                : values
+                    .Select(item => item == null ? null : item.GetValue<string>())
+                    .Where(NotBlank);
+        }
+
         private static bool NotBlank(string value)
         {
             return !string.IsNullOrWhiteSpace(value);
@@ -1010,102 +782,6 @@ namespace UnityAutorun.Mcp
             {
                 values.Add(value);
             }
-        }
-
-        private sealed class SourceNavigationPatch
-        {
-            public JsonArray Controls { get; } = new JsonArray();
-            public JsonArray Transitions { get; } = new JsonArray();
-            public JsonArray Routes { get; } = new JsonArray();
-            public HashSet<string> ControlIds { get; } = new HashSet<string>();
-            public HashSet<string> TransitionIds { get; } = new HashSet<string>();
-            public HashSet<string> RouteIds { get; } = new HashSet<string>();
-        }
-
-        private sealed class SourceCodeNavigationModel
-        {
-            private readonly Dictionary<string, Dictionary<string, HandlerFlow>> _handlers = new Dictionary<string, Dictionary<string, HandlerFlow>>();
-
-            public List<ButtonBinding> ButtonBindings { get; } = new List<ButtonBinding>();
-
-            public void AddHandler(HandlerFlow flow)
-            {
-                Dictionary<string, HandlerFlow> byName;
-                if (!_handlers.TryGetValue(flow.SourceView, out byName))
-                {
-                    byName = new Dictionary<string, HandlerFlow>();
-                    _handlers[flow.SourceView] = byName;
-                }
-
-                HandlerFlow existing;
-                if (byName.TryGetValue(flow.Name, out existing))
-                {
-                    foreach (string target in flow.OpenTargets)
-                    {
-                        existing.OpenTargets.Add(target);
-                    }
-
-                    existing.FiresLoginRequest = existing.FiresLoginRequest || flow.FiresLoginRequest;
-                    return;
-                }
-
-                byName[flow.Name] = flow;
-            }
-
-            public bool TryGetHandler(string sourceView, string handlerName, out HandlerFlow flow)
-            {
-                flow = null;
-                Dictionary<string, HandlerFlow> byName;
-                return _handlers.TryGetValue(sourceView, out byName) && byName.TryGetValue(handlerName, out flow);
-            }
-        }
-
-        private sealed class ButtonBinding
-        {
-            public ButtonBinding(string sourceView, string controlProperty, string handler, string path, int line)
-            {
-                SourceView = sourceView;
-                ControlProperty = controlProperty;
-                Handler = handler;
-                Path = path;
-                Line = line;
-            }
-
-            public string SourceView { get; }
-            public string ControlProperty { get; }
-            public string Handler { get; }
-            public string Path { get; }
-            public int Line { get; }
-        }
-
-        private sealed class HandlerFlow
-        {
-            public HandlerFlow(string name, string sourceView, string path, int line)
-            {
-                Name = name;
-                SourceView = sourceView;
-                Path = path;
-                Line = line;
-            }
-
-            public string Name { get; }
-            public string SourceView { get; }
-            public string Path { get; }
-            public int Line { get; }
-            public HashSet<string> OpenTargets { get; } = new HashSet<string>();
-            public bool FiresLoginRequest { get; set; }
-        }
-
-        private sealed class PrefabButtonInfo
-        {
-            public PrefabButtonInfo(string name, string objectPath)
-            {
-                Name = name;
-                ObjectPath = objectPath;
-            }
-
-            public string Name { get; }
-            public string ObjectPath { get; }
         }
 
         private sealed class SourceEvidence

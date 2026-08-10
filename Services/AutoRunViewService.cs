@@ -8,6 +8,8 @@ public static class AutoRunViewService
 {
     private const double CacheDurationSeconds = 0.5;
     private static List<string> _cachedNames;
+    private static Dictionary<string, List<GameObject>> _cachedRoots =
+        new Dictionary<string, List<GameObject>>();
     private static double _cachedAt = -1;
 
     public static List<string> ListOpenViewNames()
@@ -47,10 +49,12 @@ public static class AutoRunViewService
         }
 
         var names = new HashSet<string>();
-        AddActiveGameObjectIdentifiers(names);
-        AddActiveComponentIdentifiers(names);
+        var roots = new Dictionary<string, List<GameObject>>();
+        AddActiveGameObjectIdentifiers(names, roots);
+        AddActiveComponentIdentifiers(names, roots);
 
         _cachedNames = names.OrderBy(name => name).ToList();
+        _cachedRoots = roots;
         _cachedAt = EditorApplication.timeSinceStartup;
         return _cachedNames;
     }
@@ -66,7 +70,73 @@ public static class AutoRunViewService
         return GetOpenViewNames().Any(name => IsViewNameMatch(NormalizeViewName(name), target));
     }
 
-    private static void AddViewCandidate(HashSet<string> names, string rawName)
+    public static bool IsViewForeground(
+        string viewIdOrName,
+        out string detail)
+    {
+        List<GameObject> roots = GetActiveViewRoots(viewIdOrName);
+        if (roots.Count == 0)
+        {
+            detail = "view root is not active.";
+            return false;
+        }
+
+        bool assessed = false;
+        string blockedDetail = null;
+        foreach (GameObject root in roots)
+        {
+            bool rootAssessed;
+            string rootDetail;
+            if (AutoRunPointerService.IsViewForeground(
+                    root,
+                    out rootAssessed,
+                    out rootDetail))
+            {
+                detail = rootDetail;
+                return true;
+            }
+
+            assessed |= rootAssessed;
+            if (rootAssessed && blockedDetail == null)
+            {
+                blockedDetail = rootDetail;
+            }
+        }
+
+        if (!assessed)
+        {
+            detail = "view is active; foreground could not be verified because it has no raycastable uGUI surface.";
+            return true;
+        }
+
+        detail = blockedDetail
+            ?? "view has no foreground pointer target.";
+        return false;
+    }
+
+    private static List<GameObject> GetActiveViewRoots(
+        string viewIdOrName)
+    {
+        if (string.IsNullOrWhiteSpace(viewIdOrName))
+        {
+            return new List<GameObject>();
+        }
+
+        GetOpenViewNames();
+        string target = NormalizeViewName(viewIdOrName);
+        return _cachedRoots
+            .Where(pair => IsViewNameMatch(pair.Key, target))
+            .SelectMany(pair => pair.Value)
+            .Where(IsRuntimeActive)
+            .Distinct()
+            .ToList();
+    }
+
+    private static void AddViewCandidate(
+        HashSet<string> names,
+        Dictionary<string, List<GameObject>> roots,
+        string rawName,
+        GameObject root)
     {
         if (string.IsNullOrEmpty(rawName))
         {
@@ -79,9 +149,29 @@ public static class AutoRunViewService
         {
             names.Add(normalized);
         }
+
+        if (root == null || string.IsNullOrEmpty(normalized))
+        {
+            return;
+        }
+
+        if (!roots.TryGetValue(
+                normalized,
+                out List<GameObject> matches))
+        {
+            matches = new List<GameObject>();
+            roots[normalized] = matches;
+        }
+
+        if (!matches.Contains(root))
+        {
+            matches.Add(root);
+        }
     }
 
-    private static void AddActiveGameObjectIdentifiers(HashSet<string> names)
+    private static void AddActiveGameObjectIdentifiers(
+        HashSet<string> names,
+        Dictionary<string, List<GameObject>> roots)
     {
         foreach (GameObject candidate in Resources.FindObjectsOfTypeAll<GameObject>())
         {
@@ -90,12 +180,22 @@ public static class AutoRunViewService
                 continue;
             }
 
-            AddViewCandidate(names, candidate.name);
-            AddViewCandidate(names, BuildHierarchyPath(candidate.transform));
+            AddViewCandidate(
+                names,
+                roots,
+                candidate.name,
+                candidate);
+            AddViewCandidate(
+                names,
+                roots,
+                BuildHierarchyPath(candidate.transform),
+                candidate);
         }
     }
 
-    private static void AddActiveComponentIdentifiers(HashSet<string> names)
+    private static void AddActiveComponentIdentifiers(
+        HashSet<string> names,
+        Dictionary<string, List<GameObject>> roots)
     {
         foreach (MonoBehaviour component in Resources.FindObjectsOfTypeAll<MonoBehaviour>())
         {
@@ -105,8 +205,16 @@ public static class AutoRunViewService
             }
 
             Type type = component.GetType();
-            AddViewCandidate(names, type.Name);
-            AddViewCandidate(names, type.FullName);
+            AddViewCandidate(
+                names,
+                roots,
+                type.Name,
+                component.gameObject);
+            AddViewCandidate(
+                names,
+                roots,
+                type.FullName,
+                component.gameObject);
         }
     }
 

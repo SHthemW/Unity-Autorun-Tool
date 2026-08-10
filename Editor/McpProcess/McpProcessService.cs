@@ -7,6 +7,10 @@ using System.Text.RegularExpressions;
 
 public static class McpProcessService
 {
+    private const int MaxMcpVersionLength = 36;
+    private static readonly Dictionary<string, string> McpVersionCache =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
     public static List<McpProcessInfo> ListUnityAutorunProcesses()
     {
         try
@@ -68,7 +72,7 @@ public static class McpProcessService
                 + " -or ($_.Name -eq 'dotnet.exe' -and $_.CommandLine -like '*UnityAutorun.Mcp.dll*' -and $_.CommandLine -like '* mcp*')};"
                 + "$p | ForEach-Object {"
                 + "$item=$_;$parent=$all | Where-Object {$_.ProcessId -eq $item.ParentProcessId} | Select-Object -First 1;"
-                + "$ai=$parent;while($ai -and $ai.Name -notmatch 'codex|claude|cursor|code|windsurf'){"
+                + "$ai=$parent;while($ai -and $ai.Name -notmatch '^(codex(?:-cli)?|claude(?:-code)?|cursor|code(?: - insiders)?|windsurf)(\\.exe)?$'){"
                 + "$ai=$all | Where-Object {$_.ProcessId -eq $ai.ParentProcessId} | Select-Object -First 1};"
                 + "$aiPid=if($ai){$ai.ProcessId}else{0};$aiName=if($ai){$ai.Name}else{'unknown'};"
                 + "$parentName=if($parent){$parent.Name}else{'unknown'};"
@@ -111,6 +115,7 @@ public static class McpProcessService
             ParentProcessName = Safe(parts[3]),
             AiProcessId = aiId,
             AiProcessName = Safe(parts[5]),
+            McpVersion = GetMcpVersion(binaryPath),
             PublishedAt = GetPublishedAt(binaryPath),
             BinaryPath = binaryPath,
             CommandLine = Shorten(CleanCommandLine(parts[7])),
@@ -163,6 +168,73 @@ public static class McpProcessService
         return string.IsNullOrEmpty(binaryPath) || !File.Exists(binaryPath)
             ? "unknown"
             : File.GetLastWriteTime(binaryPath).ToString("MMdd HHmm");
+    }
+
+    private static string GetMcpVersion(string binaryPath)
+    {
+        if (string.IsNullOrEmpty(binaryPath) || !File.Exists(binaryPath))
+        {
+            return "unknown";
+        }
+
+        try
+        {
+            var file = new FileInfo(binaryPath);
+            string cacheKey = binaryPath
+                + "|"
+                + file.Length
+                + "|"
+                + file.LastWriteTimeUtc.Ticks;
+            if (McpVersionCache.TryGetValue(cacheKey, out string cachedVersion))
+            {
+                return cachedVersion;
+            }
+
+            string version = NormalizeMcpVersion(ReadFileVersion(binaryPath));
+            if (string.IsNullOrEmpty(version))
+            {
+                version = "unknown";
+            }
+
+            McpVersionCache[cacheKey] = version;
+            return version;
+        }
+        catch
+        {
+            return "unknown";
+        }
+    }
+
+    private static string ReadFileVersion(string executablePath)
+    {
+        try
+        {
+            FileVersionInfo info = FileVersionInfo.GetVersionInfo(executablePath);
+            return !string.IsNullOrWhiteSpace(info.ProductVersion)
+                ? info.ProductVersion
+                : info.FileVersion;
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    private static string NormalizeMcpVersion(string value)
+    {
+        string compact = Regex.Replace(value ?? "", "\\s+", " ").Trim();
+        Match match = Regex.Match(
+            compact,
+            "(?<!\\d)(\\d+(?:\\.\\d+)+(?:-[0-9A-Za-z.-]+)?)",
+            RegexOptions.IgnoreCase);
+        if (match.Success)
+        {
+            return match.Groups[1].Value;
+        }
+
+        return compact.Length <= MaxMcpVersionLength
+            ? compact
+            : compact.Substring(0, MaxMcpVersionLength - 3) + "...";
     }
 
     private static string ResolveMainProgramPath(string processName, string executablePath, string commandLine)

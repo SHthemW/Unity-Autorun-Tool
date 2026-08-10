@@ -82,7 +82,21 @@ public partial class AutoRunWindow
     {
         if (!NavigationAutoRunSession.HasPending)
         {
-            if (_navigationRunning && !NavigationAutoRunSession.HasActiveRequest)
+            if (NavigationAutoRunSession.HasActiveRequest)
+            {
+                _navigationRunning = true;
+                _navigationCanceled = false;
+                _navigationStatusText =
+                    "Navigation request is running.";
+                return;
+            }
+
+            if (!_navigationRunning)
+            {
+                _pendingNavigationTarget = null;
+            }
+
+            if (_navigationRunning)
             {
                 _navigationRunning = false;
                 _navigationStatusText = null;

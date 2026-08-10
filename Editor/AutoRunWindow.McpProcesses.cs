@@ -20,7 +20,10 @@ public partial class AutoRunWindow
         }
 
         GUILayout.Label(
-            "MCP stdio processes started by AI clients.",
+            new GUIContent(
+                "MCP stdio processes and their server versions.",
+                "MCP Version is read from the UnityAutorun.Mcp executable or DLL "
+                + "loaded by each process."),
             GetSqueezedStyle(EditorStyles.label),
             GUILayout.MinWidth(0),
             GUILayout.ExpandWidth(true)
@@ -28,10 +31,26 @@ public partial class AutoRunWindow
         GUILayout.EndHorizontal();
 
         float[] widths = CalculateMcpProcessColumnWidths(GetWindowContentWidth() - McpProcessTablePadding);
-        RenderMcpProcessRow("MCP PID", "MCP Process", "AI PID", "AI Process", "Published", EditorStyles.boldLabel, widths);
+        RenderMcpProcessRow(
+            "MCP PID",
+            "MCP Process",
+            "AI PID",
+            "AI Process",
+            "MCP Version",
+            "Published",
+            EditorStyles.boldLabel,
+            widths);
         if (_mcpProcesses.Count == 0)
         {
-            RenderMcpProcessRow("-", "No UnityAutorun.Mcp process found.", "-", "-", "-", EditorStyles.miniLabel, widths);
+            RenderMcpProcessRow(
+                "-",
+                "No UnityAutorun.Mcp process found.",
+                "-",
+                "-",
+                "-",
+                "-",
+                EditorStyles.miniLabel,
+                widths);
             return;
         }
 
@@ -42,6 +61,7 @@ public partial class AutoRunWindow
                 process.ProcessName,
                 process.AiProcessId.ToString(),
                 process.AiProcessName,
+                process.McpVersion,
                 process.PublishedAt,
                 EditorStyles.miniLabel,
                 widths);
@@ -53,7 +73,8 @@ public partial class AutoRunWindow
         string mcpProcess,
         string aiPid,
         string aiProcess,
-        string parent,
+        string mcpVersion,
+        string published,
         GUIStyle style,
         float[] widths)
     {
@@ -67,7 +88,9 @@ public partial class AutoRunWindow
         GUILayout.Space(McpProcessColumnGap);
         GUILayout.Label(aiProcess, cellStyle, GUILayout.Width(widths[3]));
         GUILayout.Space(McpProcessColumnGap);
-        GUILayout.Label(parent, cellStyle, GUILayout.Width(widths[4]));
+        GUILayout.Label(mcpVersion, cellStyle, GUILayout.Width(widths[4]));
+        GUILayout.Space(McpProcessColumnGap);
+        GUILayout.Label(published, cellStyle, GUILayout.Width(widths[5]));
         GUILayout.EndHorizontal();
     }
 
@@ -79,13 +102,14 @@ public partial class AutoRunWindow
             MeasureMcpProcessCell("MCP Process", EditorStyles.boldLabel),
             MeasureMcpProcessCell("AI PID", EditorStyles.boldLabel),
             MeasureMcpProcessCell("AI Process", EditorStyles.boldLabel),
+            MeasureMcpProcessCell("MCP Version", EditorStyles.boldLabel),
             MeasureMcpProcessCell("Published", EditorStyles.boldLabel),
         };
 
         if (_mcpProcesses.Count == 0)
         {
             widths[1] = Mathf.Max(widths[1], MeasureMcpProcessCell("No UnityAutorun.Mcp process found.", EditorStyles.miniLabel));
-            return widths;
+            return FitMcpProcessColumnWidths(widths, availableWidth);
         }
 
         foreach (McpProcessInfo process in _mcpProcesses)
@@ -94,7 +118,8 @@ public partial class AutoRunWindow
             widths[1] = MaxCell(widths[1], process.ProcessName);
             widths[2] = MaxCell(widths[2], process.AiProcessId.ToString());
             widths[3] = MaxCell(widths[3], process.AiProcessName);
-            widths[4] = MaxCell(widths[4], process.PublishedAt);
+            widths[4] = MaxCell(widths[4], process.McpVersion);
+            widths[5] = MaxCell(widths[5], process.PublishedAt);
         }
 
         return FitMcpProcessColumnWidths(widths, availableWidth);
@@ -119,6 +144,7 @@ public partial class AutoRunWindow
             50f,
             70f,
             42f,
+            70f,
             70f,
             70f,
         };

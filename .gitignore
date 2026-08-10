@@ -4,7 +4,7 @@ Logs/
 Logs.meta
 bin/
 obj/
-mcp/*.preview.html
-mcp/*.preview.html.meta
-mcp/ui-nav-map.json
-mcp/ui-nav-map.json.meta
+Gen/*.preview.html
+Gen/*.preview.html.meta
+Gen/ui-nav-map.json
+Gen/ui-nav-map.json.meta

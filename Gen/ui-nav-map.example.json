@@ -1,6 +1,16 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "2.0",
+  "generatorVersion": "0.2.1",
+  "mapVersion": 1,
   "generatedAt": "2026-06-29T12:00:00+08:00",
+  "generation": {
+    "status": "complete",
+    "candidateProtocolVersion": "1.1",
+    "candidateSetVersion": "example",
+    "candidateCount": 0,
+    "reviewedCandidateCount": 0,
+    "completedAt": "2026-06-29T12:00:00+08:00"
+  },
   "project": {
     "unityProject": "example",
     "source": "prefab-and-code-analysis"
@@ -128,5 +138,6 @@
       ]
     }
   ],
-  "unresolved": []
+  "unresolved": [],
+  "candidateDecisions": []
 }

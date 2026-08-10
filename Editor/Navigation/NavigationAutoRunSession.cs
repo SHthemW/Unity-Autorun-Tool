@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using UnityEditor;
+using UnityEngine;
 
 public static class NavigationAutoRunSession
 {
@@ -25,6 +27,7 @@ public static class NavigationAutoRunSession
     private const string NavigationRouteIdKey = "UnityAutorunTool.Navigation.RouteId";
     private const string NavigationResultCodeKey = "UnityAutorunTool.Navigation.ResultCode";
     private const string NavigationResultMessageKey = "UnityAutorunTool.Navigation.ResultMessage";
+    private const string NavigationMessagesKey = "UnityAutorunTool.Navigation.Messages";
     private const string NavigationStartedAtKey = "UnityAutorunTool.Navigation.StartedAt";
     private const string NavigationCompletedAtKey = "UnityAutorunTool.Navigation.CompletedAt";
 
@@ -45,6 +48,7 @@ public static class NavigationAutoRunSession
     public static string NavigationRouteId => GetString(NavigationRouteIdKey);
     public static string NavigationResultCode => GetString(NavigationResultCodeKey);
     public static string NavigationResultMessage => GetString(NavigationResultMessageKey);
+    public static List<string> NavigationMessages => GetMessages();
     public static bool IsTrackedTerminal => IsTerminalStatus(NavigationStatus);
     public static long NavigationElapsedMilliseconds
     {
@@ -139,6 +143,7 @@ public static class NavigationAutoRunSession
         SetString(NavigationPhaseKey, status);
         SetString(NavigationResultCodeKey, response?.code ?? "navigation_no_response");
         SetString(NavigationResultMessageKey, response?.message ?? "Navigation completed without a response.");
+        SetMessages(response?.data?.messages);
         SetString(NavigationCompletedAtKey, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString());
     }
 
@@ -201,6 +206,7 @@ public static class NavigationAutoRunSession
         SetString(NavigationRouteIdKey, "");
         SetString(NavigationResultCodeKey, "");
         SetString(NavigationResultMessageKey, "");
+        SetString(NavigationMessagesKey, "");
         SetString(NavigationStartedAtKey, "");
         SetString(NavigationCompletedAtKey, "");
     }
@@ -239,5 +245,26 @@ public static class NavigationAutoRunSession
     {
         string value = GetString(key);
         return long.TryParse(value, out long result) ? result : 0;
+    }
+
+    private static void SetMessages(List<string> messages)
+    {
+        var data = new AutoRunBridgeData
+        {
+            messages = messages ?? new List<string>(),
+        };
+        SetString(NavigationMessagesKey, JsonUtility.ToJson(data));
+    }
+
+    private static List<string> GetMessages()
+    {
+        string json = GetString(NavigationMessagesKey);
+        if (string.IsNullOrEmpty(json))
+        {
+            return new List<string>();
+        }
+
+        AutoRunBridgeData data = JsonUtility.FromJson<AutoRunBridgeData>(json);
+        return data?.messages ?? new List<string>();
     }
 }

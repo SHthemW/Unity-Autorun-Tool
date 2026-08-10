@@ -5,10 +5,31 @@ using System.Text;
 [Serializable]
 public sealed class NavigationMapDocument
 {
+    public string schemaVersion;
+    public string generatorVersion;
+    public int mapVersion;
+    public NavigationMapGeneration generation;
     public NavigationMapView[] views;
     public NavigationMapControl[] controls;
     public NavigationMapTransition[] transitions;
     public NavigationMapRoute[] routes;
+}
+
+[Serializable]
+public sealed class NavigationMapGeneration
+{
+    public string status;
+    public string candidateProtocolVersion;
+    public string candidateSetVersion;
+    public int candidateCount;
+    public int reviewedCandidateCount;
+    public string completedAt;
+}
+
+[Serializable]
+public sealed class NavigationPackageDocument
+{
+    public string version;
 }
 
 [Serializable]
@@ -142,6 +163,12 @@ public static class NavigationAutoRunLog
                 .Append(" mode=").Append(step.mode)
                 .Append(" control=").Append(Safe(step.controlId))
                 .Append(" action=").Append(step.action == null ? "null" : Safe(step.action.buttonName));
+            if (step.action != null)
+            {
+                builder.Append(" policy=").Append(Safe(step.action.matchPolicy))
+                    .Append(" scope=").Append(Safe(step.action.scopeRootName))
+                    .Append(" path=").Append(Safe(step.action.objectPath));
+            }
         }
 
         if (steps.Count > sampleCount)

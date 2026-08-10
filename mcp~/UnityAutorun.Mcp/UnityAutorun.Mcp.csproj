@@ -5,6 +5,7 @@
     <LangVersion>7.3</LangVersion>
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>UnityAutorun.Mcp</AssemblyName>
+    <Version>0.2.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,7 +14,10 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <ArchivePlatform Condition="'$(RuntimeIdentifier)' == ''">portable</ArchivePlatform>
+    <ArchivePlatform Condition="'$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">win</ArchivePlatform>
+    <ArchivePlatform Condition="'$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">mac</ArchivePlatform>
+    <ArchivePlatform Condition="'$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('Linux'))">linux</ArchivePlatform>
+    <ArchivePlatform Condition="'$(RuntimeIdentifier)' == '' and '$(ArchivePlatform)' == ''">unknown</ArchivePlatform>
     <ArchivePlatform Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win'))">win</ArchivePlatform>
     <ArchivePlatform Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('osx'))">mac</ArchivePlatform>
     <ArchivePlatform Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('linux'))">linux</ArchivePlatform>

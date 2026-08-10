@@ -129,7 +129,7 @@ public partial class AutoRunWindow
         }
 
         GUILayout.Label(
-            "Publish the MCP server, open terminal/root folder, or render mcp/ui-nav-map.json as an HTML graph.",
+            "Publish the MCP server, open terminal/root folder, or render Gen/ui-nav-map.json as an HTML graph.",
             GetSqueezedStyle(EditorStyles.label),
             GUILayout.MinWidth(0),
             GUILayout.ExpandWidth(true)
@@ -162,6 +162,19 @@ public partial class AutoRunWindow
     private void RenderMcpPanel()
     {
         BeginPanel("MCP");
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(
+            new GUIContent(
+                "Unity AutoRun MCP",
+                "The version is read from the tool package.json file."),
+            EditorStyles.miniLabel);
+        GUILayout.FlexibleSpace();
+        GUILayout.Label(
+            "v" + McpInstallConfig.GetToolVersion(),
+            EditorStyles.miniBoldLabel);
+        GUILayout.EndHorizontal();
+        GUILayout.Space(2);
+
         if (EditorApplication.timeSinceStartup - _mcpProcessLastRefreshAt > 2)
         {
             RefreshMcpProcesses();
