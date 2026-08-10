@@ -1,127 +1,130 @@
 # Unity Autorun Tool
 
-[English](./README.md) | [中文](./README_CN.md)
+[中文（默认）](./README.md) | [English](./README_EN.md)
 
-Unity Autorun Tool is a Unity Editor extension for automating UI startup flows, test navigation, and AI-assisted UI operation. It can click UGUI and FairyGUI buttons from editor presets, expose the same operations through a local HTTP bridge, and provide a .NET 8 MCP server so AI clients can inspect and drive Unity UI flows through structured tools.
+Unity Autorun Tool 是一个 Unity Editor 扩展，用于自动化 UI 启动流程、测试导航和 AI 辅助 UI 操作。它可以通过编辑器预设点击 UGUI 与 FairyGUI 按钮，也可以通过本地 HTTP Bridge 和 .NET 8 MCP Server 把同样的能力开放给外部工具或 AI 客户端。
 
-## Features
+## 快速使用
 
-- Manual AutoRun panel for reusable Go and Stop action presets.
-- UGUI button discovery and clicking by GameObject name or button text.
-- Optional FairyGUI support when FairyGUI is installed in the project.
-- Delayed action sequences for editor Play Mode startup and shutdown workflows.
-- Local HTTP bridge on `127.0.0.1:17331` for external tooling.
-- .NET 8 CLI and MCP server for Codex, Claude, or other MCP-capable clients.
-- UI navigation map support through `Gen/ui-nav-map.json`.
-- Route resolution and execution for click and wait based UI transitions.
-- Asynchronous tracked UI navigation that survives Play Mode transitions and exposes compact progress polling.
-- Navigation map tools for guidance, source scanning, patch validation, merging, summaries, subgraphs, and HTML preview.
-- In-window console with Debug, Info, Warning, and Error filtering.
+在 Unity 中打开 `Window > Auto Run Window`，即可看到下面的实际程序界面。
 
-## Requirements
+<p align="center">
+  <img src="./Documentation~/images/auto-run-window.png" alt="Unity Auto Run 真实程序界面" width="33%">
+</p>
 
-- Unity 2021.3 or newer.
-- UGUI for built-in Unity button automation.
-- FairyGUI only if you want to automate FairyGUI buttons.
-- .NET 8 SDK for the CLI and MCP server.
+截图上半部分是 `MCP` 区域，用于连接 AI 客户端并确认 Bridge 状态；下半部分是 `Navigation AutoRun` 区域，用于搜索、选择并运行导航图中的目标界面。
 
-## Installation
+### 首次接入 AI
 
-The recommended installation method is Unity Package Manager with a Git URL.
+1. 确认本机已安装 .NET 8 SDK，并打开 `Window > Auto Run Window`。
+2. 在截图上方的 `MCP` 区域点击 `Publish MCP`，生成当前版本的 MCP Server。
+3. 点击 `Select`，选择项目的 `.codex` 文件夹或 `.claude` 文件夹，再点击 `Install MCP`。
+4. 重新连接对应的 AI 客户端。`Bridge` 显示 `Running`，并且 `Processes` 中出现对应客户端进程时，表示连接已经建立。
+5. 首次使用时，让 AI 生成完整导航图，例如：
 
-1. Open `Window > Package Manager`.
-2. Press `+`.
-3. Choose `Add package from git URL...`.
-4. Enter:
+```text
+请分析当前 Unity 项目的 UI 导航，并生成可用于 AutoRun 的完整导航图。
+```
+
+AI 会通过 MCP 扫描源码、审核导航候选并生成 `Gen/ui-nav-map.json`。只有最终化检查通过的导航图才会用于自动运行。
+
+### 让 AI 自动运行到目标界面
+
+导航图准备完成后，直接告诉 AI 目标即可，例如：
+
+```text
+运行游戏并打开背包界面。
+```
+
+AI 会发起一次异步导航任务，并持续查询任务状态，直到 Unity 启动游戏、通过中间界面并到达目标。通常不需要手动点击 Unity 的 Play 按钮，也不需要让 AI 反复读取完整导航图。
+
+如果希望直接从编辑器操作，也可以在截图下方的 `Navigation AutoRun` 区域中输入关键词、选择目标，然后点击 `Go!`。Unity 不在 Play Mode 时，工具会自动进入 Play Mode，并在启动后继续执行导航。
+
+## 功能特性
+
+- 支持 AI 客户端直接启动 Unity 并导航到指定 UI 界面。
+- 通过 `Gen/ui-nav-map.json` 支持 UI 导航图。
+- 支持对 click / wait 类型 UI 路由进行解析和执行。
+- 支持跨 Play Mode 恢复的异步 UI 导航任务与紧凑状态轮询。
+- 导航图工具覆盖 guidance、源码扫描、patch 校验、merge、summary、subgraph 和 HTML 预览。
+- .NET 8 CLI 与 MCP Server，可供 Codex、Claude 或其他 MCP 客户端调用。
+- 本地 HTTP Bridge，默认监听 `127.0.0.1:17331`。
+- 支持按 GameObject 名称或按钮文本发现并点击 UGUI 按钮。
+- 项目安装 FairyGUI 时，可选支持 FairyGUI 按钮自动点击。
+- 支持带延迟的动作序列，可用于 Play Mode 启动和退出前流程。
+- Auto Run Window 内置 Console，支持 Debug、Info、Warning、Error 过滤。
+- 保留 Manual AutoRun 面板，用于维护不依赖 AI 的 Go / Stop 动作预设。
+
+## 环境要求
+
+- Unity 2021.3 或更新版本。
+- 内置 UGUI 按钮自动化依赖 Unity UGUI。
+- 只有需要自动化 FairyGUI 按钮时才需要安装 FairyGUI。
+- CLI 和 MCP Server 需要 .NET 8 SDK。
+
+## 安装
+
+推荐使用 Unity Package Manager 的 Git URL 安装。
+
+1. 打开 `Window > Package Manager`。
+2. 点击 `+`。
+3. 选择 `Add package from git URL...`。
+4. 输入：
 
 ```text
 https://github.com/SHthemW/Unity-Autorun-Tool.git
 ```
 
-For reproducible installs, use a version tag:
+为了保证安装版本可复现，建议使用版本 tag：
 
 ```text
 https://github.com/SHthemW/Unity-Autorun-Tool.git#v0.1.0
 ```
 
-Manual installation is also supported. Copy or clone this repository into a Unity project under:
+也可以手动安装。将本仓库复制或克隆到 Unity 项目的：
 
 ```text
 Assets/Editor/Unity-Autorun-Tool
 ```
 
-Open Unity and use:
+在 Unity 中打开：
 
 ```text
 Window > Auto Run Window
 ```
 
-The extension stores manual AutoRun configuration outside the Unity project, under the Unity editor process base directory:
+## MCP 与 Bridge 面板
 
-```text
-AutorunToolData/config.xml
-```
+`Window > Auto Run Window` 中的 `MCP` 面板包含 Bridge 控制、MCP 进程检测、安装入口和辅助工具。
 
-That keeps local automation presets out of normal project version control.
+- 面板顶部显示当前 Unity AutoRun MCP 版本；`Processes` 表格会显示每个 AI 客户端连接的 MCP 服务端二进制版本。
+- `Start` / `Stop` 控制本地 Unity Bridge。
+- `Publish MCP` 会先终止指向当前发布 DLL 的 MCP 子进程，等待文件解锁后执行 `dotnet publish`，并检测 AI 客户端是否自动重连。
+- `Install MCP` 会更新选中的 `.codex/config.toml` 或 `.claude/.mcp.json`。
+- `Open Terminal` 在工具根目录打开终端。
+- `Open Root` 打开当前工具目录。
+- `Preview Nav Map` 使用内置的 Viz.js / Graphviz 自动布局，将 `Gen/ui-nav-map.json` 渲染为可交互的 `Gen/ui-nav-map.preview.html`。
 
-## Manual AutoRun
-
-Open `Window > Auto Run Window`, then use the `Manual AutoRun` panel.
-
-1. Press `First use? Press me to create an autorun action config :)`.
-2. Press `Save config` after the initial file is created.
-3. Create a preset with `Then, press me to create a new action preset`, or use `+` next to the preset dropdown after at least one preset exists.
-4. Add actions under `Action - Go` or `Action - Stop`.
-5. Fill the action fields.
-6. Press `Save config`.
-7. Use `Go!` instead of the Unity Play button when you want startup automation.
-8. Use `Stop` when you want Stop actions to run before leaving Play Mode.
-
-Action fields:
-
-| Field | Meaning |
-| --- | --- |
-| `name` | Target button GameObject name. UGUI lookup also normalizes names by ignoring `_`, `*`, trailing `GameObject`, and trailing `Button`. |
-| `text` | Optional text match for UGUI buttons when names are ambiguous. Leave the default for FairyGUI unless your FairyGUI helper supports text filtering. |
-| `delay` | Delay before this action runs. |
-| `FGUI` | Use FairyGUI clicking instead of UGUI clicking. Disabled automatically when FairyGUI is not installed. |
-
-`Go` actions run after entering Play Mode. `Stop` actions run before the editor exits Play Mode.
-
-The tool creates a runtime `AutoRunHandler` GameObject and marks it as `DontDestroyOnLoad`. If you start Play Mode with Unity's native Play button after using `Go!`, the existing handler can still be present until removed or reset.
-
-## MCP And Bridge Panel
-
-The `MCP` panel in `Window > Auto Run Window` groups bridge controls, detected MCP processes, install controls, and helper tools.
-
-- The panel header shows the current Unity AutoRun MCP version, and the `Processes` table reports the version of the MCP server binary connected to each AI client.
-- `Start` / `Stop` controls the local Unity bridge.
-- `Publish MCP` stops MCP child processes that point at the current published DLL, waits for the file to unlock, runs `dotnet publish`, and checks whether AI clients reconnect automatically.
-- `Install MCP` updates a selected `.codex/config.toml` or `.claude/.mcp.json`.
-- `Open Terminal` opens a terminal at the tool root.
-- `Open Root` opens this tool folder.
-- `Preview Nav Map` uses the bundled Viz.js / Graphviz layout engine to render `Gen/ui-nav-map.json` as an interactive `Gen/ui-nav-map.preview.html`.
-
-You can also start or stop the bridge from:
+也可以通过独立菜单启动或停止 Bridge：
 
 ```text
 Window > Auto Run MCP Bridge > Start
 Window > Auto Run MCP Bridge > Stop
 ```
 
-The bridge listens at:
+Bridge 默认监听：
 
 ```text
 http://127.0.0.1:17331/
 ```
 
-If port `17331` is occupied, the bridge automatically tries each following port until one is available. The Auto Run window displays the actual URL in use.
+如果端口 `17331` 已被占用，Bridge 会自动逐个尝试后续端口，直到找到可用端口。Auto Run 窗口会显示实际使用的 URL。
 
-The selected endpoint is published under the current Unity project's `Library` directory. MCP configurations do not store a port; AI clients call `get_unity_bridge_port` to obtain the endpoint dynamically.
+选中的端点会发布到当前 Unity 项目的 `Library` 目录。MCP 配置不再保存端口，AI 客户端通过 `get_unity_bridge_port` 动态取得端点。
 
 ## CLI
 
-Run the CLI from the tool root. The easiest way is to open `Window > Auto Run Window`, then press `Open Terminal` in the `MCP` panel. This works for both UPM Git URL installs and manual `Assets/Editor` installs.
+请从工具根目录运行 CLI。最简单的方式是在 Unity 中打开 `Window > Auto Run Window`，然后点击 `MCP` 面板里的 `Open Terminal`。这种方式同时适用于 UPM Git URL 安装和手动 `Assets/Editor` 安装。
 
 ```powershell
 dotnet run --project mcp~/UnityAutorun.Mcp -- help
@@ -142,44 +145,44 @@ dotnet run --project mcp~/UnityAutorun.Mcp -- navigate-ui --map Gen/ui-nav-map.j
 dotnet run --project mcp~/UnityAutorun.Mcp -- mock-bridge
 ```
 
-Environment variables:
+环境变量：
 
-| Variable | Default | Meaning |
+| 变量 | 默认值 | 含义 |
 | --- | --- | --- |
-| `UNITY_AUTORUN_PROJECT_ROOT` | auto-detected by install | Project whose dynamically published bridge endpoint is used. |
-| `UNITY_AUTORUN_TOOL_ROOT` | auto-detected by install | Tool root used by MCP nav-map operations. |
+| `UNITY_AUTORUN_PROJECT_ROOT` | 安装时自动检测 | 使用其动态 Bridge 端点的 Unity 项目根目录。 |
+| `UNITY_AUTORUN_TOOL_ROOT` | 安装时自动检测 | MCP 导航图操作使用的工具根目录。 |
 
 ## MCP Server
 
-Publish the server:
+发布 MCP Server：
 
 ```powershell
 dotnet publish mcp~/UnityAutorun.Mcp -c Release
 ```
 
-Release publish output is also archived as a zip under:
+Release publish 输出也会被压缩归档到：
 
 ```text
 mcp~/UnityAutorun.Mcp/bin/Release-Archives/
 ```
 
-### Publishing while MCP is running
+### MCP 使用中发布
 
-The editor `Publish MCP` action matches this tool's MCP child processes by their full binary path. It terminates only those processes, not unrelated `dotnet.exe` instances, and starts publishing only after the processes exit and the published DLL is unlocked.
+编辑器内的 `Publish MCP` 会按完整二进制路径精确匹配当前工具的 MCP 子进程，只终止这些进程，不会结束其它 `dotnet.exe`。进程退出且发布 DLL 解锁后，工具才会开始发布。
 
-When MCP processes were running before publication, the tool waits up to 5 seconds after a successful publish for Codex, Claude, or another client to restart the expected number of MCP processes. A complete restart records the new PIDs. A partial or missing restart does not turn a successful publish into a failure; instead, the Auto Run Console records a Warning and the editor displays a reconnect prompt.
+如果发布前存在运行中的 MCP，发布完成后工具会等待最多 5 秒，检测原有数量的 MCP 进程是否由 Codex、Claude 等客户端自动重新启动。全部恢复时会记录新的 PID；部分或全部未恢复时，发布仍视为成功，但 Auto Run Console 会写入 Warning，并显示需要重新连接客户端的提示。
 
-Unity cannot recreate an AI client's stdio connection. If the client does not restart MCP automatically, restart or reconnect the affected client session.
+Unity 无法替 AI 客户端重建 stdio 连接。如果客户端没有自动重新启动 MCP，请重启或重新连接对应的客户端会话。
 
-Running `dotnet publish` directly in a terminal does not use this process-management flow. Stop the affected MCP client connections first when the published DLL is in use, or use the editor `Publish MCP` action.
+直接在终端运行 `dotnet publish` 不会执行上述进程管理。如果发布 DLL 正在使用，请先关闭对应的 MCP 客户端连接，或改用编辑器内的 `Publish MCP`。
 
-The editor `Install MCP` flow registers this command for the selected client:
+编辑器内 `Install MCP` 流程会为选中的客户端注册以下命令：
 
 ```powershell
 dotnet mcp~/UnityAutorun.Mcp/bin/Release/net8.0/publish/UnityAutorun.Mcp.dll mcp
 ```
 
-Available MCP tools:
+可用 MCP 工具：
 
 - `get_unity_bridge_port`
 - `unity_status`
@@ -210,20 +213,20 @@ Available MCP tools:
 - `get_ui_navigation_status`
 - `cancel_ui_navigation`
 
-For requests such as "start the game and open a UI view", call `start_ui_navigation` once, then long-poll `get_ui_navigation_status` until `terminal=true`. Unity handles startup, login gates, route resolution, and per-step waits internally, so the AI does not need to repeatedly call `list_buttons`, read the full navigation map, or inspect broad logs.
+对于“运行游戏并打开某个界面”这类请求，优先调用一次 `start_ui_navigation`，然后通过 `get_ui_navigation_status` 长轮询到 `terminal=true`。启动、登录门禁、路线解析和逐步等待由 Unity 内部完成，不需要 AI 反复调用 `list_buttons`、读取完整导航图或检查全量日志。
 
-Bridge tools resolve the dynamically published project endpoint automatically. `get_unity_bridge_port` is diagnostic only and is not a prerequisite for other bridge tools. `get_current_ui_nav_map` returns a summary by default; pass `full=true` only when the complete file is explicitly required.
+Bridge 工具会自动读取当前项目动态发布的端点。`get_unity_bridge_port` 仅用于诊断，不再是其它 Bridge 工具的前置调用。`get_current_ui_nav_map` 默认返回摘要；只有明确需要完整文件时才传入 `full=true`。
 
-For navigation-map generation, `scan_ui_nav_sources` reports source coverage and `trace_ui_navigation_calls` returns bounded button call-chain evidence across helper methods and component types. Each candidate includes compact `decisionHint` data, mapped endpoint ids, and serialized control evidence when the owner-type prefab can be resolved. Trace candidates are intentionally not executable edges: the external AI must decide the source view, referenced-view role, transition kind, control metadata, automation, and confidence, then validate and merge an incremental patch. Reachability and AutoRun executability are separate: missing exact click metadata, async work, branch preconditions, or absent runtime confirmation must not erase a code-proven edge. `backfill_ui_nav_map_from_sources` only adds deterministic source-discovered views and unresolved evidence; it never infers controls, transitions, or routes.
+生成导航图时，`scan_ui_nav_sources` 负责报告源码覆盖率，`trace_ui_navigation_calls` 负责返回跨辅助方法和组件类型的有界按钮调用链证据。每个候选会附带紧凑的 `decisionHint`、已映射端点 id，以及在能按宿主类型定位 Prefab 时解析到的序列化控件证据。调用链候选不会直接成为可执行边：外部 AI 必须判断来源界面、被引用界面的角色、跳转类型、控件信息、自动化方式和置信度，再验证并合并增量补丁。可达拓扑与 AutoRun 可执行性必须分开判断；缺少精确点击信息、存在异步处理或分支前提、尚未进行运行时确认，都不能抹掉源码已经证明的可达边。`backfill_ui_nav_map_from_sources` 只补充可确定的源码视图和待分析证据，不会推断控件、跳转或路线。
 
-Complete generation must use `get_ui_nav_candidate_coverage` without a `query` as the candidate backlog. For every returned candidate, the external AI copies the exact `id` and `candidateVersion` into one `candidateDecisions` item, merges the patch, and requests `offset=0` again until `remaining=0`. Changed source or serialized-control evidence invalidates the old candidate version and returns it to the backlog. A `semantic-review-required` item must be replaced when it points at mismatched transition endpoints, fails to use resolved serialized-control identity, or downgrades strong topology evidence without concrete `nonTransitionEvidence`. The AI must then call `finalize_ui_nav_map_generation`; the tool returns `candidate_review_incomplete` or `candidate_semantic_review_incomplete` and leaves the map unfinished while any candidate remains incomplete.
+完整生成必须将不带 `query` 的 `get_ui_nav_candidate_coverage` 作为候选待办列表。外部 AI 对每个返回项复制精确的 `id` 和 `candidateVersion`，再写入一个 `candidateDecisions` 决策；合并后继续以 `offset=0` 获取下一批未审候选，直到 `remaining=0`。源码或序列化控件证据变化会使旧决策版本失效并重新进入待办列表。遇到 `semantic-review-required` 时，外部 AI 必须修正端点不匹配或没有使用已解析序列化控件身份的跳转，或者为被降级的强拓扑候选提供具体 `nonTransitionEvidence`。最后必须调用 `finalize_ui_nav_map_generation`；只要仍有未审或语义不自洽的候选，该工具就会返回 `candidate_review_incomplete` 或 `candidate_semantic_review_incomplete`，并且不会把地图标记为完成。
 
 ## HTTP Bridge
 
-Start the bridge first, then use the URL returned by `get_unity_bridge_port` or displayed in the Auto Run window:
+先启动 Bridge，再使用 `get_unity_bridge_port` 返回或 Auto Run 窗口显示的 URL：
 
 ```powershell
-$bridgeUrl = "<dynamically published bridge URL>"
+$bridgeUrl = "<动态发布的 Bridge URL>"
 Invoke-RestMethod "${bridgeUrl}status"
 Invoke-RestMethod "${bridgeUrl}rpc" `
   -Method Post `
@@ -231,7 +234,7 @@ Invoke-RestMethod "${bridgeUrl}rpc" `
   -Body '{"id":"1","command":"click_button","payload":{"name":"StartButton","framework":"ugui"}}'
 ```
 
-Bridge commands include:
+Bridge 命令包括：
 
 - `status`
 - `play`
@@ -247,68 +250,102 @@ Bridge commands include:
 - `get_ui_navigation_status`
 - `cancel_ui_navigation`
 
-## UI Navigation Map
+## UI 导航图
 
-The navigation system uses `Gen/ui-nav-map.json`. If that file does not exist, the editor falls back to `Gen/ui-nav-map.example.json`.
+导航系统使用 `Gen/ui-nav-map.json`。如果该文件不存在，编辑器会回退读取 `Gen/ui-nav-map.example.json`。
 
-The map describes:
+导航图描述：
 
-- `views`: UI screens, panels, or view roots.
-- `controls`: buttons and related UI controls.
-- `transitions`: how one view reaches another.
-- `routes`: reusable paths across transitions.
-- `unresolved`: known gaps that need manual analysis.
-- `candidateDecisions`: compact review results for every static call-chain candidate. This ledger is used only for generation completeness and is ignored by runtime navigation.
+- `views`：UI 界面、面板或视图根节点。
+- `controls`：按钮和相关 UI 控件。
+- `transitions`：从一个视图到另一个视图的方式。
+- `routes`：跨 transition 的可复用路径。
+- `unresolved`：仍需人工分析的缺口。
+- `candidateDecisions`：每个静态调用链候选的紧凑审核结果，仅用于生成完整性检查，不参与运行时导航。
 
-The map carries `schemaVersion`, `generatorVersion`, and an incrementing `mapVersion`. Every write refreshes these fields and marks candidate coverage as `review-required`; only successful finalization restores `generation.status=complete`. The editor and MCP route loader reject maps whose format version, generator version, or completion state is stale.
+导航图包含 `schemaVersion`、`generatorVersion` 和递增的 `mapVersion`。每次写入都会更新版本并把候选覆盖状态置为 `review-required`，最终化成功后才恢复为 `generation.status=complete`。编辑器和 MCP 路由加载器会拒绝格式版本、生成器版本或完成状态不匹配的旧地图，从而避免继续使用未重新生成的文件。
 
-`Preview Nav Map` uses the Graphviz `dot` engine to lay out views that participate in valid transitions and groups parallel transitions between the same pair of views into one edge. Views without a valid transition remain in the sidebar instead of widening the canvas. The preview supports search by name, id, or prefab path, one-click neighborhood focus, hover edge labels, panning, zooming, and fit-to-view. All rendering dependencies are bundled for offline use; the generated HTML does not access an external CDN.
+`Preview Nav Map` 会用 Graphviz `dot` 自动排列存在有效 transition 的视图，并将同一对视图之间的重复 transition 聚合为一条边。没有有效 transition 的视图保留在右侧列表中，不再拉宽主图。预览支持按名称、id 或 Prefab 路径搜索，点击节点聚焦相邻路线，悬停查看边标签，以及拖动画布、滚轮缩放和一键适配。所有渲染依赖都随工具离线提供，生成后的 HTML 不访问外部 CDN。
 
-The editor `Navigation AutoRun` panel loads the map, lists navigable target views, filters them by search text, and runs a route with `Go!`. If Unity is not already in Play Mode, it stores the pending target, enters Play Mode, and continues after Play Mode starts.
+编辑器 `Navigation AutoRun` 面板会加载导航图，列出可导航目标视图，支持搜索过滤，并通过 `Go!` 执行路由。如果 Unity 尚未处于 Play Mode，工具会保存待执行目标，进入 Play Mode，然后在 Play Mode 启动后继续执行。
 
-Route execution supports:
+路由执行支持：
 
-- `click` steps backed by UGUI or FairyGUI button actions.
-- UGUI navigation clicks verified through the active `EventSystem`: the selected button must be interactable and own the top pointer raycast before pointer-down, pointer-up, and pointer-click events are dispatched.
-- `wait` steps that wait for a view to become active, foreground, and stable.
-- Per-control `delay` values as post-click settle time before the next route step starts.
-- cancellation through the editor panel or bridge command.
+- 由 UGUI 或 FairyGUI 按钮动作驱动的 `click` step。
+- UGUI 导航点击会通过当前 `EventSystem` 验证：按钮必须可交互，并且是指针射线最上层命中对象，随后才依次派发 pointer-down、pointer-up 和 pointer-click。
+- 等待目标 view 处于活动、前台且状态稳定的 `wait` step。
+- 把控件的 `delay` 作为点击后的稳定等待时间，再执行下一步。
+- 通过编辑器面板或 Bridge 命令取消执行。
 
-Navigation never invokes inactive-hierarchy UGUI controls. A covered target is not treated as reached merely because its GameObject exists; the route keeps waiting and reports the blocking pointer target on timeout.
+导航不会调用非活动层级中的 UGUI 控件。目标 GameObject 即使已经存在，只要仍被其他 UI 遮挡，就不会被判定为到达；超时时会报告阻挡它的指针命中对象。
 
-`start_ui_navigation` immediately returns a `navigationId` and stores the pending target in the editor session, allowing it to continue after entering Play Mode or reloading the script domain. `get_ui_navigation_status` returns `navigationStatus`, `navigationPhase`, `terminal`, `elapsedMilliseconds`, and compact target-view matches.
+`start_ui_navigation` 会立即返回一个 `navigationId`，并把待执行目标保存在编辑器会话中，因此进入 Play Mode 或脚本域重载后仍可继续。`get_ui_navigation_status` 返回 `navigationStatus`、`navigationPhase`、`terminal`、`elapsedMilliseconds` 和紧凑的目标视图匹配结果。
 
-For AI-assisted map generation, first ask the MCP server for `get_nav_map_guidance`, then use the scan, coverage, query, validate, merge, and finalize tools instead of writing `ui-nav-map.json` directly. Do not report generation complete until the finalization gate succeeds.
+如果使用 AI 生成导航图，先调用 MCP 工具 `get_nav_map_guidance`，再使用 scan、coverage、query、validate、merge 和 finalize 工具增量更新，不要直接用文件系统写入 `ui-nav-map.json`，也不要在最终化门禁通过前宣告生成完成。
 
 ## Console
 
-The Auto Run Window includes a local console for tool messages. Entries are grouped by:
+Auto Run Window 内置本地 Console，用于显示工具消息。日志级别包括：
 
 - `Debug`
 - `Info`
 - `Warning`
 - `Error`
 
-The toggles only filter visibility. `Clear` removes current entries. Messages are not mirrored to the Unity Console.
+级别开关只影响显示过滤。`Clear` 会清空当前 entries。工具消息不会同步写入 Unity Console。
 
-## Project Layout
+## Manual AutoRun（手动预设）
+
+当前推荐优先使用 AI 与 `Navigation AutoRun` 完成界面自动运行。`Manual AutoRun` 作为兼容功能保留，适合不接入 AI、步骤固定且只需要按顺序点击按钮的场景。
+
+打开 `Window > Auto Run Window`，使用靠后的 `Manual AutoRun` 面板。
+
+1. 点击 `First use? Press me to create an autorun action config :)`。
+2. 初始文件创建后点击 `Save config`。
+3. 点击 `Then, press me to create a new action preset` 创建预设；已有预设后，可用预设下拉框旁边的 `+` 继续添加。
+4. 在 `Action - Go` 或 `Action - Stop` 下添加动作。
+5. 填写动作字段。
+6. 点击 `Save config`。
+7. 需要启动自动化流程时，用 `Go!` 代替 Unity 原生 Play 按钮。
+8. 需要退出前执行 Stop 动作时，点击 `Stop`。
+
+动作字段说明：
+
+| 字段 | 含义 |
+| --- | --- |
+| `name` | 目标按钮的 GameObject 名称。UGUI 查找会做名称归一化，会忽略 `_`、`*`、末尾的 `GameObject` 和末尾的 `Button`。 |
+| `text` | UGUI 按钮名称不唯一时的文本兜底匹配。FairyGUI 一般保留默认值，除非项目内 FairyGUI Helper 支持文本筛选。 |
+| `delay` | 执行当前动作前等待的秒数。 |
+| `FGUI` | 使用 FairyGUI 点击逻辑而不是 UGUI 点击逻辑。项目未安装 FairyGUI 时会自动禁用。 |
+
+`Go` 动作会在进入 Play Mode 后运行。`Stop` 动作会在退出 Play Mode 前运行。
+
+配置保存在 Unity 编辑器进程基目录下，而不是项目目录中：
+
+```text
+AutorunToolData/config.xml
+```
+
+因此本机手动预设默认不会进入项目版本管理。工具会创建运行时 `AutoRunHandler` GameObject，并设置为 `DontDestroyOnLoad`。使用过 `Go!` 后，如果之后直接点击 Unity 原生 Play 按钮，场景里已有的 handler 仍可能继续存在，直到被移除或重置。
+
+## 项目结构
 
 ```text
 .
-|-- AutoRun*.cs                  # Shared runtime/editor automation models and handler
-|-- package.json                 # Unity Package Manager metadata for Git URL installation
-|-- Bridge/                      # HTTP bridge models, dispatcher, sequence, and navigation execution
-|-- Editor/                      # Unity Editor window, menus, MCP install, processes, nav AutoRun UI
-|-- Services/                    # UGUI/FairyGUI button and active-view discovery
-|-- Util/                        # XML and optional FairyGUI helpers
-|-- Gen/                         # Generated nav-map files and the tracked example map
-|-- mcp~/UnityAutorun.Mcp/       # .NET 8 CLI and MCP server source
+|-- AutoRun*.cs                  # 共享的自动化模型和运行时 handler
+|-- package.json                 # Unity Package Manager Git URL 安装元数据
+|-- Bridge/                      # HTTP Bridge 模型、dispatcher、sequence 和 navigation 执行
+|-- Editor/                      # Unity Editor 窗口、菜单、MCP 安装、进程检测、导航 AutoRun UI
+|-- Services/                    # UGUI/FairyGUI 按钮发现与活动视图发现
+|-- Util/                        # XML 与可选 FairyGUI helper
+|-- Gen/                         # 生成的导航图文件及受版本控制的示例导航图
+|-- mcp~/UnityAutorun.Mcp/       # .NET 8 CLI 与 MCP Server 源码
 ```
 
-## Troubleshooting
+## 排障
 
-- If `Install MCP` fails, press `Publish MCP` first and confirm the selected folder is named `.codex` or `.claude`.
-- If CLI bridge calls fail, start the bridge in Unity and use `bridge-port` or the MCP tool `get_unity_bridge_port` to inspect the current endpoint.
-- If a UGUI button is not found, check the runtime GameObject name, normalized name, and optional text field.
-- If a route cannot run, inspect it with `route`, `resolve_ui_route`, or `get_ui_nav_subgraph` and check unsupported or unresolved transitions.
-- If `Navigation AutoRun` shows no targets, create or merge a real `Gen/ui-nav-map.json`, or start from the example map to verify the workflow.
+- 如果 `Install MCP` 失败，先点击 `Publish MCP`，并确认选择的文件夹名称是 `.codex` 或 `.claude`。
+- 如果 CLI Bridge 调用失败，先在 Unity 中启动 Bridge，再通过 `bridge-port` 或 MCP 工具 `get_unity_bridge_port` 检查当前端点。
+- 如果找不到 UGUI 按钮，检查运行时 GameObject 名称、归一化后的名称，以及可选 `text` 字段。
+- 如果路由无法执行，用 `route`、`resolve_ui_route` 或 `get_ui_nav_subgraph` 检查是否存在 unsupported 或 unresolved transition。
+- 如果 `Navigation AutoRun` 没有目标，创建或 merge 真实的 `Gen/ui-nav-map.json`，也可以先用 example map 验证流程。
