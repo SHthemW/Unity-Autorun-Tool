@@ -86,20 +86,6 @@ public partial class AutoRunWindow
             }
         }
 
-        if (GUILayout.Button("Open Terminal", GUILayout.Width(120)))
-        {
-            string message;
-            if (McpTerminalService.OpenToolRootTerminal(out message))
-            {
-                AppendConsoleText(message);
-            }
-            else
-            {
-                AppendConsoleText(message, AutoRunLogLevel.Error);
-                EditorUtility.DisplayDialog("Open Terminal Failed", message, "OK");
-            }
-        }
-
         if (GUILayout.Button("Open Root", GUILayout.Width(95)))
         {
             string message;
@@ -129,7 +115,7 @@ public partial class AutoRunWindow
         }
 
         GUILayout.Label(
-            "Publish the MCP server, open terminal/root folder, or render Gen/ui-nav-map.json as an HTML graph.",
+            "Publish the MCP server, open its root folder, or render Gen/ui-nav-map.json as an HTML graph.",
             GetSqueezedStyle(EditorStyles.label),
             GUILayout.MinWidth(0),
             GUILayout.ExpandWidth(true)

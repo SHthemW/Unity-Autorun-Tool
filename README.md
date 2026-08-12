@@ -14,9 +14,25 @@ Unity Autorun Tool 是一个 Unity Editor 扩展，用于自动化 UI 启动流�
 
 截图上半部分是 `MCP` 区域，用于连接 AI 客户端并确认 Bridge 状态；下半部分是 `Navigation AutoRun` 区域，用于搜索、选择并运行导航图中的目标界面。
 
+### 快速安装
+
+推荐通过 [Unity Package Manager 的 Git URL](https://docs.unity3d.com/cn/2021.3/Manual/upm-ui-giturl.html) 安装。使用此方式前，请确认本机已安装 [Git](https://git-scm.com/downloads)。
+
+1. 在 Unity 中打开 `Window > Package Manager`。
+2. 点击左上角的 `+`，选择 `Add package from git URL...`。
+3. 输入以下 Git URL，然后点击 `Add`：
+
+```text
+https://github.com/SHthemW/Unity-Autorun-Tool.git
+```
+
+4. 等待安装和脚本编译完成，再打开 `Window > Auto Run Window`。
+
+如需固定版本或手动安装，请参阅[完整安装说明](#安装)。
+
 ### 首次接入 AI
 
-1. 确认本机已安装 .NET 8 SDK，并打开 `Window > Auto Run Window`。
+1. 确认本机已安装 [.NET 8 SDK](https://dotnet.microsoft.com/zh-cn/download/dotnet/8.0)，并打开 `Window > Auto Run Window`。
 2. 在截图上方的 `MCP` 区域点击 `Publish MCP`，生成当前版本的 MCP Server。
 3. 点击 `Select`，选择项目的 `.codex` 文件夹或 `.claude` 文件夹，再点击 `Install MCP`。
 4. 重新连接对应的 AI 客户端。`Bridge` 显示 `Running`，并且 `Processes` 中出现对应客户端进程时，表示连接已经建立。
@@ -57,14 +73,14 @@ AI 会发起一次异步导航任务，并持续查询任务状态，直到 Unit
 
 ## 环境要求
 
-- Unity 2021.3 或更新版本。
+- [Unity 2021.3 或更新版本](https://unity.com/download)。
 - 内置 UGUI 按钮自动化依赖 Unity UGUI。
-- 只有需要自动化 FairyGUI 按钮时才需要安装 FairyGUI。
-- CLI 和 MCP Server 需要 .NET 8 SDK。
+- 只有需要自动化 FairyGUI 按钮时才需要安装 [FairyGUI](https://www.fairygui.com/download)。
+- CLI 和 MCP Server 需要 [.NET 8 SDK](https://dotnet.microsoft.com/zh-cn/download/dotnet/8.0)。
 
 ## 安装
 
-推荐使用 Unity Package Manager 的 Git URL 安装。
+推荐使用 [Unity Package Manager 的 Git URL](https://docs.unity3d.com/cn/2021.3/Manual/upm-ui-giturl.html) 安装。此方式需要本机已安装 [Git](https://git-scm.com/downloads)。
 
 1. 打开 `Window > Package Manager`。
 2. 点击 `+`。
@@ -101,7 +117,6 @@ Window > Auto Run Window
 - `Start` / `Stop` 控制本地 Unity Bridge。
 - `Publish MCP` 会先终止指向当前发布 DLL 的 MCP 子进程，等待文件解锁后执行 `dotnet publish`，并检测 AI 客户端是否自动重连。
 - `Install MCP` 会更新选中的 `.codex/config.toml` 或 `.claude/.mcp.json`。
-- `Open Terminal` 在工具根目录打开终端。
 - `Open Root` 打开当前工具目录。
 - `Preview Nav Map` 使用内置的 Viz.js / Graphviz 自动布局，将 `Gen/ui-nav-map.json` 渲染为可交互的 `Gen/ui-nav-map.preview.html`。
 
@@ -124,7 +139,7 @@ http://127.0.0.1:17331/
 
 ## CLI
 
-请从工具根目录运行 CLI。最简单的方式是在 Unity 中打开 `Window > Auto Run Window`，然后点击 `MCP` 面板里的 `Open Terminal`。这种方式同时适用于 UPM Git URL 安装和手动 `Assets/Editor` 安装。
+请从工具根目录运行 CLI。可以在 Unity 中打开 `Window > Auto Run Window`，点击 `MCP` 面板里的 `Open Root`，然后在打开的目录中启动终端。这种方式同时适用于 UPM Git URL 安装和手动 `Assets/Editor` 安装。
 
 ```powershell
 dotnet run --project mcp~/UnityAutorun.Mcp -- help

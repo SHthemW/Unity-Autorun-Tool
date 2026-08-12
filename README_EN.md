@@ -14,9 +14,25 @@ Open `Window > Auto Run Window` in Unity to see the real program interface shown
 
 The upper `MCP` area connects AI clients and reports the Bridge state. The lower `Navigation AutoRun` area searches, selects, and runs a target from the navigation map.
 
+### Quick Installation
+
+The recommended method is [Unity Package Manager with a Git URL](https://docs.unity3d.com/2021.3/Documentation/Manual/upm-ui-giturl.html). Make sure [Git](https://git-scm.com/downloads) is installed before using this method.
+
+1. Open `Window > Package Manager` in Unity.
+2. Press `+` in the upper-left corner and choose `Add package from git URL...`.
+3. Enter the following Git URL, then press `Add`:
+
+```text
+https://github.com/SHthemW/Unity-Autorun-Tool.git
+```
+
+4. Wait for installation and script compilation to finish, then open `Window > Auto Run Window`.
+
+For a pinned version or manual installation, see the [full installation instructions](#installation).
+
 ### Connect an AI client
 
-1. Install the .NET 8 SDK and open `Window > Auto Run Window`.
+1. Install the [.NET 8 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) and open `Window > Auto Run Window`.
 2. Press `Publish MCP` in the upper `MCP` area to build the current MCP server.
 3. Press `Select`, choose the project's `.codex` or `.claude` folder, and press `Install MCP`.
 4. Reconnect the AI client. The connection is ready when `Bridge` reports `Running` and the client appears under `Processes`.
@@ -57,14 +73,14 @@ For direct editor operation, type a query in the lower `Navigation AutoRun` area
 
 ## Requirements
 
-- Unity 2021.3 or newer.
+- [Unity 2021.3 or newer](https://unity.com/download).
 - UGUI for built-in Unity button automation.
-- FairyGUI only if you want to automate FairyGUI buttons.
-- .NET 8 SDK for the CLI and MCP server.
+- [FairyGUI](https://www.fairygui.com/download) only if you want to automate FairyGUI buttons.
+- [.NET 8 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) for the CLI and MCP server.
 
 ## Installation
 
-The recommended installation method is Unity Package Manager with a Git URL.
+The recommended installation method is [Unity Package Manager with a Git URL](https://docs.unity3d.com/2021.3/Documentation/Manual/upm-ui-giturl.html). This method requires [Git](https://git-scm.com/downloads) to be installed.
 
 1. Open `Window > Package Manager`.
 2. Press `+`.
@@ -101,7 +117,6 @@ The `MCP` panel in `Window > Auto Run Window` groups bridge controls, detected M
 - `Start` / `Stop` controls the local Unity bridge.
 - `Publish MCP` stops MCP child processes that point at the current published DLL, waits for the file to unlock, runs `dotnet publish`, and checks whether AI clients reconnect automatically.
 - `Install MCP` updates a selected `.codex/config.toml` or `.claude/.mcp.json`.
-- `Open Terminal` opens a terminal at the tool root.
 - `Open Root` opens this tool folder.
 - `Preview Nav Map` uses the bundled Viz.js / Graphviz layout engine to render `Gen/ui-nav-map.json` as an interactive `Gen/ui-nav-map.preview.html`.
 
@@ -124,7 +139,7 @@ The selected endpoint is published under the current Unity project's `Library` d
 
 ## CLI
 
-Run the CLI from the tool root. The easiest way is to open `Window > Auto Run Window`, then press `Open Terminal` in the `MCP` panel. This works for both UPM Git URL installs and manual `Assets/Editor` installs.
+Run the CLI from the tool root. You can open `Window > Auto Run Window`, press `Open Root` in the `MCP` panel, and then launch a terminal from the opened directory. This works for both UPM Git URL installs and manual `Assets/Editor` installs.
 
 ```powershell
 dotnet run --project mcp~/UnityAutorun.Mcp -- help
