@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using UnityEditor.PackageManager;
 
 public sealed class McpInstallConfig
@@ -10,6 +11,10 @@ public sealed class McpInstallConfig
     public const string ServerName = "unity-autorun";
     private const string PackageFileName = "package.json";
     private static string _toolVersion;
+    private static string _mcpSourceVersion;
+    private static string _mcpProjectPath;
+    private static string _toolRootDirectory;
+    private static string _publishedDllPath;
 
     public string Command;
     public List<string> Args;
@@ -36,7 +41,12 @@ public sealed class McpInstallConfig
 
     public static string GetMcpProjectPath()
     {
-        return FindMcpProjectPath();
+        if (string.IsNullOrEmpty(_mcpProjectPath))
+        {
+            _mcpProjectPath = FindMcpProjectPath();
+        }
+
+        return _mcpProjectPath;
     }
 
     public static string GetToolVersion()
@@ -78,8 +88,42 @@ public sealed class McpInstallConfig
         return _toolVersion;
     }
 
+    public static string GetMcpSourceVersion()
+    {
+        if (!string.IsNullOrEmpty(_mcpSourceVersion))
+        {
+            return _mcpSourceVersion;
+        }
+
+        try
+        {
+            string project = File.ReadAllText(GetMcpProjectPath());
+            Match match = Regex.Match(
+                project,
+                "<Version>\\s*([^<]+?)\\s*</Version>",
+                RegexOptions.IgnoreCase);
+            if (match.Success)
+            {
+                _mcpSourceVersion = match.Groups[1].Value.Trim();
+                return _mcpSourceVersion;
+            }
+        }
+        catch
+        {
+            // 版本展示不应阻断安装面板的其它功能。
+        }
+
+        _mcpSourceVersion = "unknown";
+        return _mcpSourceVersion;
+    }
+
     public static string GetToolRootDirectory()
     {
+        if (!string.IsNullOrEmpty(_toolRootDirectory))
+        {
+            return _toolRootDirectory;
+        }
+
         string projectPath = GetMcpProjectPath();
         string projectDirectory = Path.GetDirectoryName(projectPath);
         DirectoryInfo mcpFolder = Directory.GetParent(projectDirectory);
@@ -88,7 +132,8 @@ public sealed class McpInstallConfig
             throw new InvalidOperationException("Cannot resolve Unity AutoRun tool root directory.");
         }
 
-        return mcpFolder.Parent.FullName;
+        _toolRootDirectory = mcpFolder.Parent.FullName;
+        return _toolRootDirectory;
     }
 
     public static string GetProjectRootDirectory()
@@ -104,9 +149,21 @@ public sealed class McpInstallConfig
 
     public static string GetPublishedDllPath()
     {
+        if (!string.IsNullOrEmpty(_publishedDllPath))
+        {
+            return _publishedDllPath;
+        }
+
         string projectPath = GetMcpProjectPath();
         string projectDirectory = Path.GetDirectoryName(projectPath);
-        return Path.Combine(projectDirectory, "bin", "Release", "net8.0", "publish", "UnityAutorun.Mcp.dll");
+        _publishedDllPath = Path.Combine(
+            projectDirectory,
+            "bin",
+            "Release",
+            "net8.0",
+            "publish",
+            "UnityAutorun.Mcp.dll");
+        return _publishedDllPath;
     }
 
     public string ToCodexTomlBlock()

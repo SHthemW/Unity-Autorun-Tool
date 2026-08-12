@@ -170,7 +170,7 @@ public static class McpProcessService
             : File.GetLastWriteTime(binaryPath).ToString("MMdd HHmm");
     }
 
-    private static string GetMcpVersion(string binaryPath)
+    public static string GetMcpVersion(string binaryPath)
     {
         if (string.IsNullOrEmpty(binaryPath) || !File.Exists(binaryPath))
         {

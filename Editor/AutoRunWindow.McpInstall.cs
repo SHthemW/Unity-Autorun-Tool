@@ -10,13 +10,22 @@ public partial class AutoRunWindow
 
     private void RenderMcpInstallControls()
     {
-        if (string.IsNullOrEmpty(_mcpInstallTargetPath))
-        {
-            _mcpInstallTargetPath = EditorPrefs.GetString(McpInstallTargetKey, "");
-        }
+        LoadMcpInstallTargetPath();
 
         GUILayout.BeginHorizontal();
-        _mcpInstallTargetPath = GUILayout.TextField(_mcpInstallTargetPath, GUILayout.MinWidth(0), GUILayout.ExpandWidth(true));
+        string nextTargetPath = GUILayout.TextField(
+            _mcpInstallTargetPath,
+            GUILayout.MinWidth(0),
+            GUILayout.ExpandWidth(true));
+        if (!string.Equals(
+                nextTargetPath,
+                _mcpInstallTargetPath,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            _mcpInstallTargetPath = nextTargetPath;
+            EditorPrefs.SetString(McpInstallTargetKey, nextTargetPath);
+            InvalidateSkillInstallStatus();
+        }
 
         if (GUILayout.Button("Select", GUILayout.Width(70)))
         {
@@ -25,8 +34,12 @@ public partial class AutoRunWindow
             {
                 _mcpInstallTargetPath = selected;
                 EditorPrefs.SetString(McpInstallTargetKey, selected);
+                InvalidateSkillInstallStatus();
             }
         }
+
+        GUILayout.EndHorizontal();
+        GUILayout.BeginHorizontal();
 
         if (GUILayout.Button("Install MCP", GUILayout.Width(100)))
         {
@@ -43,13 +56,25 @@ public partial class AutoRunWindow
             }
         }
 
+        RenderSkillInstallButton();
+        GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
         GUILayout.Label(
-            "Select a .codex folder for Codex or a .claude folder for Claude.",
+            "Select a .codex or .claude folder, then install MCP and the bundled Skill.",
             GetSqueezedStyle(EditorStyles.label),
             GUILayout.MinWidth(0),
             GUILayout.ExpandWidth(true)
         );
+    }
+
+    private void LoadMcpInstallTargetPath()
+    {
+        if (_mcpInstallTargetPath == null)
+        {
+            _mcpInstallTargetPath = EditorPrefs.GetString(
+                McpInstallTargetKey,
+                "");
+        }
     }
 
     private void RenderMcpTools()
@@ -151,12 +176,12 @@ public partial class AutoRunWindow
         GUILayout.BeginHorizontal();
         GUILayout.Label(
             new GUIContent(
-                "Unity AutoRun MCP",
-                "The version is read from the tool package.json file."),
+                "Unity AutoRun MCP + Skill",
+                "The package version is read from package.json."),
             EditorStyles.miniLabel);
         GUILayout.FlexibleSpace();
         GUILayout.Label(
-            "v" + McpInstallConfig.GetToolVersion(),
+            "package v" + McpInstallConfig.GetToolVersion(),
             EditorStyles.miniBoldLabel);
         GUILayout.EndHorizontal();
         GUILayout.Space(2);
@@ -168,6 +193,9 @@ public partial class AutoRunWindow
 
         GUILayout.Label("Bridge");
         RenderBridgeControls();
+        GUILayout.Space(4);
+        GUILayout.Label("Versions");
+        RenderVersionStatus();
         GUILayout.Space(4);
         GUILayout.Label("Processes");
         RenderMcpProcesses();

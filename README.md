@@ -34,7 +34,7 @@ https://github.com/SHthemW/Unity-Autorun-Tool.git
 
 1. 确认本机已安装 [.NET 8 SDK](https://dotnet.microsoft.com/zh-cn/download/dotnet/8.0)，并打开 `Window > Auto Run Window`。
 2. 在截图上方的 `MCP` 区域点击 `Publish MCP`，生成当前版本的 MCP Server。
-3. 点击 `Select`，选择项目的 `.codex` 文件夹或 `.claude` 文件夹，再点击 `Install MCP`。
+3. 点击 `Select`，选择项目的 `.codex` 文件夹或 `.claude` 文件夹，再依次点击 `Install MCP` 和 `Install Skill`。
 4. 重新连接对应的 AI 客户端。`Bridge` 显示 `Running`，并且 `Processes` 中出现对应客户端进程时，表示连接已经建立。
 5. 首次使用时，让 AI 生成完整导航图：
 
@@ -49,14 +49,15 @@ AI 会通过 MCP 扫描源码、审核导航候选并生成 `Gen/ui-nav-map.json
 仓库在 [`skill~/unity-autorun/`](./skill~/unity-autorun/) 提供可安装的 Skill 源码。默认模式会让 AI 先快速判断任务及相关 UI 是否兼容 Autorun；兼容时主动使用导航、UIState 和异步断言完成自测与结构化表现审核，不兼容时简要说明具体原因。`gen-nav` 参数用于生成或更新导航图，并通过 `get_nav_map_guidance` 读取与当前 MCP 版本匹配的精简动态契约。
 
 1. 确保 `unity-autorun` MCP Server 已安装并连接。
-2. 在 Codex 对话中使用 `$skill-installer` 从 GitHub 文件夹安装当前开发分支：
+2. 推荐在 `Window > Auto Run Window` 的 `MCP > Install` 中选择 `.codex` 或 `.claude` 目录，再点击 `Install Skill`。Codex 目标会安装到所选 `.codex` 同级的 `.agents/skills/unity-autorun`，Claude 目标会安装到 `.claude/skills/unity-autorun`。
+3. 也可以在 Codex 对话中使用 `$skill-installer` 从 GitHub 文件夹安装当前开发分支：
 
    ```text
    $skill-installer install https://github.com/SHthemW/Unity-Autorun-MCP/tree/dev_UIState/skill~/unity-autorun
    ```
 
-3. Codex 通常会自动发现新 Skill；如果未出现，请重新启动 Codex。
-4. 通过 `$unity-autorun` 显式调用，或让其在 Unity UI 导航、读取和自测任务中自动触发。
+4. Codex 通常会自动发现新 Skill；如果未出现，请重新启动 Codex。
+5. 通过 `$unity-autorun` 显式调用，或让其在 Unity UI 导航、读取和自测任务中自动触发。
 
 运行时导航、自测和表现审核示例：
 
@@ -95,7 +96,7 @@ AI 会发起一次异步导航任务，并持续查询任务状态，直到 Unit
 - 支持跨 Play Mode 恢复的异步 UI 导航任务与紧凑状态轮询。
 - 导航图工具覆盖 guidance、源码扫描、patch 校验、merge、summary、subgraph 和 HTML 预览。
 - .NET 8 CLI 与 MCP Server，可供 Codex、Claude 或其他 MCP 客户端调用。
-- 提供可通过 `$skill-installer` 从 GitHub 安装的 Unity Autorun Skill，默认负责兼容性判断、导航和 UIState 自测，并通过 `gen-nav` 参数生成或更新导航图。
+- 提供可从编辑器一键安装或通过 `$skill-installer` 下载的 Unity Autorun Skill，默认负责兼容性判断、导航和 UIState 自测，并通过 `gen-nav` 参数生成或更新导航图。
 - 本地 HTTP Bridge，默认监听 `127.0.0.1:17331`。
 - 支持按 GameObject 名称或按钮文本发现并点击 UGUI 按钮。
 - 支持读取和断言运行时 UGUI、TextMeshPro 控件的当前值。
@@ -146,10 +147,13 @@ Window > Auto Run Window
 
 `Window > Auto Run Window` 中的 `MCP` 面板包含 Bridge 控制、MCP 进程检测、安装入口和辅助工具。
 
-- 面板顶部显示当前 Unity AutoRun MCP 版本；`Processes` 表格会显示每个 AI 客户端连接的 MCP 服务端二进制版本。
+- `Versions` 区域同时显示 MCP 源码版本、已发布二进制版本、Bundled Skill 版本和所选客户端中的 Installed Skill 版本。
+- 工具启动后每 24 小时从发布仓库的 `package.json` 检查一次新版本；失败时 1 小时后重试，也可以点击 `Check Now` 立即检查。
+- `Processes` 表格会显示每个 AI 客户端当前加载的 MCP 服务端二进制版本。
 - `Start` / `Stop` 控制本地 Unity Bridge。
 - `Publish MCP` 会先终止指向当前发布 DLL 的 MCP 子进程，等待文件解锁后执行 `dotnet publish`，并检测 AI 客户端是否自动重连。
 - `Install MCP` 会更新选中的 `.codex/config.toml` 或 `.claude/.mcp.json`。
+- `Install Skill` 会复制包内 Skill，并根据已安装版本自动显示 Install、Update、Reinstall 或 Repair 状态。
 - `Open Root` 打开当前工具目录。
 - `Preview Nav Map` 使用内置的 Viz.js / Graphviz 自动布局，将 `Gen/ui-nav-map.json` 渲染为可交互的 `Gen/ui-nav-map.preview.html`。
 
@@ -428,6 +432,7 @@ AutorunToolData/config.xml
 ## 排障
 
 - 如果 `Install MCP` 失败，先点击 `Publish MCP`，并确认选择的文件夹名称是 `.codex` 或 `.claude`。
+- 如果 Skill 版本显示 `unknown`，点击 `Repair Skill` 即可补齐版本清单并重新安装完整内容。
 - 如果 CLI Bridge 调用失败，先在 Unity 中启动 Bridge，再通过 `bridge-port` 或 MCP 工具 `get_unity_bridge_port` 检查当前端点。
 - 如果找不到 UGUI 按钮，检查运行时 GameObject 名称、归一化后的名称，以及可选 `text` 字段。
 - 如果路由无法执行，用 `route`、`resolve_ui_route` 或 `get_ui_nav_subgraph` 检查是否存在 unsupported 或 unresolved transition。

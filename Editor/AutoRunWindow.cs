@@ -56,16 +56,21 @@ public partial class AutoRunWindow : EditorWindow
             0f,
             EditorPrefs.GetFloat(WindowScrollYKey, 0f)
         );
+        LoadMcpInstallTargetPath();
         ResetNavigationWindowState();
+        EnableUpdateCheck();
     }
 
     private void OnDisable()
     {
+        DisableUpdateCheck();
         SaveWindowScrollPosition();
     }
 
     private void OnFocus()
     {
+        InvalidateSkillInstallStatus();
+        AutoRunUpdateCheckService.CheckIfDue();
         Repaint();
 
         // Do not load config when in play mode

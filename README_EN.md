@@ -34,7 +34,7 @@ For a pinned version or manual installation, see the [full installation instruct
 
 1. Install the [.NET 8 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) and open `Window > Auto Run Window`.
 2. Press `Publish MCP` in the upper `MCP` area to build the current MCP server.
-3. Press `Select`, choose the project's `.codex` or `.claude` folder, and press `Install MCP`.
+3. Press `Select`, choose the project's `.codex` or `.claude` folder, then press both `Install MCP` and `Install Skill`.
 4. Reconnect the AI client. The connection is ready when `Bridge` reports `Running` and the client appears under `Processes`.
 5. For first use, ask the AI to build the navigation map:
 
@@ -49,14 +49,15 @@ The AI uses the MCP tools to scan source code, review candidates, and create `Ge
 The repository provides installable skill sources under [`skill~/unity-autorun/`](./skill~/unity-autorun/). In its default mode, the skill tells the AI to quickly assess whether the task and related UI are compatible with Autorun. When compatible, it actively uses navigation, UIState, and asynchronous assertions for self-tests and structured presentation reviews; otherwise it reports a brief concrete reason. The `gen-nav` argument generates or updates the navigation map and reads a compact dynamic contract for the connected MCP version through `get_nav_map_guidance`.
 
 1. Make sure the `unity-autorun` MCP server is installed and connected.
-2. In a Codex conversation, use `$skill-installer` to install the current development branch from its GitHub folder:
+2. Prefer selecting a `.codex` or `.claude` directory under `MCP > Install` in `Window > Auto Run Window`, then press `Install Skill`. A Codex target installs to `.agents/skills/unity-autorun` beside the selected `.codex` directory; a Claude target installs to `.claude/skills/unity-autorun`.
+3. Alternatively, use `$skill-installer` in a Codex conversation to install the current development branch from its GitHub folder:
 
    ```text
    $skill-installer install https://github.com/SHthemW/Unity-Autorun-MCP/tree/dev_UIState/skill~/unity-autorun
    ```
 
-3. Codex normally detects the new skill automatically; restart Codex if it does not appear.
-4. Invoke it explicitly with `$unity-autorun` or let it trigger for Unity UI navigation, inspection, and self-test requests.
+4. Codex normally detects the new skill automatically; restart Codex if it does not appear.
+5. Invoke it explicitly with `$unity-autorun` or let it trigger for Unity UI navigation, inspection, and self-test requests.
 
 Runtime navigation, self-test, and presentation-review example:
 
@@ -95,7 +96,7 @@ For direct editor operation, type a query in the lower `Navigation AutoRun` area
 - Asynchronous tracked UI navigation that survives Play Mode transitions and exposes compact progress polling.
 - Navigation map tools for guidance, source scanning, patch validation, merging, summaries, subgraphs, and HTML preview.
 - .NET 8 CLI and MCP server for Codex, Claude, or other MCP-capable clients.
-- GitHub-installable Unity Autorun Skill with default compatibility checks, navigation and UIState self-tests, plus a `gen-nav` mode for map generation and updates.
+- Editor-installable or GitHub-downloadable Unity Autorun Skill with default compatibility checks, navigation and UIState self-tests, plus a `gen-nav` mode for map generation and updates.
 - Local HTTP bridge on `127.0.0.1:17331` for external tooling.
 - UGUI button discovery and clicking by GameObject name or button text.
 - Runtime uGUI and TextMeshPro value inspection and assertions.
@@ -146,10 +147,13 @@ Window > Auto Run Window
 
 The `MCP` panel in `Window > Auto Run Window` groups bridge controls, detected MCP processes, install controls, and helper tools.
 
-- The panel header shows the current Unity AutoRun MCP version, and the `Processes` table reports the version of the MCP server binary connected to each AI client.
+- `Versions` reports the MCP source version, published binary version, bundled Skill version, and installed Skill version for the selected client.
+- The tool checks the release repository's `package.json` every 24 hours, retries failures after one hour, and also provides a manual `Check Now` action.
+- `Processes` reports the MCP server binary version currently loaded by each AI client.
 - `Start` / `Stop` controls the local Unity bridge.
 - `Publish MCP` stops MCP child processes that point at the current published DLL, waits for the file to unlock, runs `dotnet publish`, and checks whether AI clients reconnect automatically.
 - `Install MCP` updates a selected `.codex/config.toml` or `.claude/.mcp.json`.
+- `Install Skill` copies the bundled Skill and changes between Install, Update, Reinstall, and Repair according to the detected version.
 - `Open Root` opens this tool folder.
 - `Preview Nav Map` uses the bundled Viz.js / Graphviz layout engine to render `Gen/ui-nav-map.json` as an interactive `Gen/ui-nav-map.preview.html`.
 
@@ -428,6 +432,7 @@ This keeps local presets out of normal project version control. The tool creates
 ## Troubleshooting
 
 - If `Install MCP` fails, press `Publish MCP` first and confirm the selected folder is named `.codex` or `.claude`.
+- If the Skill version is `unknown`, press `Repair Skill` to restore its version manifest and complete contents.
 - If CLI bridge calls fail, start the bridge in Unity and use `bridge-port` or the MCP tool `get_unity_bridge_port` to inspect the current endpoint.
 - If a UGUI button is not found, check the runtime GameObject name, normalized name, and optional text field.
 - If a route cannot run, inspect it with `route`, `resolve_ui_route`, or `get_ui_nav_subgraph` and check unsupported or unresolved transitions.
