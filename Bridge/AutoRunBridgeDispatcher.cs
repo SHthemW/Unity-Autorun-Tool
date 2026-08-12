@@ -53,6 +53,11 @@ public sealed partial class AutoRunBridgeDispatcher
 
     public void Pump()
     {
+        if (_uiStateWaitJob != null)
+        {
+            PumpUiStateWait();
+        }
+
         if (_navigationJob != null)
         {
             PumpNavigation();
@@ -116,6 +121,11 @@ public sealed partial class AutoRunBridgeDispatcher
                 return ListOpenViews(request);
             case "is_ui_view_open":
                 return IsUiViewOpen(request);
+            case "get_ui_state":
+                return GetUiState(request);
+            case "wait_for_ui_state":
+                shouldComplete = StartUiStateWait(job);
+                return job.Response;
             case "click_button":
                 return ClickButton(request);
             case "run_sequence":
@@ -309,6 +319,16 @@ public sealed partial class AutoRunBridgeDispatcher
         {
             int count = request.payload?.actions?.Count ?? 0;
             return TimeSpan.FromSeconds(Math.Max(defaultSeconds, Math.Min(maximumSeconds, count * 10 + 5)));
+        }
+
+        if (request?.command == "wait_for_ui_state")
+        {
+            int requestedMilliseconds = request.payload?.timeoutMilliseconds ?? 10000;
+            double seconds = Math.Max(0, requestedMilliseconds) / 1000d + 5;
+            return TimeSpan.FromSeconds(
+                Math.Max(
+                    defaultSeconds,
+                    Math.Min(maximumSeconds, seconds)));
         }
 
         return TimeSpan.FromSeconds(defaultSeconds);

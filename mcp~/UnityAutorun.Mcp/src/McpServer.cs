@@ -141,6 +141,8 @@ namespace UnityAutorun.Mcp
                 ("targetViewId", Text(args, "targetViewId")),
                 ("query", Text(args, "query"))
             ));
+            if (name == "get_ui_state") return await _bridge.CallUnityAsync("get_ui_state", UiStatePayload(args));
+            if (name == "wait_for_ui_state") return await _bridge.CallUnityAsync("wait_for_ui_state", UiStatePayload(args, true));
             if (name == "click_button") return await _bridge.CallUnityAsync("click_button", JsonUtil.Obj(("name", Text(args, "name")), ("text", Text(args, "text")), ("framework", Text(args, "framework", "ugui"))));
             if (name == "run_sequence") return await _bridge.CallUnityAsync("run_sequence", JsonUtil.Obj(("actions", args["actions"]?.DeepClone() ?? new JsonArray())));
             if (name == "get_nav_map_guidance") return UiNavMapGuidance.Get();
@@ -166,6 +168,29 @@ namespace UnityAutorun.Mcp
                 ("navigationId", Text(args, "navigationId"))
             ));
             throw new InvalidOperationException($"Unknown tool: {name}");
+        }
+
+        private static JsonObject UiStatePayload(JsonObject args, bool includeAssertion = false)
+        {
+            JsonObject payload = JsonUtil.Obj(
+                ("query", Text(args, "query")),
+                ("scope", Text(args, "scope")),
+                ("exact", Bool(args, "exact", false)),
+                ("types", args["types"]?.DeepClone() ?? new JsonArray()),
+                ("limit", Int(args, "limit", 100)),
+                ("includeInactive", Bool(args, "includeInactive", false)),
+                ("includeSensitive", Bool(args, "includeSensitive", false))
+            );
+            if (includeAssertion)
+            {
+                payload["property"] = Text(args, "property", "value");
+                payload["comparison"] = Text(args, "comparison", "equals");
+                payload["expected"] = Text(args, "expected");
+                payload["timeoutMilliseconds"] = Int(args, "timeoutMs", 10000);
+                payload["pollMilliseconds"] = Int(args, "pollMs", 100);
+            }
+
+            return payload;
         }
 
         private static string Text(JsonObject args, string key, string fallback = null)

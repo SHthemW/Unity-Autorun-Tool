@@ -66,6 +66,7 @@ AI 会发起一次异步导航任务，并持续查询任务状态，直到 Unit
 - .NET 8 CLI 与 MCP Server，可供 Codex、Claude 或其他 MCP 客户端调用。
 - 本地 HTTP Bridge，默认监听 `127.0.0.1:17331`。
 - 支持按 GameObject 名称或按钮文本发现并点击 UGUI 按钮。
+- 支持读取和断言运行时 UGUI、TextMeshPro 控件的当前值。
 - 项目安装 FairyGUI 时，可选支持 FairyGUI 按钮自动点击。
 - 支持带延迟的动作序列，可用于 Play Mode 启动和退出前流程。
 - Auto Run Window 内置 Console，支持 Debug、Info、Warning、Error 过滤。
@@ -148,6 +149,8 @@ dotnet run --project mcp~/UnityAutorun.Mcp -- status
 dotnet run --project mcp~/UnityAutorun.Mcp -- play
 dotnet run --project mcp~/UnityAutorun.Mcp -- stop
 dotnet run --project mcp~/UnityAutorun.Mcp -- list-buttons --framework all
+dotnet run --project mcp~/UnityAutorun.Mcp -- ui-state --query MusicToggle --type Toggle
+dotnet run --project mcp~/UnityAutorun.Mcp -- wait-ui-state --query MusicToggle --property isOn --comparison equals --expected true
 dotnet run --project mcp~/UnityAutorun.Mcp -- click --name StartButton --framework ugui
 dotnet run --project mcp~/UnityAutorun.Mcp -- run-sequence --json-file sequence.json
 dotnet run --project mcp~/UnityAutorun.Mcp -- nav-guidance
@@ -205,6 +208,8 @@ dotnet mcp~/UnityAutorun.Mcp/bin/Release/net8.0/publish/UnityAutorun.Mcp.dll mcp
 - `unity_stop`
 - `list_buttons`
 - `is_ui_view_open`
+- `get_ui_state`
+- `wait_for_ui_state`
 - `click_button`
 - `run_sequence`
 - `get_nav_map_guidance`
@@ -257,6 +262,8 @@ Bridge 命令包括：
 - `list_buttons`
 - `list_open_views`
 - `is_ui_view_open`
+- `get_ui_state`
+- `wait_for_ui_state`
 - `click_button`
 - `run_sequence`
 - `navigate_route`
@@ -264,6 +271,34 @@ Bridge 命令包括：
 - `start_ui_navigation`
 - `get_ui_navigation_status`
 - `cancel_ui_navigation`
+
+### 运行时 UI 状态
+
+`get_ui_state` 读取当前运行时 UI，并返回框架、组件类型、GameObject 名称、完整层级路径、活动状态、可见性、交互状态和类型化属性。默认只读取活动层级，最多返回 100 个元素；使用 `query`、`scope`、`types` 和 `limit` 缩小结果范围。
+
+当前支持以下组件：
+
+- UGUI：`Text`、`InputField`、`Toggle`、`Slider`、`Dropdown`、`Scrollbar`、`ScrollRect`、`Button`、`Image`、`RawImage`。
+- TextMeshPro：`TMP_Text`、`TMP_InputField`、`TMP_Dropdown`；项目未安装 TextMeshPro 时会自动跳过。
+
+属性统一使用 `{name, valueType, value}` 表示，组件的 `primaryProperty` 指明 `property=value` 对应的默认属性。过长字符串会被截断并通过 `truncated` 与 `originalLength` 标记，但断言仍使用完整值。密码和 PIN 输入框默认将 `text` 返回为 `[REDACTED]`，被遮罩的文本不会参与值断言；只有显式传入 `includeSensitive=true` 时才返回并断言原文，也可以改用 `hasValue` 判断是否已填写。
+
+`wait_for_ui_state` 用于异步 UI 自测。它会在 Unity 主线程按 `pollMs` 间隔读取筛选后的控件，直到属性满足条件或超时。`query` 必填，`property` 默认为 `value`，也可以断言 `active`、`enabled`、`visible`、`selectable`、`interactable` 元数据，并支持存在性、字符串和数值比较；断言失败返回 `ui_state_wait_timeout`，并附带最后一次观察到的值。
+
+```json
+{
+  "id": "ui-test-1",
+  "command": "wait_for_ui_state",
+  "payload": {
+    "query": "MusicToggle",
+    "types": ["Toggle"],
+    "property": "isOn",
+    "comparison": "equals",
+    "expected": "true",
+    "timeoutMilliseconds": 10000
+  }
+}
+```
 
 ## UI 导航图
 
@@ -351,7 +386,7 @@ AutorunToolData/config.xml
 |-- package.json                 # Unity Package Manager Git URL 安装元数据
 |-- Bridge/                      # HTTP Bridge 模型、dispatcher、sequence 和 navigation 执行
 |-- Editor/                      # Unity Editor 窗口、菜单、MCP 安装、进程检测、导航 AutoRun UI
-|-- Services/                    # UGUI/FairyGUI 按钮发现与活动视图发现
+|-- Services/                    # 按钮、活动视图与 UGUI/TMP 运行时状态服务
 |-- Util/                        # XML 与可选 FairyGUI helper
 |-- Gen/                         # 生成的导航图文件及受版本控制的示例导航图
 |-- mcp~/UnityAutorun.Mcp/       # .NET 8 CLI 与 MCP Server 源码

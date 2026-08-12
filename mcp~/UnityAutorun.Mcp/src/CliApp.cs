@@ -47,6 +47,30 @@ namespace UnityAutorun.Mcp
                     ("targetViewId", Read(args, "--target"))
                 ));
             }
+            else if (command == "ui-state")
+            {
+                result = await bridge.CallUnityAsync(
+                    "get_ui_state",
+                    UiStatePayload(args));
+            }
+            else if (command == "wait-ui-state")
+            {
+                JsonObject payload = UiStatePayload(args);
+                payload["property"] = Read(args, "--property", "value");
+                payload["comparison"] = Read(args, "--comparison", "equals");
+                payload["expected"] = Read(args, "--expected");
+                payload["timeoutMilliseconds"] = ReadInt(
+                    args,
+                    "--timeout-ms",
+                    10000);
+                payload["pollMilliseconds"] = ReadInt(
+                    args,
+                    "--poll-ms",
+                    100);
+                result = await bridge.CallUnityAsync(
+                    "wait_for_ui_state",
+                    payload);
+            }
             else if (command == "click")
             {
                 result = await bridge.CallUnityAsync("click_button", ClickPayload(args));
@@ -142,6 +166,25 @@ namespace UnityAutorun.Mcp
                 ("name", Read(args, "--name")),
                 ("text", Read(args, "--text")),
                 ("framework", Read(args, "--framework", "ugui"))
+            );
+        }
+
+        private static JsonObject UiStatePayload(string[] args)
+        {
+            return JsonUtil.Obj(
+                ("query", Read(args, "--query")),
+                ("scope", Read(args, "--scope")),
+                ("exact", ReadBool(args, "--exact", false)),
+                ("types", ReadMany(args, "--type")),
+                ("limit", ReadInt(args, "--limit", 100)),
+                ("includeInactive", ReadBool(
+                    args,
+                    "--include-inactive",
+                    false)),
+                ("includeSensitive", ReadBool(
+                    args,
+                    "--include-sensitive",
+                    false))
             );
         }
 
@@ -293,6 +336,8 @@ namespace UnityAutorun.Mcp
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- stop\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- list-buttons [--framework ugui|fairygui|all] [--query Name] [--exact] [--limit 100] [--names-only]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- is-view-open --target TargetView\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- ui-state [--query NameOrValue] [--scope ViewPath] [--type Toggle] [--limit 100]\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- wait-ui-state --query NameOrPath [--property value] [--comparison equals] [--expected Value] [--timeout-ms 10000] [--poll-ms 100]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- click --name ButtonName [--text Text] [--framework ugui|fairygui]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- run-sequence --json-file sequence.json\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- nav-guidance\n"

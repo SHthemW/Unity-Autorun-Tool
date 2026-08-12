@@ -66,6 +66,7 @@ For direct editor operation, type a query in the lower `Navigation AutoRun` area
 - .NET 8 CLI and MCP server for Codex, Claude, or other MCP-capable clients.
 - Local HTTP bridge on `127.0.0.1:17331` for external tooling.
 - UGUI button discovery and clicking by GameObject name or button text.
+- Runtime uGUI and TextMeshPro value inspection and assertions.
 - Optional FairyGUI support when FairyGUI is installed in the project.
 - Delayed action sequences for editor Play Mode startup and shutdown workflows.
 - In-window console with Debug, Info, Warning, and Error filtering.
@@ -148,6 +149,8 @@ dotnet run --project mcp~/UnityAutorun.Mcp -- status
 dotnet run --project mcp~/UnityAutorun.Mcp -- play
 dotnet run --project mcp~/UnityAutorun.Mcp -- stop
 dotnet run --project mcp~/UnityAutorun.Mcp -- list-buttons --framework all
+dotnet run --project mcp~/UnityAutorun.Mcp -- ui-state --query MusicToggle --type Toggle
+dotnet run --project mcp~/UnityAutorun.Mcp -- wait-ui-state --query MusicToggle --property isOn --comparison equals --expected true
 dotnet run --project mcp~/UnityAutorun.Mcp -- click --name StartButton --framework ugui
 dotnet run --project mcp~/UnityAutorun.Mcp -- run-sequence --json-file sequence.json
 dotnet run --project mcp~/UnityAutorun.Mcp -- nav-guidance
@@ -205,6 +208,8 @@ Available MCP tools:
 - `unity_stop`
 - `list_buttons`
 - `is_ui_view_open`
+- `get_ui_state`
+- `wait_for_ui_state`
 - `click_button`
 - `run_sequence`
 - `get_nav_map_guidance`
@@ -257,6 +262,8 @@ Bridge commands include:
 - `list_buttons`
 - `list_open_views`
 - `is_ui_view_open`
+- `get_ui_state`
+- `wait_for_ui_state`
 - `click_button`
 - `run_sequence`
 - `navigate_route`
@@ -264,6 +271,34 @@ Bridge commands include:
 - `start_ui_navigation`
 - `get_ui_navigation_status`
 - `cancel_ui_navigation`
+
+### Runtime UI State
+
+`get_ui_state` reads the current runtime UI and returns the framework, component type, GameObject name, full hierarchy path, active state, visibility, interactability, and typed properties. It reads active hierarchy objects by default and returns at most 100 elements; use `query`, `scope`, `types`, and `limit` to narrow the result.
+
+The following components are supported:
+
+- uGUI: `Text`, `InputField`, `Toggle`, `Slider`, `Dropdown`, `Scrollbar`, `ScrollRect`, `Button`, `Image`, and `RawImage`.
+- TextMeshPro: `TMP_Text`, `TMP_InputField`, and `TMP_Dropdown`; projects without TextMeshPro are handled automatically.
+
+Properties use a uniform `{name, valueType, value}` shape. Each component's `primaryProperty` defines what `property=value` means. Long strings are bounded and marked with `truncated` and `originalLength`, while assertions still use the complete value. Password and PIN input fields return `[REDACTED]` for `text`, and masked text does not participate in value assertions. Explicitly set `includeSensitive=true` to read and assert the original text, or assert `hasValue` to check whether it was filled.
+
+`wait_for_ui_state` is intended for asynchronous UI self-tests. It reads filtered controls on Unity's main thread at the `pollMs` interval until the property matches or the timeout expires. `query` is required, `property` defaults to `value`, and the `active`, `enabled`, `visible`, `selectable`, and `interactable` metadata fields can also be asserted. Existence, string, and numeric comparisons are supported. A failed assertion returns `ui_state_wait_timeout` together with the last observed values.
+
+```json
+{
+  "id": "ui-test-1",
+  "command": "wait_for_ui_state",
+  "payload": {
+    "query": "MusicToggle",
+    "types": ["Toggle"],
+    "property": "isOn",
+    "comparison": "equals",
+    "expected": "true",
+    "timeoutMilliseconds": 10000
+  }
+}
+```
 
 ## UI Navigation Map
 
@@ -351,7 +386,7 @@ This keeps local presets out of normal project version control. The tool creates
 |-- package.json                 # Unity Package Manager metadata for Git URL installation
 |-- Bridge/                      # HTTP bridge models, dispatcher, sequence, and navigation execution
 |-- Editor/                      # Unity Editor window, menus, MCP install, processes, nav AutoRun UI
-|-- Services/                    # UGUI/FairyGUI button and active-view discovery
+|-- Services/                    # Button, active-view, and uGUI/TMP runtime-state services
 |-- Util/                        # XML and optional FairyGUI helpers
 |-- Gen/                         # Generated nav-map files and the tracked example map
 |-- mcp~/UnityAutorun.Mcp/       # .NET 8 CLI and MCP server source
