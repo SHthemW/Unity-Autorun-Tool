@@ -44,6 +44,24 @@ Analyze this Unity project's UI navigation and generate a complete AutoRun navig
 
 The AI uses the MCP tools to scan source code, review candidates, and create `Gen/ui-nav-map.json`. AutoRun only accepts a map after its finalization checks pass.
 
+### Install the Unity Autorun Skill
+
+The repository provides installable skill sources under [`skill~/unity-autorun/`](./skill~/unity-autorun/). The skill tells AI agents to prefer the Unity Autorun MCP, call and apply the latest `get_nav_map_guidance` before navigation-map work, and use high-level navigation, UI inspection, and asynchronous assertion tools for runtime self-tests.
+
+1. Make sure the `unity-autorun` MCP server is installed and connected.
+2. In a Codex conversation, use `$skill-installer` to install the current development branch from its GitHub folder:
+
+   ```text
+   $skill-installer install https://github.com/SHthemW/Unity-Autorun-MCP/tree/dev_UIState/skill~/unity-autorun
+   ```
+
+3. Codex normally detects the new skill automatically; restart Codex if it does not appear.
+4. Invoke it explicitly with `$unity-autorun` or let it trigger for Unity UI navigation, inspection, and self-test requests.
+
+For a manual install, copy the complete `unity-autorun` folder to the personal `$HOME/.agents/skills/` directory or the repository-level `$REPO_ROOT/.agents/skills/` directory.
+
+The skill requires an installed and connected `unity-autorun` MCP server; it does not replace MCP installation.
+
 ### Navigate with AI
 
 After the map is ready, ask for the target directly:
@@ -64,6 +82,7 @@ For direct editor operation, type a query in the lower `Navigation AutoRun` area
 - Asynchronous tracked UI navigation that survives Play Mode transitions and exposes compact progress polling.
 - Navigation map tools for guidance, source scanning, patch validation, merging, summaries, subgraphs, and HTML preview.
 - .NET 8 CLI and MCP server for Codex, Claude, or other MCP-capable clients.
+- GitHub-installable Unity Autorun Skill that guides AI agents through the live guidance and runtime tool workflows.
 - Local HTTP bridge on `127.0.0.1:17331` for external tooling.
 - UGUI button discovery and clicking by GameObject name or button text.
 - Runtime uGUI and TextMeshPro value inspection and assertions.
@@ -390,6 +409,7 @@ This keeps local presets out of normal project version control. The tool creates
 |-- Util/                        # XML and optional FairyGUI helpers
 |-- Gen/                         # Generated nav-map files and the tracked example map
 |-- mcp~/UnityAutorun.Mcp/       # .NET 8 CLI and MCP server source
+|-- skill~/unity-autorun/        # Distributable AI Skill source and workflow prompts
 ```
 
 ## Troubleshooting

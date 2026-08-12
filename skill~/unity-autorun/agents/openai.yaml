@@ -1,0 +1,10 @@
+interface:
+  display_name: "Unity Autorun"
+  short_description: "Drive, inspect, and self-test Unity UI"
+  default_prompt: "Use $unity-autorun to start Unity, navigate to the requested UI, inspect its current values, and verify the result."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "unity-autorun"
+      description: "Local Unity Autorun MCP server for UI navigation, inspection, and self-tests"

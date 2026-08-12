@@ -8,3 +8,4 @@ Gen/*.preview.html
 Gen/*.preview.html.meta
 Gen/ui-nav-map.json
 Gen/ui-nav-map.json.meta
+skill~/**/*.zip

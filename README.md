@@ -44,6 +44,24 @@ https://github.com/SHthemW/Unity-Autorun-Tool.git
 
 AI 会通过 MCP 扫描源码、审核导航候选并生成 `Gen/ui-nav-map.json`。只有最终化检查通过的导航图才会用于自动运行。
 
+### 安装 Unity Autorun Skill
+
+仓库在 [`skill~/unity-autorun/`](./skill~/unity-autorun/) 提供可安装的 Skill 源码。该 Skill 会提示 AI 优先使用 Unity Autorun MCP，在导航图工作前调用并应用最新的 `get_nav_map_guidance`，并使用高层导航、UI 数据读取和异步断言工具完成运行与自测。
+
+1. 确保 `unity-autorun` MCP Server 已安装并连接。
+2. 在 Codex 对话中使用 `$skill-installer` 从 GitHub 文件夹安装当前开发分支：
+
+   ```text
+   $skill-installer install https://github.com/SHthemW/Unity-Autorun-MCP/tree/dev_UIState/skill~/unity-autorun
+   ```
+
+3. Codex 通常会自动发现新 Skill；如果未出现，请重新启动 Codex。
+4. 通过 `$unity-autorun` 显式调用，或让其在 Unity UI 导航、读取和自测任务中自动触发。
+
+如需手动安装，请将整个 `unity-autorun` 文件夹复制到个人目录 `$HOME/.agents/skills/`，或项目目录 `$REPO_ROOT/.agents/skills/`。
+
+Skill 依赖已经安装并连接的 `unity-autorun` MCP Server，不会代替 MCP 安装。
+
 ### 让 AI 自动运行到目标界面
 
 导航图准备完成后，直接告诉 AI 目标即可，例如：
@@ -64,6 +82,7 @@ AI 会发起一次异步导航任务，并持续查询任务状态，直到 Unit
 - 支持跨 Play Mode 恢复的异步 UI 导航任务与紧凑状态轮询。
 - 导航图工具覆盖 guidance、源码扫描、patch 校验、merge、summary、subgraph 和 HTML 预览。
 - .NET 8 CLI 与 MCP Server，可供 Codex、Claude 或其他 MCP 客户端调用。
+- 提供可通过 `$skill-installer` 从 GitHub 安装的 Unity Autorun Skill，用于引导 AI 正确应用 guidance 和运行时工具流程。
 - 本地 HTTP Bridge，默认监听 `127.0.0.1:17331`。
 - 支持按 GameObject 名称或按钮文本发现并点击 UGUI 按钮。
 - 支持读取和断言运行时 UGUI、TextMeshPro 控件的当前值。
@@ -390,6 +409,7 @@ AutorunToolData/config.xml
 |-- Util/                        # XML 与可选 FairyGUI helper
 |-- Gen/                         # 生成的导航图文件及受版本控制的示例导航图
 |-- mcp~/UnityAutorun.Mcp/       # .NET 8 CLI 与 MCP Server 源码
+|-- skill~/unity-autorun/        # 可分发的 AI Skill 源码与工作流提示词
 ```
 
 ## 排障
