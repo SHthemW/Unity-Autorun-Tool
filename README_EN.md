@@ -46,7 +46,7 @@ The AI uses the MCP tools to scan source code, review candidates, and create `Ge
 
 ### Install the Unity Autorun Skill
 
-The repository provides installable skill sources under [`skill~/unity-autorun/`](./skill~/unity-autorun/). In its default mode, the skill tells the AI to quickly assess whether the task and related UI are compatible with Autorun. When compatible, it actively uses navigation, UIState, and asynchronous assertions for self-tests and structured presentation reviews; otherwise it reports a brief concrete reason. The `gen-nav` argument generates or updates the navigation map while applying the latest `get_nav_map_guidance`.
+The repository provides installable skill sources under [`skill~/unity-autorun/`](./skill~/unity-autorun/). In its default mode, the skill tells the AI to quickly assess whether the task and related UI are compatible with Autorun. When compatible, it actively uses navigation, UIState, and asynchronous assertions for self-tests and structured presentation reviews; otherwise it reports a brief concrete reason. The `gen-nav` argument generates or updates the navigation map and reads a compact dynamic contract for the connected MCP version through `get_nav_map_guidance`.
 
 1. Make sure the `unity-autorun` MCP server is installed and connected.
 2. In a Codex conversation, use `$skill-installer` to install the current development branch from its GitHub folder:
@@ -363,7 +363,7 @@ Navigation never invokes inactive-hierarchy UGUI controls. A covered target is n
 
 `start_ui_navigation` immediately returns a `navigationId` and stores the pending target in the editor session, allowing it to continue after entering Play Mode or reloading the script domain. `get_ui_navigation_status` returns `navigationStatus`, `navigationPhase`, `terminal`, `elapsedMilliseconds`, and compact target-view matches.
 
-For AI-assisted map generation, first ask the MCP server for `get_nav_map_guidance`, then use the scan, coverage, query, validate, merge, and finalize tools instead of writing `ui-nav-map.json` directly. Do not report generation complete until the finalization gate succeeds.
+For AI-assisted map generation, the skill first requests the compact dynamic contract from `get_nav_map_guidance`, then uses the scan, coverage, query, validate, merge, and finalize tools incrementally. The skill supplies the stable workflow directly; the MCP no longer returns a complete prompt. Do not write `ui-nav-map.json` directly or report generation complete before the finalization gate succeeds.
 
 ## Console
 

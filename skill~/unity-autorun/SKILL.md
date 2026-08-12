@@ -57,9 +57,11 @@ If the MCP server, bridge, navigation map, or target control is unavailable, rep
 
 For `$unity-autorun gen-nav [scope]`, generate or update the navigation map instead of running the runtime compatibility gate:
 
-1. Call `get_nav_map_guidance` before analysis or mutation.
-2. Apply the returned `workflowBriefPrompt` and `promptTemplate` as task instructions. Treat the live response as authoritative.
-3. Read the current map, scan and trace the requested scope, and preserve unrelated valid entries.
-4. Never write `Gen/ui-nav-map.json` directly. Validate and merge incremental patches through MCP tools.
-5. Review the complete current candidate backlog, then call `finalize_ui_nav_map_generation`.
-6. Never report completion until `completionGatePassed=true`.
+1. Call `get_nav_map_guidance` once to load the compact live contract.
+2. Treat the returned versions, canonical path, shapes, analysis contract, candidate-review contract, patch contract, and completion contract as authoritative for the connected MCP version.
+3. Read the current map, then use summary and source scanning to define the requested work slices while preserving unrelated valid entries.
+4. Trace relevant call chains. Treat candidates as evidence, decide graph semantics externally, and keep proven reachability separate from automation support.
+5. Create small patches, validate each patch, and merge it through MCP tools. Never write `Gen/ui-nav-map.json` directly.
+6. Query global candidate coverage without a filter. Review every item, copy its exact `id` and `candidateVersion`, merge decisions, and restart at `offset=0` until `remaining=0`.
+7. Finalize with the same known view names used during analysis and require `completionGatePassed=true`.
+8. Validate important paths with route listing and resolution tools before reporting completion.

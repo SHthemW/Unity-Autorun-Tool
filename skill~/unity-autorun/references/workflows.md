@@ -63,7 +63,7 @@ For a compatible request, proceed without asking for another confirmation. For a
 | Assert a value | `wait_for_ui_state` | Prefer one bounded asynchronous assertion over repeated snapshots. |
 | Click a control | `click_button` | Supply the correct framework and the most stable known selector. |
 | Run fixed button steps | `run_sequence` | Use only for a known ordered sequence, not dynamic navigation. |
-| Generate or repair a map | `$unity-autorun gen-nav` and navigation-map tools | Apply `get_nav_map_guidance` first and follow its live rules. |
+| Generate or repair a map | `$unity-autorun gen-nav` and navigation-map tools | Request `get_nav_map_guidance`, then follow this workflow using its live version/path/schema contract. |
 
 ## Start and open a target view
 
@@ -121,9 +121,9 @@ Actively inspect the controls relevant to the user's review instead of returning
 
 ## `gen-nav`: Generate a complete navigation map
 
-The live `get_nav_map_guidance` response is mandatory and overrides this summary.
+The compact live contract is mandatory for current version, path, shape, candidate-review, patch, and completion semantics. This skill supplies the stable workflow directly.
 
-1. Call `get_nav_map_guidance` and apply its prompts and rules.
+1. Call `get_nav_map_guidance` once to load the compact live contract.
 2. Call `get_current_ui_nav_map`; preserve valid existing entries.
 3. Call `get_nav_map_summary` and `scan_ui_nav_sources` before broad analysis.
 4. Use `trace_ui_navigation_calls` for deep button handlers and cross-component chains. Treat candidates as evidence, not confirmed edges.
@@ -139,7 +139,7 @@ Keep reachability separate from AutoRun executability. Async work, branch prereq
 
 ## `gen-nav`: Repair or extend an existing map
 
-1. Apply `get_nav_map_guidance` first.
+1. Request `get_nav_map_guidance` and apply its live contract fields.
 2. Load only the affected map summary, items, or subgraph.
 3. Re-scan or trace the relevant source slice.
 4. Preserve unrelated valid map entries.
@@ -153,6 +153,6 @@ When a user reports a generated-map defect, improve the analysis evidence or gen
 - Bridge unavailable: ask the user to start it from `Window > Auto Run MCP Bridge > Start`, then use `unity_status`.
 - MCP binary stale: publish the MCP server from the Auto Run window and reconnect the AI client.
 - View not mapped: in runtime mode, stop and suggest `$unity-autorun gen-nav <target scope>`; in `gen-nav` mode, inspect source coverage and the local map subgraph before a focused patch.
-- Route not runnable: in runtime mode, report the manual, unsupported, or unresolved transition from `resolve_ui_route`; use the guidance-governed repair workflow only in `gen-nav` mode.
+- Route not runnable: in runtime mode, report the manual, unsupported, or unresolved transition from `resolve_ui_route`; use the contract-governed repair workflow only in `gen-nav` mode.
 - Control ambiguous: narrow by framework, exact name or text, view scope, and hierarchy path evidence.
 - UI assertion timed out: report the last observed property value and path before changing selectors or timeouts.

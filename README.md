@@ -46,7 +46,7 @@ AI 会通过 MCP 扫描源码、审核导航候选并生成 `Gen/ui-nav-map.json
 
 ### 安装 Unity Autorun Skill
 
-仓库在 [`skill~/unity-autorun/`](./skill~/unity-autorun/) 提供可安装的 Skill 源码。默认模式会让 AI 先快速判断任务及相关 UI 是否兼容 Autorun；兼容时主动使用导航、UIState 和异步断言完成自测与结构化表现审核，不兼容时简要说明具体原因。`gen-nav` 参数用于生成或更新导航图，并会应用最新的 `get_nav_map_guidance`。
+仓库在 [`skill~/unity-autorun/`](./skill~/unity-autorun/) 提供可安装的 Skill 源码。默认模式会让 AI 先快速判断任务及相关 UI 是否兼容 Autorun；兼容时主动使用导航、UIState 和异步断言完成自测与结构化表现审核，不兼容时简要说明具体原因。`gen-nav` 参数用于生成或更新导航图，并通过 `get_nav_map_guidance` 读取与当前 MCP 版本匹配的精简动态契约。
 
 1. 确保 `unity-autorun` MCP Server 已安装并连接。
 2. 在 Codex 对话中使用 `$skill-installer` 从 GitHub 文件夹安装当前开发分支：
@@ -363,7 +363,7 @@ Bridge 命令包括：
 
 `start_ui_navigation` 会立即返回一个 `navigationId`，并把待执行目标保存在编辑器会话中，因此进入 Play Mode 或脚本域重载后仍可继续。`get_ui_navigation_status` 返回 `navigationStatus`、`navigationPhase`、`terminal`、`elapsedMilliseconds` 和紧凑的目标视图匹配结果。
 
-如果使用 AI 生成导航图，先调用 MCP 工具 `get_nav_map_guidance`，再使用 scan、coverage、query、validate、merge 和 finalize 工具增量更新，不要直接用文件系统写入 `ui-nav-map.json`，也不要在最终化门禁通过前宣告生成完成。
+如果使用 AI 生成导航图，Skill 会先调用 `get_nav_map_guidance` 读取精简动态契约，再使用 scan、coverage、query、validate、merge 和 finalize 工具增量更新。稳定工作流由 Skill 直接提供，MCP 不再返回完整提示词。不要直接用文件系统写入 `ui-nav-map.json`，也不要在最终化门禁通过前宣告生成完成。
 
 ## Console
 
