@@ -39,14 +39,14 @@ For a pinned version or manual installation, see the [full installation instruct
 5. For first use, ask the AI to build the navigation map:
 
 ```text
-Analyze this Unity project's UI navigation and generate a complete AutoRun navigation map.
+$unity-autorun gen-nav
 ```
 
 The AI uses the MCP tools to scan source code, review candidates, and create `Gen/ui-nav-map.json`. AutoRun only accepts a map after its finalization checks pass.
 
 ### Install the Unity Autorun Skill
 
-The repository provides installable skill sources under [`skill~/unity-autorun/`](./skill~/unity-autorun/). The skill tells AI agents to prefer the Unity Autorun MCP, call and apply the latest `get_nav_map_guidance` before navigation-map work, and use high-level navigation, UI inspection, and asynchronous assertion tools for runtime self-tests.
+The repository provides installable skill sources under [`skill~/unity-autorun/`](./skill~/unity-autorun/). In its default mode, the skill tells the AI to quickly assess whether the task and related UI are compatible with Autorun. When compatible, it actively uses navigation, UIState, and asynchronous assertions for self-tests and structured presentation reviews; otherwise it reports a brief concrete reason. The `gen-nav` argument generates or updates the navigation map while applying the latest `get_nav_map_guidance`.
 
 1. Make sure the `unity-autorun` MCP server is installed and connected.
 2. In a Codex conversation, use `$skill-installer` to install the current development branch from its GitHub folder:
@@ -57,6 +57,19 @@ The repository provides installable skill sources under [`skill~/unity-autorun/`
 
 3. Codex normally detects the new skill automatically; restart Codex if it does not appear.
 4. Invoke it explicitly with `$unity-autorun` or let it trigger for Unity UI navigation, inspection, and self-test requests.
+
+Runtime navigation, self-test, and presentation-review example:
+
+```text
+$unity-autorun Start the game, open the inventory view, verify that the coin text is non-empty, and confirm that the close button is interactable.
+```
+
+Generate the complete navigation map or update one scope:
+
+```text
+$unity-autorun gen-nav
+$unity-autorun gen-nav Update the shop module
+```
 
 For a manual install, copy the complete `unity-autorun` folder to the personal `$HOME/.agents/skills/` directory or the repository-level `$REPO_ROOT/.agents/skills/` directory.
 
@@ -82,7 +95,7 @@ For direct editor operation, type a query in the lower `Navigation AutoRun` area
 - Asynchronous tracked UI navigation that survives Play Mode transitions and exposes compact progress polling.
 - Navigation map tools for guidance, source scanning, patch validation, merging, summaries, subgraphs, and HTML preview.
 - .NET 8 CLI and MCP server for Codex, Claude, or other MCP-capable clients.
-- GitHub-installable Unity Autorun Skill that guides AI agents through the live guidance and runtime tool workflows.
+- GitHub-installable Unity Autorun Skill with default compatibility checks, navigation and UIState self-tests, plus a `gen-nav` mode for map generation and updates.
 - Local HTTP bridge on `127.0.0.1:17331` for external tooling.
 - UGUI button discovery and clicking by GameObject name or button text.
 - Runtime uGUI and TextMeshPro value inspection and assertions.

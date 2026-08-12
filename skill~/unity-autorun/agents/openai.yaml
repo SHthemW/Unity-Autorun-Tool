@@ -1,7 +1,7 @@
 interface:
   display_name: "Unity Autorun"
-  short_description: "Drive, inspect, and self-test Unity UI"
-  default_prompt: "Use $unity-autorun to start Unity, navigate to the requested UI, inspect its current values, and verify the result."
+  short_description: "Check, navigate, and self-test Unity UI"
+  default_prompt: "Use $unity-autorun to quickly check compatibility, then navigate, inspect UI state, and verify the requested result."
 
 dependencies:
   tools:
