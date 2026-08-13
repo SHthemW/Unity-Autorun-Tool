@@ -158,8 +158,11 @@ public sealed partial class NavigationAutoRunMap
         return string.IsNullOrEmpty(view.name) ? view.id : view.name;
     }
 
-    private AutoRunParam NormalizeAutoRun(AutoRunParam autoRun, NavigationMapControl control)
+    private AutoRunParam NormalizeAutoRun(
+        NavigationMapAutoRun mapAutoRun,
+        NavigationMapControl control)
     {
+        AutoRunParam autoRun = ToRuntimeAutoRun(mapAutoRun);
         AutoRunParam normalized;
         if (autoRun == null)
         {
@@ -197,6 +200,27 @@ public sealed partial class NavigationAutoRunMap
         return AddControlSelectorContext(normalized, control);
     }
 
+    private static AutoRunParam ToRuntimeAutoRun(
+        NavigationMapAutoRun autoRun)
+    {
+        if (autoRun == null)
+        {
+            return null;
+        }
+
+        return new AutoRunParam
+        {
+            buttonName = autoRun.buttonName,
+            buttonText = autoRun.buttonText,
+            isFairyGUI = autoRun.isFairyGUI,
+            delay = autoRun.delay,
+            isTest = autoRun.isTest,
+            objectPath = autoRun.objectPath,
+            scopeRootName = autoRun.scopeRootName,
+            matchPolicy = autoRun.matchPolicy,
+        };
+    }
+
     private AutoRunParam AddControlSelectorContext(
         AutoRunParam autoRun,
         NavigationMapControl control)
@@ -215,14 +239,9 @@ public sealed partial class NavigationAutoRunMap
             autoRun.scopeRootName = scopeRootName;
         }
 
-        if (string.IsNullOrWhiteSpace(autoRun.matchPolicy)
-            || autoRun.matchPolicy == AutoRunParam.MATCH_UNIQUE)
+        if (string.IsNullOrWhiteSpace(autoRun.matchPolicy))
         {
-            autoRun.matchPolicy = IsPotentiallyRepeatedControl(
-                control,
-                scopeRootName)
-                ? AutoRunParam.MATCH_FIRST_INTERACTABLE
-                : AutoRunParam.MATCH_UNIQUE;
+            autoRun.matchPolicy = AutoRunParam.MATCH_UNIQUE;
         }
 
         return autoRun;
@@ -266,28 +285,6 @@ public sealed partial class NavigationAutoRunMap
 
         string rootName = GetObjectPathLeaf(view.rootObjectPath);
         return string.IsNullOrWhiteSpace(rootName) ? view.name : rootName;
-    }
-
-    private static bool IsPotentiallyRepeatedControl(
-        NavigationMapControl control,
-        string scopeRootName)
-    {
-        if (control == null
-            || string.IsNullOrWhiteSpace(control.objectPath)
-            || string.IsNullOrWhiteSpace(scopeRootName))
-        {
-            return false;
-        }
-
-        string normalized = control.objectPath.Replace('\\', '/').Trim('/');
-        int separator = normalized.IndexOf('/');
-        if (separator <= 0)
-        {
-            return false;
-        }
-
-        string ownerRoot = normalized.Substring(0, separator);
-        return NormalizeViewToken(ownerRoot) != NormalizeViewToken(scopeRootName);
     }
 
     private static bool IsFairyGUIControl(NavigationMapControl control)

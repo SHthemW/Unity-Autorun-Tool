@@ -1,11 +1,11 @@
 {
   "schemaVersion": "2.0",
-  "generatorVersion": "0.2.1",
+  "generatorVersion": "0.2.3",
   "mapVersion": 1,
   "generatedAt": "2026-06-29T12:00:00+08:00",
   "generation": {
     "status": "complete",
-    "candidateProtocolVersion": "1.1",
+    "candidateProtocolVersion": "1.2",
     "candidateSetVersion": "example",
     "candidateCount": 0,
     "reviewedCandidateCount": 0,

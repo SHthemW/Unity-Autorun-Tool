@@ -237,15 +237,9 @@ namespace UnityAutorun.Mcp
                 }
             }
 
-            string matchPolicy = Text(result, "matchPolicy");
-            if (string.IsNullOrWhiteSpace(matchPolicy)
-                || matchPolicy == "unique")
+            if (string.IsNullOrWhiteSpace(Text(result, "matchPolicy")))
             {
-                result["matchPolicy"] = IsPotentiallyRepeatedControl(
-                    control,
-                    scopeRootName)
-                    ? "first-interactable"
-                    : "unique";
+                result["matchPolicy"] = "unique";
             }
 
             return result;
@@ -292,44 +286,6 @@ namespace UnityAutorun.Mcp
             return string.IsNullOrWhiteSpace(rootName)
                 ? Text(view, "name")
                 : rootName;
-        }
-
-        private static bool IsPotentiallyRepeatedControl(
-            JsonObject control,
-            string scopeRootName)
-        {
-            string objectPath = Text(control, "objectPath");
-            if (string.IsNullOrWhiteSpace(objectPath)
-                || string.IsNullOrWhiteSpace(scopeRootName))
-            {
-                return false;
-            }
-
-            string normalized = objectPath.Replace('\\', '/').Trim('/');
-            int separator = normalized.IndexOf('/');
-            if (separator <= 0)
-            {
-                return false;
-            }
-
-            string ownerRoot = normalized.Substring(0, separator);
-            return NormalizeSelectorToken(ownerRoot)
-                != NormalizeSelectorToken(scopeRootName);
-        }
-
-        private static string NormalizeSelectorToken(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return "";
-            }
-
-            return value
-                .ToLowerInvariant()
-                .Replace("_", "")
-                .Replace("*", "")
-                .Replace("-", "")
-                .Replace(" ", "");
         }
 
         private static string ResolveAutoRunButtonName(JsonObject control)

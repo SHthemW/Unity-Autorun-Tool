@@ -18,8 +18,8 @@ public sealed partial class NavigationAutoRunMap
         }
 
         return candidates
-            .OrderBy(RouteCost)
-            .ThenBy(IsComputedRoute)
+            .OrderBy(RouteSelectionPriority)
+            .ThenBy(RouteCost)
             .ThenBy(route => Steps(route).Count)
             .FirstOrDefault();
     }
@@ -71,9 +71,30 @@ public sealed partial class NavigationAutoRunMap
 
     private int NavigationStepCost(NavigationMapRouteStep step)
     {
+        return IsSupportedNavigationStep(step)
+            ? 1
+            : UnsupportedNavigationStepCost;
+    }
+
+    private int RouteSelectionPriority(NavigationMapRoute route)
+    {
+        bool runnable = Steps(route).Count > 0
+            && Steps(route).All(IsSupportedNavigationStep);
+        if (runnable)
+        {
+            return IsComputedRoute(route) ? 1 : 0;
+        }
+
+        return IsComputedRoute(route) ? 3 : 2;
+    }
+
+    private bool IsSupportedNavigationStep(
+        NavigationMapRouteStep step)
+    {
         AutoRunNavStep navigationStep = ResolveNavigationStep(step);
-        bool supported = navigationStep.mode == "wait" || (navigationStep.mode == "click" && navigationStep.action != null);
-        return supported ? 1 : UnsupportedNavigationStepCost;
+        return navigationStep.mode == "wait"
+            || (navigationStep.mode == "click"
+                && navigationStep.action != null);
     }
 
     private static bool IsComputedRoute(NavigationMapRoute route)

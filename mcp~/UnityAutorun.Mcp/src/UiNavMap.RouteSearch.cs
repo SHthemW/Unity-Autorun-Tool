@@ -21,8 +21,8 @@ namespace UnityAutorun.Mcp
             }
 
             return candidates
-                .OrderBy(RouteCost)
-                .ThenBy(IsComputedRoute)
+                .OrderBy(RouteSelectionPriority)
+                .ThenBy(RouteCost)
                 .ThenBy(route => Steps(route).Count)
                 .FirstOrDefault();
         }
@@ -86,10 +86,30 @@ namespace UnityAutorun.Mcp
 
         private int NavigationStepCost(JsonObject step)
         {
+            return IsSupportedNavigationStep(step)
+                ? 1
+                : UnsupportedNavigationStepCost;
+        }
+
+        private int RouteSelectionPriority(JsonObject route)
+        {
+            bool runnable = Steps(route).Count > 0
+                && Steps(route).All(IsSupportedNavigationStep);
+            if (runnable)
+            {
+                return IsComputedRoute(route) ? 1 : 0;
+            }
+
+            return IsComputedRoute(route) ? 3 : 2;
+        }
+
+        private bool IsSupportedNavigationStep(JsonObject step)
+        {
             JsonObject navigationStep = ResolveNavigationStep(step);
             string mode = Text(navigationStep, "mode");
-            bool supported = mode == "wait" || (mode == "click" && navigationStep["action"] != null);
-            return supported ? 1 : UnsupportedNavigationStepCost;
+            return mode == "wait"
+                || (mode == "click"
+                    && navigationStep["action"] != null);
         }
 
         private static JsonObject BuildComputedRoute(string fromViewId, string toViewId, List<JsonObject> steps)

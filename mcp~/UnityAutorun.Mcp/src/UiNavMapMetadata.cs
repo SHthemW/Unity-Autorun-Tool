@@ -7,7 +7,7 @@ namespace UnityAutorun.Mcp
     public static class UiNavMapMetadata
     {
         public const string SchemaVersion = "2.0";
-        public const string CandidateProtocolVersion = "1.1";
+        public const string CandidateProtocolVersion = "1.2";
 
         public static readonly string GeneratorVersion = ResolveGeneratorVersion();
 

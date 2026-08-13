@@ -10,7 +10,7 @@ public sealed partial class NavigationAutoRunMap
     private const string ExampleNavMapPath = "Gen/ui-nav-map.example.json";
     private const string PackageFileName = "package.json";
     private const string SupportedSchemaVersion = "2.0";
-    private const string SupportedCandidateProtocolVersion = "1.1";
+    private const string SupportedCandidateProtocolVersion = "1.2";
 
     private readonly NavigationMapDocument _document;
     private readonly Dictionary<string, NavigationMapView> _views;
@@ -41,13 +41,14 @@ public sealed partial class NavigationAutoRunMap
     {
         string root = McpInstallConfig.GetToolRootDirectory();
         string path = ResolveMapPath(root);
-        NavigationMapDocument document = JsonUtility.FromJson<NavigationMapDocument>(File.ReadAllText(path));
+        NavigationMapDocument document = ParseDocument(File.ReadAllText(path), path);
         if (document == null)
         {
             throw new InvalidOperationException("Invalid nav map: " + path);
         }
 
         ValidateMapVersion(document, path, root);
+        ValidateAutoRunSelectors(document, path);
         return new NavigationAutoRunMap(document, path);
     }
 
@@ -336,5 +337,160 @@ public sealed partial class NavigationAutoRunMap
             + ", mapVersion>0, generation.status=complete, and candidateProtocolVersion="
             + SupportedCandidateProtocolVersion
             + ". Regenerate and finalize the map with the current MCP server.");
+    }
+
+    private static void ValidateAutoRunSelectors(
+        NavigationMapDocument document,
+        string path)
+    {
+        var views = (document.views ?? new NavigationMapView[0])
+            .Where(view => view != null && !string.IsNullOrEmpty(view.id))
+            .GroupBy(view => view.id)
+            .ToDictionary(group => group.Key, group => group.First());
+        var controls = (document.controls ?? new NavigationMapControl[0])
+            .Where(control => control != null && !string.IsNullOrEmpty(control.id))
+            .GroupBy(control => control.id)
+            .ToDictionary(group => group.Key, group => group.First());
+
+        foreach (NavigationMapControl control in document.controls ?? new NavigationMapControl[0])
+        {
+            NavigationMapAutoRun autoRun = control?.autoRun;
+            if (autoRun == null || string.IsNullOrWhiteSpace(autoRun.matchPolicy))
+            {
+                continue;
+            }
+
+            ValidateMatchPolicy(
+                autoRun.matchPolicy,
+                path,
+                "control '" + control.id + "'",
+                "matchPolicy");
+        }
+
+        foreach (NavigationMapTransition transition in document.transitions ?? new NavigationMapTransition[0])
+        {
+            NavigationMapAutoRun autoRun = transition?.automation?.autoRun;
+            if (autoRun != null && !string.IsNullOrWhiteSpace(autoRun.matchPolicy))
+            {
+                ValidateMatchPolicy(
+                    autoRun.matchPolicy,
+                    path,
+                    "transition '" + transition.id + "'",
+                    "automation.autoRun.matchPolicy");
+            }
+
+            if (transition == null
+                || !controls.TryGetValue(transition.controlId ?? string.Empty, out NavigationMapControl control)
+                || !views.TryGetValue(control.viewId ?? string.Empty, out NavigationMapView view)
+                || !IsPotentiallyRepeatedNestedControl(control, view)
+                || !UsesClickAutomation(transition, control))
+            {
+                continue;
+            }
+
+            NavigationMapAutoRun effectiveAutoRun = transition.automation?.autoRun ?? control.autoRun;
+            if (effectiveAutoRun == null
+                || string.IsNullOrWhiteSpace(effectiveAutoRun.matchPolicy))
+            {
+                throw InvalidAutoRunSelector(
+                    path,
+                    "transition '"
+                        + transition.id
+                        + "' using nested control '"
+                        + control.id
+                        + "'",
+                    "the effective AutoRun selector must declare matchPolicy explicitly; "
+                        + "the field was missing or could not be read.");
+            }
+        }
+    }
+
+    private static void ValidateMatchPolicy(
+        string matchPolicy,
+        string path,
+        string owner,
+        string fieldName)
+    {
+        if (string.Equals(
+                matchPolicy,
+                AutoRunParam.MATCH_UNIQUE,
+                StringComparison.OrdinalIgnoreCase)
+            || string.Equals(
+                matchPolicy,
+                AutoRunParam.MATCH_FIRST_INTERACTABLE,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        throw InvalidAutoRunSelector(
+            path,
+            owner,
+            fieldName
+                + " must be 'unique' or 'first-interactable', but was '"
+                + matchPolicy
+                + "'.");
+    }
+
+    private static bool IsPotentiallyRepeatedNestedControl(
+        NavigationMapControl control,
+        NavigationMapView view)
+    {
+        if (control == null
+            || view == null
+            || !string.Equals(
+                control.source?.type,
+                "serialized-control",
+                StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(control.objectPath)
+            || string.IsNullOrWhiteSpace(view.rootObjectPath))
+        {
+            return false;
+        }
+
+        string controlPath = control.objectPath.Replace('\\', '/').Trim('/');
+        string viewPath = view.rootObjectPath.Replace('\\', '/').Trim('/');
+        if (controlPath.StartsWith(viewPath + "/", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        int separator = controlPath.IndexOf('/');
+        if (separator <= 0)
+        {
+            return false;
+        }
+
+        string ownerRoot = controlPath.Substring(0, separator);
+        string viewRoot = GetObjectPathLeaf(viewPath);
+        return NormalizeViewToken(ownerRoot) != NormalizeViewToken(viewRoot);
+    }
+
+    private static bool UsesClickAutomation(
+        NavigationMapTransition transition,
+        NavigationMapControl control)
+    {
+        string mode = transition.automation?.mode;
+        if (!string.IsNullOrWhiteSpace(mode))
+        {
+            return string.Equals(mode, "click", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return transition.automation?.autoRun != null || control.autoRun != null;
+    }
+
+    private static InvalidOperationException InvalidAutoRunSelector(
+        string path,
+        string owner,
+        string detail)
+    {
+        return new InvalidOperationException(
+            "Invalid navigation map AutoRun selector in "
+            + path
+            + " for "
+            + owner
+            + ": "
+            + detail
+            + " Regenerate and finalize the map with the current MCP server.");
     }
 }

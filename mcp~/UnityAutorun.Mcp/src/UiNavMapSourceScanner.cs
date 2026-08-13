@@ -404,6 +404,7 @@ namespace UnityAutorun.Mcp
                     "transitionKind",
                     "control",
                     "automation",
+                    "matchPolicyAndImmediateEdgeEvidenceWhenRepeated",
                     "confidence",
                     "nonTransitionEvidenceWhenRequired"
                 })

@@ -51,7 +51,28 @@ public sealed class NavigationMapControl
     public string text;
     public string objectPath;
     public string framework;
-    public AutoRunParam autoRun;
+    public NavigationMapAutoRun autoRun;
+    public NavigationMapSource source;
+}
+
+[Serializable]
+public sealed class NavigationMapAutoRun
+{
+    public string buttonName;
+    public string buttonText;
+    public bool isFairyGUI;
+    public float delay;
+    public bool isTest;
+    public string objectPath;
+    public string scopeRootName;
+    public string matchPolicy;
+    public string matchPolicyEvidence;
+}
+
+[Serializable]
+public sealed class NavigationMapSource
+{
+    public string type;
 }
 
 [Serializable]
@@ -71,7 +92,7 @@ public sealed class NavigationMapAutomation
     public string mode;
     public string waitForViewId;
     public float timeout;
-    public AutoRunParam autoRun;
+    public NavigationMapAutoRun autoRun;
 }
 
 [Serializable]

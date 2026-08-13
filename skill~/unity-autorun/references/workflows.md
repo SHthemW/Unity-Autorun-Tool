@@ -11,6 +11,7 @@ Use this reference to select a compact, reliable MCP workflow. Tool schemas retu
 - [Inspect and self-test runtime UI](#inspect-and-self-test-runtime-ui)
 - [`gen-nav`: Generate a complete navigation map](#gen-nav-generate-a-complete-navigation-map)
 - [`gen-nav`: Repair or extend an existing map](#gen-nav-repair-or-extend-an-existing-map)
+- [Author repeated and asynchronous controls](#author-repeated-and-asynchronous-controls)
 - [Diagnose failures](#diagnose-failures)
 
 ## Mode routing
@@ -137,6 +138,8 @@ The compact live contract is mandatory for current version, path, shape, candida
 
 Keep reachability separate from AutoRun executability. Async work, branch prerequisites, or missing exact click metadata may lower automation confidence without disproving a source-backed navigation edge.
 
+For nested-prefab or virtualized-list controls, explicitly review `matchPolicy` against the immediate transition before merging the candidate decision. Use `first-interactable` when source or prefab evidence shows that the instances share the handler and reach the same immediate target. Hierarchy nesting alone is insufficient, but static generation does not need to identify which instance satisfies later route steps because the navigation runtime owns that search.
+
 ## `gen-nav`: Repair or extend an existing map
 
 1. Request `get_nav_map_guidance` and apply its live contract fields.
@@ -147,6 +150,19 @@ Keep reachability separate from AutoRun executability. Async work, branch prereq
 6. Re-run global candidate coverage and finalization because source changes can invalidate prior candidate versions.
 
 When a user reports a generated-map defect, improve the analysis evidence or generation rules that caused it. Do not hand-edit the generated navigation map as a one-off workaround.
+
+## Author repeated and asynchronous controls
+
+Treat control multiplicity, control availability, and route eligibility as separate questions:
+
+1. A nested-prefab path proves only that multiple runtime instances are possible. Set `matchPolicy` explicitly for the candidate.
+2. Use `unique` only with non-empty `matchPolicyEvidence` showing that the complete runtime selector has exactly one match in the source view.
+3. Use `first-interactable` with non-empty `matchPolicyEvidence` citing source, prefab, or runtime evidence that matching instances share the handler and reach the same immediate target. This immediate-edge evidence is sufficient even when item data affects later route steps.
+4. Let AutoRun enumerate visible matches, scroll virtualized lists, switch generic branches, dismiss an ineligible target, and retry when downstream eligibility varies. Prefer an explicit category or tab route step when a stable one is known, but do not require static identification of the eligible item or a project-specific dismiss path.
+5. Size the downstream `automation.timeout` for expected network, data-binding, virtualized-list, and repeated-branch search latency. Temporary absence of a cell, or failure to infer its scroll container before cells exist, is not proof that the control is unsupported.
+6. Keep the source-backed transition even when immediate automation is genuinely unavailable. Use `automation.mode=manual` only for a concrete unsupported limitation of the immediate action, record it in `automation.manualReason`, and never use later item eligibility alone as that reason.
+
+Before finalization, resolve at least one important route containing each reviewed repeated control and inspect the returned navigation steps. Confirm that the repeated immediate edge is `click`, keeps the explicit `matchPolicy`, and that data-dependent downstream steps carry an adequate timeout.
 
 ## Diagnose failures
 

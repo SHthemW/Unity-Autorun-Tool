@@ -60,7 +60,7 @@ For `$unity-autorun gen-nav [scope]`, generate or update the navigation map inst
 1. Call `get_nav_map_guidance` once to load the compact live contract.
 2. Treat the returned versions, canonical path, shapes, analysis contract, candidate-review contract, patch contract, and completion contract as authoritative for the connected MCP version.
 3. Read the current map, then use summary and source scanning to define the requested work slices while preserving unrelated valid entries.
-4. Trace relevant call chains. Treat candidates as evidence, decide graph semantics externally, and keep proven reachability separate from automation support.
+4. Trace relevant call chains. Treat candidates as evidence, decide graph semantics externally, keep proven reachability separate from automation support, and explicitly review repeated-control match policy against the immediate edge. Leave repeated-item enumeration and data-dependent downstream eligibility recovery to the navigation runtime.
 5. Create small patches, validate each patch, and merge it through MCP tools. Never write `Gen/ui-nav-map.json` directly.
 6. Query global candidate coverage without a filter. Review every item, copy its exact `id` and `candidateVersion`, merge decisions, and restart at `offset=0` until `remaining=0`.
 7. Finalize with the same known view names used during analysis and require `completionGatePassed=true`.

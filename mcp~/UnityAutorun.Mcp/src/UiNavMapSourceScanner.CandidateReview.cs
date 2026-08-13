@@ -93,11 +93,7 @@ namespace UnityAutorun.Mcp
                     ? "null-reference"
                     : "not-resolved";
             bool nestedReusableControl =
-                candidate.SourceViewCandidates.Count == 1
-                && !string.Equals(
-                    candidate.Binding.OwnerType,
-                    candidate.SourceViewCandidates[0],
-                    StringComparison.OrdinalIgnoreCase);
+                IsNestedReusableControl(candidate);
 
             return JsonUtil.Obj(
                 ("referenceRoleHint", referenceRole),
@@ -110,8 +106,14 @@ namespace UnityAutorun.Mcp
                     ? "potentially-repeated-nested-prefab"
                     : "view-owned-control"),
                 ("recommendedMatchPolicy", nestedReusableControl
-                    ? "first-interactable-when-any-instance-is-valid"
+                    ? "first-interactable"
                     : "unique"),
+                ("matchPolicyRule", nestedReusableControl
+                    ? "When the serialized nested control shares this handler and reaches the same immediate target, use automation.mode=click with matchPolicy=first-interactable and cite that source/prefab evidence. AutoRun owns repeated-instance enumeration and recovery when later route eligibility varies. Use unique only with evidence for one complete-selector match, and use manual only for a concrete unsupported limitation of the immediate action."
+                    : "Use unique unless runtime evidence proves multiple equivalent matches."),
+                ("runtimeRepeatedControlPolicy", nestedReusableControl
+                    ? "Downstream item eligibility is resolved dynamically by enumerating visible matches, scrolling, switching generic branches, dismissing an ineligible target, and retrying. Static generation does not need to identify the eligible item or a project-specific recovery path."
+                    : "not-applicable"),
                 ("mappedEndpoints", JsonUtil.Obj(
                     ("fromViewIds", StringJsonArray(sourceViewIds)),
                     ("toViewIds", StringJsonArray(targetViewIds))
@@ -253,7 +255,10 @@ namespace UnityAutorun.Mcp
                     item.Status == "resolved"
                     && !string.IsNullOrWhiteSpace(item.ObjectName))
                 .ToList();
-            if (resolvedControls.Count == 0)
+            bool nestedReusableControl =
+                IsNestedReusableControl(candidate);
+            if (resolvedControls.Count == 0
+                && !nestedReusableControl)
             {
                 return null;
             }
@@ -263,11 +268,15 @@ namespace UnityAutorun.Mcp
             if (string.IsNullOrWhiteSpace(controlId))
             {
                 return JsonUtil.Obj(
-                    ("code", "candidate-transition-control-missing"),
+                    ("code", nestedReusableControl
+                        ? "candidate-nested-control-missing"
+                        : "candidate-transition-control-missing"),
                     ("targetId", transitionId),
                     ("expectedObjectNames", StringJsonArray(
                         resolvedControls.Select(item => item.ObjectName).Distinct())),
-                    ("requiredAction", "Create a control from buttonBinding.serializedControls and reference it from transition.controlId.")
+                    ("requiredAction", nestedReusableControl
+                        ? "Reference an explicit control from transition.controlId before assigning click automation to this potentially repeated nested-prefab handler."
+                        : "Create a control from buttonBinding.serializedControls and reference it from transition.controlId.")
                 );
             }
 
@@ -296,31 +305,163 @@ namespace UnityAutorun.Mcp
                 );
             }
 
-            var authoredNames = new HashSet<string>(StringComparer.Ordinal);
-            AddValue(authoredNames, NodeText(control, "name"));
-            AddValue(
-                authoredNames,
-                ObjectPathLeaf(NodeText(control, "objectPath")));
-            JsonObject autoRun = control["autoRun"] as JsonObject;
-            AddValue(authoredNames, NodeText(autoRun, "buttonName"));
-            List<string> expectedNames = resolvedControls
-                .Select(item => item.ObjectName)
-                .Distinct(StringComparer.Ordinal)
-                .OrderBy(item => item, StringComparer.Ordinal)
-                .ToList();
-            if (!expectedNames.Any(authoredNames.Contains))
+            if (resolvedControls.Count > 0)
             {
-                return JsonUtil.Obj(
-                    ("code", "candidate-transition-control-name-mismatch"),
-                    ("targetId", transitionId),
-                    ("controlId", controlId),
-                    ("actualNames", StringJsonArray(authoredNames.OrderBy(item => item))),
-                    ("expectedObjectNames", StringJsonArray(expectedNames)),
-                    ("requiredAction", "Use the resolved serialized control objectName or objectPath leaf for control and AutoRun metadata.")
-                );
+                var authoredNames = new HashSet<string>(
+                    StringComparer.Ordinal);
+                AddValue(authoredNames, NodeText(control, "name"));
+                AddValue(
+                    authoredNames,
+                    ObjectPathLeaf(NodeText(control, "objectPath")));
+                JsonObject autoRun = control["autoRun"] as JsonObject;
+                AddValue(authoredNames, NodeText(autoRun, "buttonName"));
+                List<string> expectedNames = resolvedControls
+                    .Select(item => item.ObjectName)
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(item => item, StringComparer.Ordinal)
+                    .ToList();
+                if (!expectedNames.Any(authoredNames.Contains))
+                {
+                    return JsonUtil.Obj(
+                        ("code", "candidate-transition-control-name-mismatch"),
+                        ("targetId", transitionId),
+                        ("controlId", controlId),
+                        ("actualNames", StringJsonArray(authoredNames.OrderBy(item => item))),
+                        ("expectedObjectNames", StringJsonArray(expectedNames)),
+                        ("requiredAction", "Use the resolved serialized control objectName or objectPath leaf for control and AutoRun metadata.")
+                    );
+                }
+            }
+
+            JsonObject multiplicityIssue =
+                ValidateNestedReusableControlAutomation(
+                    candidate,
+                    transition,
+                    control);
+            if (multiplicityIssue != null)
+            {
+                return multiplicityIssue;
             }
 
             return null;
+        }
+
+        private static JsonObject ValidateNestedReusableControlAutomation(
+            NavigationCallCandidate candidate,
+            JsonObject transition,
+            JsonObject control)
+        {
+            if (!IsNestedReusableControl(candidate))
+            {
+                return null;
+            }
+
+            JsonObject automation = transition["automation"] as JsonObject;
+            JsonObject transitionAutoRun =
+                automation?["autoRun"] as JsonObject;
+            JsonObject controlAutoRun = control["autoRun"] as JsonObject;
+            // Match runtime resolution: a transition-level autoRun object
+            // replaces the control-level object instead of merging with it.
+            JsonObject effectiveAutoRun =
+                transitionAutoRun ?? controlAutoRun;
+            string mode = NodeText(automation, "mode");
+            if (string.Equals(
+                mode,
+                "manual",
+                StringComparison.OrdinalIgnoreCase))
+            {
+                string manualReason = NodeText(
+                    automation,
+                    "manualReason");
+                if (!string.IsNullOrWhiteSpace(manualReason))
+                {
+                    return null;
+                }
+
+                return JsonUtil.Obj(
+                    ("code", "candidate-nested-control-manual-reason-required"),
+                    ("targetId", NodeText(transition, "id")),
+                    ("controlId", NodeText(control, "id")),
+                    ("requiredAction", "Use automation.mode=click with matchPolicy=first-interactable when the shared nested handler reaches the same immediate target. AutoRun handles later item eligibility dynamically. Keep mode=manual only when the immediate action itself cannot be automated, and record that concrete limitation in automation.manualReason.")
+                );
+            }
+
+            bool clickAutomation = string.Equals(
+                    mode,
+                    "click",
+                    StringComparison.OrdinalIgnoreCase)
+                || (string.IsNullOrWhiteSpace(mode)
+                    && effectiveAutoRun != null);
+            if (!clickAutomation)
+            {
+                return null;
+            }
+
+            string matchPolicy = NodeText(
+                effectiveAutoRun,
+                "matchPolicy");
+
+            string transitionId = NodeText(transition, "id");
+            string controlId = NodeText(control, "id");
+            if (string.IsNullOrWhiteSpace(matchPolicy))
+            {
+                return JsonUtil.Obj(
+                    ("code", "candidate-nested-control-match-policy-required"),
+                    ("targetId", transitionId),
+                    ("controlId", controlId),
+                    ("requiredAction", "Set matchPolicy explicitly for this potentially repeated nested-prefab control. Use first-interactable when source or prefab evidence shows the shared handler reaches the same immediate target; AutoRun handles later item eligibility dynamically. Use unique only with evidence for one complete-selector match.")
+                );
+            }
+
+            if (!string.Equals(
+                    matchPolicy,
+                    "unique",
+                    StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(
+                    matchPolicy,
+                    "first-interactable",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return JsonUtil.Obj(
+                    ("code", "candidate-nested-control-match-policy-invalid"),
+                    ("targetId", transitionId),
+                    ("controlId", controlId),
+                    ("actualMatchPolicy", matchPolicy),
+                    ("requiredAction", "Use matchPolicy=unique or first-interactable exactly. Use automation.mode=manual only for a concrete unsupported immediate action and record automation.manualReason.")
+                );
+            }
+
+            string evidence = NodeText(
+                effectiveAutoRun,
+                "matchPolicyEvidence");
+
+            if (!string.IsNullOrWhiteSpace(evidence))
+            {
+                return null;
+            }
+
+            return JsonUtil.Obj(
+                ("code", "candidate-repeated-match-policy-evidence-required"),
+                ("targetId", transitionId),
+                ("controlId", controlId),
+                ("actualMatchPolicy", matchPolicy),
+                ("requiredAction", string.Equals(
+                        matchPolicy,
+                        "first-interactable",
+                        StringComparison.OrdinalIgnoreCase)
+                    ? "Add non-empty matchPolicyEvidence citing source, prefab, or runtime evidence that matching instances share the handler and reach the same immediate target. Do not require proof of which item satisfies later route steps or a project-specific dismiss path; AutoRun owns that runtime recovery."
+                    : "Add non-empty matchPolicyEvidence proving that the complete runtime selector has exactly one match, or use first-interactable with shared-handler immediate-edge evidence.")
+            );
+        }
+
+        private static bool IsNestedReusableControl(
+            NavigationCallCandidate candidate)
+        {
+            return candidate.SourceViewCandidates.Count == 1
+                && !string.Equals(
+                    candidate.Binding.OwnerType,
+                    candidate.SourceViewCandidates[0],
+                    StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool HasStrongTopologyEvidence(

@@ -1007,6 +1007,7 @@ namespace UnityAutorun.Mcp
                             "transitionKind",
                             "control",
                             "automation",
+                            "matchPolicyAndImmediateEdgeEvidenceWhenRepeated",
                             "confidence",
                             "candidateDecision.candidateVersion",
                             "candidateDecision.nonTransitionEvidenceWhenRequired"

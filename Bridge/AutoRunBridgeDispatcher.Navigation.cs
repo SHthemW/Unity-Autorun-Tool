@@ -9,7 +9,8 @@ public sealed partial class AutoRunBridgeDispatcher
     private const float NavigationDefaultStepTimeoutSeconds = 15f;
     private const float RepeatedControlProbeIntervalSeconds = 0.75f;
     private const float RepeatedControlBacktrackTriggerSeconds = 8f;
-    private const float RepeatedControlBacktrackTimeoutSeconds = 5f;
+    private const float RepeatedControlOperationSettleSeconds = 5f;
+    private const float RepeatedControlInitialDiscoveryTimeoutSeconds = 30f;
     private const float BranchSelectorSettleTimeoutSeconds = 5f;
     private const float RepeatedControlDiscoveryDelaySeconds = 3f;
     private const float NavigationMinimumClickSettleSeconds = 0.1f;
@@ -734,10 +735,33 @@ public sealed partial class AutoRunBridgeDispatcher
 
     private void BeginRepeatedControlRecovery(int checkpoint)
     {
+        int timeoutStepIndex = _navigationJob.CurrentIndex;
+        AutoRunNavStep timeoutStep =
+            timeoutStepIndex >= 0
+            && timeoutStepIndex < _navigationJob.Steps.Count
+                ? _navigationJob.Steps[timeoutStepIndex]
+                : _navigationJob.Steps[checkpoint];
+        float timeout = ResolveStepTimeoutSeconds(timeoutStep);
+        if (timeoutStepIndex == checkpoint
+            && IsInitialRepeatedControlDiscovery(checkpoint))
+        {
+            timeout = Mathf.Max(
+                timeout,
+                RepeatedControlInitialDiscoveryTimeoutSeconds);
+        }
+
         _navigationJob.IsBacktracking = true;
         _navigationJob.BacktrackStepIndex = checkpoint;
         _navigationJob.BacktrackStartedAt =
             EditorApplication.timeSinceStartup;
+        // All scroll and branch-selector probes in this recovery pass share
+        // the blocked step's remaining timeout budget. BacktrackStartedAt can
+        // be reset for operation-settle checks without extending this deadline.
+        _navigationJob.BacktrackDeadlineAt =
+            _navigationJob.StepStartedAt + timeout;
+        _navigationJob.BacktrackTimeoutStepIndex =
+            timeoutStepIndex;
+        _navigationJob.BacktrackTimeoutSeconds = timeout;
         _navigationJob.BacktrackScrollPending = false;
         _navigationJob.BacktrackCandidateSignature = null;
         _navigationJob.BacktrackScrollFailure = null;
@@ -813,6 +837,15 @@ public sealed partial class AutoRunBridgeDispatcher
 
         double backtrackElapsed = EditorApplication.timeSinceStartup
             - _navigationJob.BacktrackStartedAt;
+        if (EditorApplication.timeSinceStartup
+            >= _navigationJob.BacktrackDeadlineAt)
+        {
+            CompleteRepeatedControlRecoveryTimeout(
+                checkpoint,
+                _navigationJob.BacktrackScrollFailure);
+            return;
+        }
+
         if (_navigationJob.BacktrackBranchSwitchPending)
         {
             string currentSignature =
@@ -870,7 +903,7 @@ public sealed partial class AutoRunBridgeDispatcher
             }
 
             if (backtrackElapsed
-                < RepeatedControlBacktrackTimeoutSeconds)
+                < RepeatedControlOperationSettleSeconds)
             {
                 return;
             }
@@ -897,6 +930,18 @@ public sealed partial class AutoRunBridgeDispatcher
 
         int currentMatchCount =
             AutoRunButtonService.GetButtonMatchCount(checkpoint.action);
+        if (currentMatchCount == 0
+            && IsInitialRepeatedControlDiscovery(checkpointIndex))
+        {
+            LogBacktrackDiagnosticOnce(
+                "initial-materialization",
+                checkpoint,
+                "no repeated-control instance has materialized yet; waiting up to "
+                    + _navigationJob.BacktrackTimeoutSeconds.ToString("0.##")
+                    + "s for asynchronous or virtualized content.");
+            return;
+        }
+
         if (nextMatchIndex >= currentMatchCount
             && backtrackElapsed >= 0.5d)
         {
@@ -964,19 +1009,47 @@ public sealed partial class AutoRunBridgeDispatcher
             }
         }
 
-        if (backtrackElapsed
-            < RepeatedControlBacktrackTimeoutSeconds)
-        {
-            return;
-        }
+        // Keep polling until the navigation step deadline. A virtualized or
+        // asynchronously loaded list can materialize its first cell after
+        // scroll-container discovery has temporarily failed.
+    }
 
-        string failureDetail = string.IsNullOrEmpty(
-            _navigationJob.BacktrackScrollFailure)
-                ? ""
-                : " " + _navigationJob.BacktrackScrollFailure;
+    private bool IsInitialRepeatedControlDiscovery(int stepIndex)
+    {
+        return _navigationJob.RepeatedMatchCounts.TryGetValue(
+                stepIndex,
+                out int rememberedMatchCount)
+            && rememberedMatchCount == 0
+            && _navigationJob.NextMatchIndexes.TryGetValue(
+                stepIndex,
+                out int nextMatchIndex)
+            && nextMatchIndex == 0;
+    }
+
+    private void CompleteRepeatedControlRecoveryTimeout(
+        AutoRunNavStep checkpoint,
+        string failure)
+    {
+        int timeoutStepIndex =
+            _navigationJob.BacktrackTimeoutStepIndex;
+        AutoRunNavStep timeoutStep =
+            timeoutStepIndex >= 0
+            && timeoutStepIndex < _navigationJob.Steps.Count
+                ? _navigationJob.Steps[timeoutStepIndex]
+                : checkpoint;
+        float timeout =
+            _navigationJob.BacktrackTimeoutSeconds > 0f
+                ? _navigationJob.BacktrackTimeoutSeconds
+                : ResolveStepTimeoutSeconds(timeoutStep);
+        string failureDetail = string.IsNullOrEmpty(failure)
+            ? ""
+            : " Last exploration error: " + failure;
+        string actionName = checkpoint.action == null
+            ? checkpoint.controlId
+            : checkpoint.action.buttonName;
         CompleteNavigationFail(
-            "navigation_backtrack_timeout",
-            $"Timed out returning to repeated-control step '{checkpoint.transitionId}'.{failureDetail}");
+            "navigation_wait_timeout",
+            $"Navigation step '{timeoutStep.transitionId}' timed out after {timeout:0.##}s while recovering repeated control '{actionName}' from step '{checkpoint.transitionId}'.{failureDetail}");
     }
 
     private void ReturnToRepeatedControlStep(int checkpointIndex)
@@ -988,11 +1061,17 @@ public sealed partial class AutoRunBridgeDispatcher
         _navigationJob.LastClickAt = 0d;
         _navigationJob.IsBacktracking = false;
         _navigationJob.BacktrackStepIndex = -1;
+        _navigationJob.BacktrackDeadlineAt = 0d;
+        _navigationJob.BacktrackTimeoutStepIndex = -1;
+        _navigationJob.BacktrackTimeoutSeconds = 0f;
         _navigationJob.BacktrackScrollPending = false;
         _navigationJob.BacktrackCandidateSignature = null;
         _navigationJob.BacktrackScrollFailure = null;
         _navigationJob.BacktrackScrollAttempted = false;
         _navigationJob.BacktrackBranchSwitchPending = false;
+        // Recovery has produced a selectable candidate. Start a new action
+        // phase just as a normal successful click starts a new target-wait
+        // phase; only the completed recovery pass receives this fresh budget.
         _navigationJob.StepStartedAt =
             EditorApplication.timeSinceStartup;
         _navigationJob.StepElapsed = 0f;
@@ -1001,7 +1080,7 @@ public sealed partial class AutoRunBridgeDispatcher
 
     private void CompleteNavigationTimeout(AutoRunNavStep step, string target)
     {
-        float timeout = step.timeout > 0f ? step.timeout : NavigationDefaultStepTimeoutSeconds;
+        float timeout = ResolveStepTimeoutSeconds(step);
         if (_navigationJob.StepElapsed < timeout)
         {
             return;
@@ -1016,9 +1095,7 @@ public sealed partial class AutoRunBridgeDispatcher
         bool targetActive,
         string detail)
     {
-        float timeout = step.timeout > 0f
-            ? step.timeout
-            : NavigationDefaultStepTimeoutSeconds;
+        float timeout = ResolveStepTimeoutSeconds(step);
         if (_navigationJob.StepElapsed < timeout)
         {
             return;
@@ -1052,6 +1129,14 @@ public sealed partial class AutoRunBridgeDispatcher
         _navigationJob.StepStartedAt = EditorApplication.timeSinceStartup;
         _navigationJob.StepElapsed = 0f;
         ResetTargetObservation();
+    }
+
+    private static float ResolveStepTimeoutSeconds(
+        AutoRunNavStep step)
+    {
+        return step != null && step.timeout > 0f
+            ? step.timeout
+            : NavigationDefaultStepTimeoutSeconds;
     }
 
     private string FormatStepMessage(AutoRunNavStep step, string message)
@@ -1156,6 +1241,9 @@ public sealed partial class AutoRunBridgeDispatcher
         public bool IsBacktracking { get; set; }
         public int BacktrackStepIndex { get; set; } = -1;
         public double BacktrackStartedAt { get; set; }
+        public double BacktrackDeadlineAt { get; set; }
+        public int BacktrackTimeoutStepIndex { get; set; } = -1;
+        public float BacktrackTimeoutSeconds { get; set; }
         public bool BacktrackScrollPending { get; set; }
         public string BacktrackCandidateSignature { get; set; }
         public string BacktrackScrollFailure { get; set; }
