@@ -7,9 +7,10 @@ namespace UnityAutorun.Mcp
     public static class UiNavMapMetadata
     {
         public const string SchemaVersion = "2.0";
-        public const string CandidateProtocolVersion = "1.2";
+        public const string GeneratorVersion = "2.1";
+        public const string CandidateProtocolVersion = "1.3";
 
-        public static readonly string GeneratorVersion = ResolveGeneratorVersion();
+        public static readonly string PackageVersion = ResolvePackageVersion();
 
         public static void PrepareForWrite(JsonObject map, bool invalidateCandidateCoverage)
         {
@@ -60,6 +61,7 @@ namespace UnityAutorun.Mcp
                 ("expectedSchemaVersion", SchemaVersion),
                 ("generatorVersion", generatorVersion),
                 ("expectedGeneratorVersion", GeneratorVersion),
+                ("packageVersion", PackageVersion),
                 ("mapVersion", mapVersion),
                 ("candidateProtocolVersion", candidateProtocolVersion),
                 ("expectedCandidateProtocolVersion", CandidateProtocolVersion),
@@ -118,7 +120,7 @@ namespace UnityAutorun.Mcp
             }
         }
 
-        private static string ResolveGeneratorVersion()
+        private static string ResolvePackageVersion()
         {
             Assembly assembly = typeof(UiNavMapMetadata).Assembly;
             AssemblyInformationalVersionAttribute attribute =

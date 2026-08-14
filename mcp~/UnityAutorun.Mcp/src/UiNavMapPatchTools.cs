@@ -78,6 +78,7 @@ namespace UnityAutorun.Mcp
                     ("candidateDecisions", candidateDecisions.Count)
                 )),
                 ("version", UiNavMapMetadata.Describe(map)),
+                ("semanticHash", SemanticHash(map)),
                 ("generation", map["generation"]?.DeepClone()),
                 ("frameworks", CountBy(Objects(views), "framework")),
                 ("transitionKinds", CountBy(Objects(transitions), "kind")),
@@ -210,6 +211,22 @@ namespace UnityAutorun.Mcp
                 }
             }
 
+            bool mapChanged = changed.Count > 0;
+            if (!mapChanged)
+            {
+                return JsonUtil.Obj(
+                    ("ok", true),
+                    ("path", path),
+                    ("created", false),
+                    ("mapChanged", false),
+                    ("writePerformed", false),
+                    ("changed", changed),
+                    ("version", UiNavMapMetadata.Describe(map)),
+                    ("semanticHash", SemanticHash(map)),
+                    ("summary", GetSummary(JsonUtil.Obj(("mapPath", path)))),
+                    ("message", "Patch is semantically identical to the current navigation map; no file was written."));
+            }
+
             if (!(map["project"] is JsonObject))
             {
                 map["project"] = JsonUtil.Obj(("source", "incremental-mcp-patches"));
@@ -223,8 +240,11 @@ namespace UnityAutorun.Mcp
                 ("ok", true),
                 ("path", path),
                 ("created", created),
+                ("mapChanged", true),
+                ("writePerformed", true),
                 ("changed", changed),
                 ("version", UiNavMapMetadata.Describe(map)),
+                ("semanticHash", SemanticHash(map)),
                 ("summary", GetSummary(JsonUtil.Obj(("mapPath", path))))
             );
         }
@@ -260,11 +280,16 @@ namespace UnityAutorun.Mcp
             foreach (string key in IdRequiredKeys)
             {
                 ValidateIds(patch, key, errors, conflicts);
-                FindConflicts(map, patch, key, conflicts);
             }
 
-            ValidateReferences(map, patch, errors, warnings);
-            ValidateCandidateDecisions(map, patch, errors, warnings);
+            JsonObject effectivePatch = BuildEffectivePatch(map, patch);
+            foreach (string key in IdRequiredKeys)
+            {
+                FindConflicts(map, effectivePatch, key, conflicts);
+            }
+
+            ValidateReferences(map, effectivePatch, errors, warnings);
+            ValidateCandidateDecisions(map, effectivePatch, errors, warnings);
 
             return JsonUtil.Obj(
                 ("ok", errors.Count == 0),
@@ -272,6 +297,7 @@ namespace UnityAutorun.Mcp
                 ("errors", errors),
                 ("warnings", warnings),
                 ("conflicts", conflicts),
+                ("semanticHash", SemanticHash(map)),
                 ("patchCounts", JsonUtil.Obj(
                     ("views", Array(patch, "views").Count),
                     ("controls", Array(patch, "controls").Count),
@@ -442,11 +468,15 @@ namespace UnityAutorun.Mcp
                     continue;
                 }
 
-                string oldText = JsonUtil.Pretty(existing[id]);
-                string newText = JsonUtil.Pretty(item);
-                if (oldText != newText)
+                if (!JsonUtil.SemanticallyEquals(existing[id], item))
                 {
-                    conflicts.Add(JsonUtil.Obj(("section", key), ("id", id), ("action", "update")));
+                    conflicts.Add(JsonUtil.Obj(
+                        ("section", key),
+                        ("id", id),
+                        ("action", "update"),
+                        ("changedFields", ChangedFields(existing[id], item)),
+                        ("currentItemHash", JsonUtil.StableSemanticHash(existing[id])),
+                        ("proposedItemHash", JsonUtil.StableSemanticHash(item))));
                 }
             }
         }
@@ -466,22 +496,96 @@ namespace UnityAutorun.Mcp
 
             int added = 0;
             int updated = 0;
+            int unchanged = 0;
             foreach (JsonObject item in Objects(Array(patch, key)))
             {
                 string id = Text(item, "id");
                 if (id != null && indexById.ContainsKey(id))
                 {
-                    target[indexById[id]] = item.DeepClone();
+                    int index = indexById[id];
+                    JsonObject merged = JsonUtil.ApplyMergePatch(
+                        target[index] as JsonObject,
+                        item);
+                    if (JsonUtil.SemanticallyEquals(target[index], merged))
+                    {
+                        unchanged++;
+                        continue;
+                    }
+
+                    target[index] = merged;
                     updated++;
                     continue;
                 }
 
-                target.Add(item.DeepClone());
+                target.Add(JsonUtil.ApplyMergePatch(null, item));
                 added++;
             }
 
             map[key] = target;
-            return JsonUtil.Obj(("section", key), ("added", added), ("updated", updated));
+            return JsonUtil.Obj(
+                ("section", key),
+                ("added", added),
+                ("updated", updated),
+                ("unchanged", unchanged));
+        }
+
+        private static JsonObject BuildEffectivePatch(JsonObject map, JsonObject patch)
+        {
+            var effective = new JsonObject();
+            foreach (string key in ArrayKeys)
+            {
+                Dictionary<string, JsonObject> existing = ById(Array(map, key));
+                var items = new JsonArray();
+                foreach (JsonObject item in Objects(Array(patch, key)))
+                {
+                    string id = Text(item, "id");
+                    JsonObject baseline = id != null && existing.ContainsKey(id)
+                        ? existing[id]
+                        : null;
+                    items.Add(JsonUtil.ApplyMergePatch(baseline, item));
+                }
+
+                effective[key] = items;
+            }
+
+            return effective;
+        }
+
+        private static JsonArray ChangedFields(JsonObject current, JsonObject proposed)
+        {
+            var result = new JsonArray();
+            foreach (string key in current.Select(item => item.Key)
+                .Union(proposed.Select(item => item.Key))
+                .OrderBy(item => item, StringComparer.Ordinal))
+            {
+                if (!JsonUtil.SemanticallyEquals(current[key], proposed[key]))
+                {
+                    result.Add(key);
+                }
+            }
+
+            return result;
+        }
+
+        internal static string SemanticHash(JsonObject map)
+        {
+            JsonObject normalized = map != null
+                ? map.DeepClone().AsObject()
+                : Skeleton();
+            EnsureArrays(normalized);
+            SortMap(normalized);
+            var semantic = new JsonObject();
+            if (normalized["project"] != null)
+            {
+                semantic["project"] = normalized["project"].DeepClone();
+            }
+
+            foreach (string key in ArrayKeys)
+            {
+                semantic[key] = normalized[key].DeepClone();
+            }
+
+            return JsonUtil.StableSemanticHash(semantic);
         }
 
         internal static JsonObject SortMap(JsonObject map)

@@ -1,16 +1,14 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <LangVersion>7.3</LangVersion>
     <ImplicitUsings>disable</ImplicitUsings>
-    <AssemblyName>UnityAutorun.Mcp</AssemblyName>
-    <Version>0.2.4</Version>
+    <AssemblyName>UnityAutorun.Mcp.Tests</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="bin\**\*.cs" />
-    <Compile Remove="obj\**\*.cs" />
+    <ProjectReference Include="..\UnityAutorun.Mcp\UnityAutorun.Mcp.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -18,9 +16,6 @@
     <ArchivePlatform Condition="'$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">mac</ArchivePlatform>
     <ArchivePlatform Condition="'$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('Linux'))">linux</ArchivePlatform>
     <ArchivePlatform Condition="'$(RuntimeIdentifier)' == '' and '$(ArchivePlatform)' == ''">unknown</ArchivePlatform>
-    <ArchivePlatform Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win'))">win</ArchivePlatform>
-    <ArchivePlatform Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('osx'))">mac</ArchivePlatform>
-    <ArchivePlatform Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('linux'))">linux</ArchivePlatform>
     <ArchiveType Condition="'$(SelfContained)' == 'true'">self-contained</ArchiveType>
     <ArchiveType Condition="'$(SelfContained)' != 'true'">portable</ArchiveType>
   </PropertyGroup>
@@ -28,7 +23,7 @@
   <Target Name="ArchivePublishOutput" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
     <PropertyGroup>
       <ArchiveTimestamp>$([System.DateTime]::Now.ToString('yyMMdd-HHmmss'))</ArchiveTimestamp>
-      <ArchiveName>UnityAutorun.Mcp-$(ArchivePlatform)-$(ArchiveType)-$(ArchiveTimestamp)</ArchiveName>
+      <ArchiveName>UnityAutorun.Mcp.Tests-$(ArchivePlatform)-$(ArchiveType)-$(ArchiveTimestamp)</ArchiveName>
       <ArchiveDir>$(MSBuildProjectDirectory)\bin\Release-Archives</ArchiveDir>
       <ArchivePath>$(ArchiveDir)\$(ArchiveName).zip</ArchivePath>
     </PropertyGroup>
@@ -36,4 +31,3 @@
     <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;if (Test-Path '$(ArchivePath)') { Remove-Item '$(ArchivePath)' -Force }; Compress-Archive -Path '$(PublishDir)*' -DestinationPath '$(ArchivePath)' -Force&quot;" />
   </Target>
 </Project>
-

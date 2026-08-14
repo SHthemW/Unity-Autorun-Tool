@@ -836,7 +836,50 @@ namespace UnityAutorun.Mcp
                 Reference = reference;
                 SourceViewCandidates = sourceViewCandidates;
                 AnalysisTruncated = analysisTruncated;
-                string key = binding.Path
+                string semanticKey = binding.OwnerType
+                    + "|"
+                    + binding.ControlProperty
+                    + "|"
+                    + binding.Handler
+                    + "|"
+                    + reference.Reference.View
+                    + "|"
+                    + string.Join(
+                        ">",
+                        sourceViewCandidates
+                            .OrderBy(item => item, StringComparer.Ordinal));
+                Id = "candidate.navigation." + StableHash(semanticKey);
+                string evidenceKey = semanticKey
+                    + "|"
+                    + reference.Reference.Invocation
+                    + "|"
+                    + string.Join(
+                        ">",
+                        sourceViewCandidates
+                            .OrderBy(item => item, StringComparer.Ordinal))
+                    + "|"
+                    + string.Join(
+                        ">",
+                        binding.SerializedControls
+                            .Select(item => item.Signature)
+                            .OrderBy(item => item, StringComparer.Ordinal))
+                    + "|"
+                    + string.Join(
+                        ">",
+                        reference.MethodChain.Select(item =>
+                            item.DeclaringType + "." + item.Name))
+                    + "|"
+                    + reference.Depth
+                    + "|"
+                    + reference.CrossesTypeBoundary
+                    + "|"
+                    + analysisTruncated;
+                CandidateVersion = "candidate-evidence."
+                    + UiNavMapMetadata.CandidateProtocolVersion
+                    + "."
+                    + StableHash(evidenceKey);
+
+                string legacyKey = binding.Path
                     + "|"
                     + binding.Line
                     + "|"
@@ -847,39 +890,12 @@ namespace UnityAutorun.Mcp
                     + reference.Reference.Line
                     + "|"
                     + reference.Reference.View;
-                Id = "candidate.navigation." + StableHash(key);
-                string evidenceKey = key
-                    + "|"
-                    + binding.OwnerType
-                    + "|"
-                    + binding.Handler
-                    + "|"
-                    + reference.Reference.Invocation
-                    + "|"
-                    + reference.Reference.Text
-                    + "|"
-                    + string.Join(
-                        ">",
-                        binding.SerializedControls.Select(item => item.Signature))
-                    + "|"
-                    + string.Join(
-                        ">",
-                        reference.MethodChain.Select(item =>
-                            item.DeclaringType
-                            + "."
-                            + item.Name
-                            + "@"
-                            + item.Path
-                            + ":"
-                            + item.Line));
-                CandidateVersion = "candidate-evidence."
-                    + UiNavMapMetadata.CandidateProtocolVersion
-                    + "."
-                    + StableHash(evidenceKey);
+                LegacyId = "candidate.navigation." + StableHash(legacyKey);
             }
 
             public string Id { get; }
             public string CandidateVersion { get; }
+            public string LegacyId { get; }
             public ButtonBinding Binding { get; }
             public ResolvedViewReference Reference { get; }
             public List<string> SourceViewCandidates { get; }

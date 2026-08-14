@@ -191,7 +191,11 @@ dotnet run --project mcp~/UnityAutorun.Mcp -- click --name StartButton --framewo
 dotnet run --project mcp~/UnityAutorun.Mcp -- run-sequence --json-file sequence.json
 dotnet run --project mcp~/UnityAutorun.Mcp -- nav-guidance
 dotnet run --project mcp~/UnityAutorun.Mcp -- scan-nav-sources --map Gen/ui-nav-map.json
+dotnet run --project mcp~/UnityAutorun.Mcp -- trace-nav-calls --map Gen/ui-nav-map.json
 dotnet run --project mcp~/UnityAutorun.Mcp -- backfill-nav-map --map Gen/ui-nav-map.json --preview true
+dotnet run --project mcp~/UnityAutorun.Mcp -- nav-map-summary --map Gen/ui-nav-map.json
+dotnet run --project mcp~/UnityAutorun.Mcp -- nav-candidate-coverage --map Gen/ui-nav-map.json
+dotnet run --project mcp~/UnityAutorun.Mcp -- finalize-nav-map --map Gen/ui-nav-map.json
 dotnet run --project mcp~/UnityAutorun.Mcp -- routes --map Gen/ui-nav-map.example.json
 dotnet run --project mcp~/UnityAutorun.Mcp -- route --map Gen/ui-nav-map.example.json --from A --to C
 dotnet run --project mcp~/UnityAutorun.Mcp -- run-route --map Gen/ui-nav-map.example.json --from A --to C
@@ -275,6 +279,8 @@ Bridge tools resolve the dynamically published project endpoint automatically. `
 
 For navigation-map generation, `scan_ui_nav_sources` reports source coverage and `trace_ui_navigation_calls` returns bounded button call-chain evidence across helper methods and component types. Each candidate includes compact `decisionHint` data, mapped endpoint ids, and serialized control evidence when the owner-type prefab can be resolved. Trace candidates are intentionally not executable edges: the external AI must decide the source view, referenced-view role, transition kind, control metadata, automation, and confidence, then validate and merge an incremental patch. Reachability and AutoRun executability are separate: missing exact click metadata, async work, branch preconditions, or absent runtime confirmation must not erase a code-proven edge. `backfill_ui_nav_map_from_sources` only adds deterministic source-discovered views and unresolved evidence; it never infers controls, transitions, or routes.
 
+An existing navigation map can only be updated through `validate_ui_nav_map_patch` and `merge_ui_nav_map_patch`; `save_ui_nav_map` is creation-only and refuses full replacement when the canonical map exists. Patches use RFC 7396 merge semantics, preserving omitted fields and removing fields only when an explicit `null` is supplied. Candidate identity no longer depends on source line numbers, while equivalent patches and repeated finalization of an already-current map return `writePerformed=false` without changing file bytes, versions, or timestamps.
+
 Complete generation must use `get_ui_nav_candidate_coverage` without a `query` as the candidate backlog. For every returned candidate, the external AI copies the exact `id` and `candidateVersion` into one `candidateDecisions` item, merges the patch, and requests `offset=0` again until `remaining=0`. Changed source or serialized-control evidence invalidates the old candidate version and returns it to the backlog. A `semantic-review-required` item must be replaced when it points at mismatched transition endpoints, fails to use resolved serialized-control identity, or downgrades strong topology evidence without concrete `nonTransitionEvidence`. The AI must then call `finalize_ui_nav_map_generation`; the tool returns `candidate_review_incomplete` or `candidate_semantic_review_incomplete` and leaves the map unfinished while any candidate remains incomplete.
 
 ## HTTP Bridge
@@ -349,7 +355,7 @@ The map describes:
 - `unresolved`: known gaps that need manual analysis.
 - `candidateDecisions`: compact review results for every static call-chain candidate. This ledger is used only for generation completeness and is ignored by runtime navigation.
 
-The map carries `schemaVersion`, `generatorVersion`, and an incrementing `mapVersion`. Every write refreshes these fields and marks candidate coverage as `review-required`; only successful finalization restores `generation.status=complete`. The editor and MCP route loader reject maps whose format version, generator version, or completion state is stale.
+The map carries `schemaVersion`, a `generatorVersion` decoupled from the MCP package version, and a `mapVersion` that increments only when semantic content changes. A real incremental write marks candidate coverage as `review-required`, and only successful finalization restores `generation.status=complete`; semantic no-op patches and repeated finalization do not write the file. The editor and MCP route loader reject maps whose format version, generator version, or completion state is stale.
 
 `Preview Nav Map` uses the Graphviz `dot` engine to lay out views that participate in valid transitions and groups parallel transitions between the same pair of views into one edge. Views without a valid transition remain in the sidebar instead of widening the canvas. The preview supports search by name, id, or prefab path, one-click neighborhood focus, hover edge labels, panning, zooming, and fit-to-view. All rendering dependencies are bundled for offline use; the generated HTML does not access an external CDN.
 

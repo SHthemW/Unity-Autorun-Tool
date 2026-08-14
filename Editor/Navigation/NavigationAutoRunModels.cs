@@ -27,12 +27,6 @@ public sealed class NavigationMapGeneration
 }
 
 [Serializable]
-public sealed class NavigationPackageDocument
-{
-    public string version;
-}
-
-[Serializable]
 public sealed class NavigationMapView
 {
     public string id;

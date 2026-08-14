@@ -191,7 +191,11 @@ dotnet run --project mcp~/UnityAutorun.Mcp -- click --name StartButton --framewo
 dotnet run --project mcp~/UnityAutorun.Mcp -- run-sequence --json-file sequence.json
 dotnet run --project mcp~/UnityAutorun.Mcp -- nav-guidance
 dotnet run --project mcp~/UnityAutorun.Mcp -- scan-nav-sources --map Gen/ui-nav-map.json
+dotnet run --project mcp~/UnityAutorun.Mcp -- trace-nav-calls --map Gen/ui-nav-map.json
 dotnet run --project mcp~/UnityAutorun.Mcp -- backfill-nav-map --map Gen/ui-nav-map.json --preview true
+dotnet run --project mcp~/UnityAutorun.Mcp -- nav-map-summary --map Gen/ui-nav-map.json
+dotnet run --project mcp~/UnityAutorun.Mcp -- nav-candidate-coverage --map Gen/ui-nav-map.json
+dotnet run --project mcp~/UnityAutorun.Mcp -- finalize-nav-map --map Gen/ui-nav-map.json
 dotnet run --project mcp~/UnityAutorun.Mcp -- routes --map Gen/ui-nav-map.example.json
 dotnet run --project mcp~/UnityAutorun.Mcp -- route --map Gen/ui-nav-map.example.json --from A --to C
 dotnet run --project mcp~/UnityAutorun.Mcp -- run-route --map Gen/ui-nav-map.example.json --from A --to C
@@ -275,6 +279,8 @@ Bridge 工具会自动读取当前项目动态发布的端点。`get_unity_bridg
 
 生成导航图时，`scan_ui_nav_sources` 负责报告源码覆盖率，`trace_ui_navigation_calls` 负责返回跨辅助方法和组件类型的有界按钮调用链证据。每个候选会附带紧凑的 `decisionHint`、已映射端点 id，以及在能按宿主类型定位 Prefab 时解析到的序列化控件证据。调用链候选不会直接成为可执行边：外部 AI 必须判断来源界面、被引用界面的角色、跳转类型、控件信息、自动化方式和置信度，再验证并合并增量补丁。可达拓扑与 AutoRun 可执行性必须分开判断；缺少精确点击信息、存在异步处理或分支前提、尚未进行运行时确认，都不能抹掉源码已经证明的可达边。`backfill_ui_nav_map_from_sources` 只补充可确定的源码视图和待分析证据，不会推断控件、跳转或路线。
 
+已有导航图只能通过 `validate_ui_nav_map_patch` 和 `merge_ui_nav_map_patch` 增量更新；`save_ui_nav_map` 仅用于首次创建，存在正式地图时会拒绝整图覆盖。补丁采用 RFC 7396 合并语义，未提供的旧字段会保留，显式 `null` 才会删除字段。候选身份不再依赖源码行号，等价补丁和已完成地图的重复最终化会返回 `writePerformed=false`，不会改写文件、版本或时间戳。
+
 完整生成必须将不带 `query` 的 `get_ui_nav_candidate_coverage` 作为候选待办列表。外部 AI 对每个返回项复制精确的 `id` 和 `candidateVersion`，再写入一个 `candidateDecisions` 决策；合并后继续以 `offset=0` 获取下一批未审候选，直到 `remaining=0`。源码或序列化控件证据变化会使旧决策版本失效并重新进入待办列表。遇到 `semantic-review-required` 时，外部 AI 必须修正端点不匹配或没有使用已解析序列化控件身份的跳转，或者为被降级的强拓扑候选提供具体 `nonTransitionEvidence`。最后必须调用 `finalize_ui_nav_map_generation`；只要仍有未审或语义不自洽的候选，该工具就会返回 `candidate_review_incomplete` 或 `candidate_semantic_review_incomplete`，并且不会把地图标记为完成。
 
 ## HTTP Bridge
@@ -349,7 +355,7 @@ Bridge 命令包括：
 - `unresolved`：仍需人工分析的缺口。
 - `candidateDecisions`：每个静态调用链候选的紧凑审核结果，仅用于生成完整性检查，不参与运行时导航。
 
-导航图包含 `schemaVersion`、`generatorVersion` 和递增的 `mapVersion`。每次写入都会更新版本并把候选覆盖状态置为 `review-required`，最终化成功后才恢复为 `generation.status=complete`。编辑器和 MCP 路由加载器会拒绝格式版本、生成器版本或完成状态不匹配的旧地图，从而避免继续使用未重新生成的文件。
+导航图包含 `schemaVersion`、独立于 MCP 包版本的 `generatorVersion`，以及只在语义内容实际变化时递增的 `mapVersion`。有效增量写入会把候选覆盖状态置为 `review-required`，最终化成功后才恢复为 `generation.status=complete`；语义无变化的补丁和重复最终化不会写盘。编辑器和 MCP 路由加载器会拒绝格式版本、生成器版本或完成状态不匹配的旧地图，从而避免继续使用未重新生成的文件。
 
 `Preview Nav Map` 会用 Graphviz `dot` 自动排列存在有效 transition 的视图，并将同一对视图之间的重复 transition 聚合为一条边。没有有效 transition 的视图保留在右侧列表中，不再拉宽主图。预览支持按名称、id 或 Prefab 路径搜索，点击节点聚焦相邻路线，悬停查看边标签，以及拖动画布、滚轮缩放和一键适配。所有渲染依赖都随工具离线提供，生成后的 HTML 不访问外部 CDN。
 

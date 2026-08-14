@@ -9,11 +9,22 @@ namespace UnityAutorun.Mcp
     {
         public static JsonObject Save(JsonObject args)
         {
+            string path = UiNavMapPaths.ResolveDefaultMapPath();
+            if (File.Exists(path))
+            {
+                return JsonUtil.Obj(
+                    ("ok", false),
+                    ("code", "nav_map_exists_use_patch"),
+                    ("path", path),
+                    ("mapChanged", false),
+                    ("writePerformed", false),
+                    ("message", "The canonical navigation map already exists. Read the current map and use validate_ui_nav_map_patch plus merge_ui_nav_map_patch; full replacement is creation-only."));
+            }
+
             JsonObject map = ReadMap(args);
             UiNavMapMetadata.PrepareForWrite(map, true);
             ValidateMap(map);
 
-            string path = UiNavMapPaths.ResolveDefaultMapPath();
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             File.WriteAllText(
                 path,
@@ -23,7 +34,11 @@ namespace UnityAutorun.Mcp
             return JsonUtil.Obj(
                 ("ok", true),
                 ("path", path),
+                ("created", true),
+                ("mapChanged", true),
+                ("writePerformed", true),
                 ("version", UiNavMapMetadata.Describe(map)),
+                ("semanticHash", UiNavMapPatchTools.SemanticHash(map)),
                 ("message", "UI navigation map saved. Candidate coverage must be finalized before route execution.")
             );
         }

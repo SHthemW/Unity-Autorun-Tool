@@ -125,15 +125,15 @@ Actively inspect the controls relevant to the user's review instead of returning
 The compact live contract is mandatory for current version, path, shape, candidate-review, patch, and completion semantics. This skill supplies the stable workflow directly.
 
 1. Call `get_nav_map_guidance` once to load the compact live contract.
-2. Call `get_current_ui_nav_map`; preserve valid existing entries.
+2. Call `get_current_ui_nav_map`; preserve valid existing entries. Use `save_ui_nav_map` only when the canonical file does not exist.
 3. Call `get_nav_map_summary` and `scan_ui_nav_sources` before broad analysis.
 4. Use `trace_ui_navigation_calls` for deep button handlers and cross-component chains. Treat candidates as evidence, not confirmed edges.
 5. When deterministic views are missing, preview `backfill_ui_nav_map_from_sources`; do not expect it to infer controls, transitions, routes, automation, or confidence.
 6. Work in small slices using `query_nav_map_items` and `get_ui_nav_subgraph`.
 7. Author one compact patch per module, prefab folder, scene, target view, or route family.
-8. Call `validate_ui_nav_map_patch`, correct errors, then call `merge_ui_nav_map_patch`.
-9. Call `get_ui_nav_candidate_coverage` without `query` as the authoritative backlog. Review every item, copy its exact `id` and `candidateVersion` into one decision, merge it, then request `offset=0` again until `remaining=0`.
-10. Call `finalize_ui_nav_map_generation` with the same known view names used during analysis.
+8. Call `validate_ui_nav_map_patch`, correct errors, then call `merge_ui_nav_map_patch`. Patches preserve omitted fields recursively, explicit `null` removes a field, and a semantic no-op returns `writePerformed=false` without changing map versions or timestamps.
+9. Call `get_ui_nav_candidate_coverage` without `query` as the authoritative backlog. Keep automatically carried-forward decisions, review every returned item, copy its exact `id` and `candidateVersion` into one decision, merge only those decisions, then request `offset=0` again until `remaining=0`.
+10. Call `finalize_ui_nav_map_generation` with the same known view names used during analysis. Repeating finalization on an already-current map must return `writePerformed=false`.
 11. Require `completionGatePassed=true`, then validate important paths with `list_ui_routes` and `resolve_ui_route`.
 
 Keep reachability separate from AutoRun executability. Async work, branch prerequisites, or missing exact click metadata may lower automation confidence without disproving a source-backed navigation edge.
@@ -146,7 +146,7 @@ For nested-prefab or virtualized-list controls, explicitly review `matchPolicy` 
 2. Load only the affected map summary, items, or subgraph.
 3. Re-scan or trace the relevant source slice.
 4. Preserve unrelated valid map entries.
-5. Validate and merge a focused patch rather than replacing the complete map.
+5. Validate and merge a focused patch rather than replacing the complete map. Do not call `save_ui_nav_map` when the map already exists, and do not resubmit unchanged existing entries.
 6. Re-run global candidate coverage and finalization because source changes can invalidate prior candidate versions.
 
 When a user reports a generated-map defect, improve the analysis evidence or generation rules that caused it. Do not hand-edit the generated navigation map as a one-off workaround.

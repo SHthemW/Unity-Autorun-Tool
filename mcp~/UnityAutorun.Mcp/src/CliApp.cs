@@ -113,6 +113,30 @@ namespace UnityAutorun.Mcp
                     ("includeEvidenceBacklog", ReadBool(args, "--include-evidence-backlog", true))
                 ));
             }
+            else if (command == "nav-map-summary")
+            {
+                result = UiNavMapPatchTools.GetSummary(JsonUtil.Obj(
+                    ("mapPath", Read(args, "--map"))
+                ));
+            }
+            else if (command == "nav-candidate-coverage")
+            {
+                result = UiNavMapSourceScanner.GetCandidateCoverage(JsonUtil.Obj(
+                    ("mapPath", Read(args, "--map")),
+                    ("query", Read(args, "--query", "")),
+                    ("offset", ReadInt(args, "--offset", 0)),
+                    ("limit", ReadInt(args, "--limit", 50)),
+                    ("knownViewNames", ReadMany(args, "--known-view"))
+                ));
+            }
+            else if (command == "finalize-nav-map")
+            {
+                result = UiNavMapSourceScanner.FinalizeGeneration(JsonUtil.Obj(
+                    ("mapPath", Read(args, "--map")),
+                    ("limit", ReadInt(args, "--limit", 50)),
+                    ("knownViewNames", ReadMany(args, "--known-view"))
+                ));
+            }
             else if (command == "routes")
             {
                 result = Routes(args);
@@ -344,6 +368,9 @@ namespace UnityAutorun.Mcp
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- scan-nav-sources [--map Gen/ui-nav-map.json] [--known-view ViewName]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- trace-nav-calls [--map Gen/ui-nav-map.json] [--query ViewName] [--known-view ViewName]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- backfill-nav-map [--map Gen/ui-nav-map.json] [--preview true|false]\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- nav-map-summary [--map Gen/ui-nav-map.json]\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- nav-candidate-coverage [--map Gen/ui-nav-map.json] [--query ViewName] [--known-view ViewName]\n"
+                + "  dotnet run --project mcp~/UnityAutorun.Mcp -- finalize-nav-map [--map Gen/ui-nav-map.json] [--known-view ViewName]\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- routes --map Gen/ui-nav-map.example.json\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- route --map Gen/ui-nav-map.example.json --from A --to C\n"
                 + "  dotnet run --project mcp~/UnityAutorun.Mcp -- run-route --map Gen/ui-nav-map.example.json --from A --to C\n"

@@ -4,7 +4,7 @@ namespace UnityAutorun.Mcp
 {
     public static class UiNavMapGuidance
     {
-        private const string ContractVersion = "1.2";
+        private const string ContractVersion = "1.3";
 
         public static JsonObject Get()
         {
@@ -14,6 +14,7 @@ namespace UnityAutorun.Mcp
                 ("contractVersion", ContractVersion),
                 ("schemaVersion", UiNavMapMetadata.SchemaVersion),
                 ("generatorVersion", UiNavMapMetadata.GeneratorVersion),
+                ("packageVersion", UiNavMapMetadata.PackageVersion),
                 ("candidateProtocolVersion", UiNavMapMetadata.CandidateProtocolVersion),
                 ("canonicalPath", absoluteOutputPath),
                 ("repoRelativeOutputPath", UiNavMapPaths.DefaultRelativePath),
@@ -29,7 +30,7 @@ namespace UnityAutorun.Mcp
                     ("subgraph", "get_ui_nav_subgraph"),
                     ("validatePatch", "validate_ui_nav_map_patch"),
                     ("mergePatch", "merge_ui_nav_map_patch"),
-                    ("fullReplacement", "save_ui_nav_map"),
+                    ("createOnly", "save_ui_nav_map"),
                     ("finalize", "finalize_ui_nav_map_generation"),
                     ("listRoutes", "list_ui_routes"),
                     ("resolveRoute", "resolve_ui_route")
@@ -58,6 +59,8 @@ namespace UnityAutorun.Mcp
                     ("traceCandidatesAreConfirmedEdges", false),
                     ("externalDecisionRequired", true),
                     ("backfillInfersControlsTransitionsRoutesOrAutomation", false),
+                    ("candidateIdentityDependsOnSourceLineNumbers", false),
+                    ("unchangedCandidateEvidenceRetainsReviewedDecision", true),
                     ("reachabilityIndependentFromAutomation", true),
                     ("reusableControlDoesNotImplyEquivalentInstances", true),
                     ("repeatedControlImmediateEdgeIndependentFromDownstreamEligibility", true),
@@ -93,12 +96,18 @@ namespace UnityAutorun.Mcp
                     ("mergeTool", "merge_ui_nav_map_patch"),
                     ("preferIncrementalSlices", true),
                     ("preserveUnrelatedValidEntries", true),
+                    ("preserveUnspecifiedItemFields", true),
+                    ("nestedObjectMergeSemantics", "RFC 7396 JSON Merge Patch"),
+                    ("explicitNullRemovesField", true),
+                    ("semanticNoOpWritesFile", false),
+                    ("fullSaveCanReplaceExistingMap", false),
                     ("allowConflictsOnlyForConfirmedReplacement", true)
                 )),
                 ("completionContract", JsonUtil.Obj(
                     ("tool", "finalize_ui_nav_map_generation"),
                     ("globalCandidateCoverageRequired", true),
                     ("sameKnownViewNamesRequired", true),
+                    ("alreadyCurrentFinalizationWritesFile", false),
                     ("successField", "completionGatePassed"),
                     ("successValue", true),
                     ("routeValidationTools", new JsonArray
