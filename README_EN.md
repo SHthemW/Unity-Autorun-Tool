@@ -34,7 +34,7 @@ For a pinned version or manual installation, see the [full installation instruct
 
 1. Install the [.NET 8 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) and open `Window > Auto Run Window`.
 2. Press `Publish MCP` in the upper `MCP` area to build the current MCP server.
-3. Press `Select`, choose the project's `.codex` or `.claude` folder, then press both `Install MCP` and `Install Skill`.
+3. Press `Select`, choose the project's `.codex` folder or the Claude Code project's `.claude` folder, then press both `Install MCP` and `Install Skill`.
 4. Reconnect the AI client. The connection is ready when `Bridge` reports `Running` and the client appears under `Processes`.
 5. For first use, ask the AI to build the navigation map:
 
@@ -44,12 +44,14 @@ $unity-autorun gen-nav
 
 The AI uses the MCP tools to scan source code, review candidates, and create `Gen/ui-nav-map.json`. AutoRun only accepts a map after its finalization checks pass.
 
+Claude Desktop supports MCP-only installation through this panel: select the config directory containing `claude_desktop_config.json`, then press `Install MCP`. Local filesystem Skills are a Claude Code capability, so `Install Skill` is disabled for a Desktop target.
+
 ### Install the Unity Autorun Skill
 
 The repository provides installable skill sources under [`skill~/unity-autorun/`](./skill~/unity-autorun/). In its default mode, the skill tells the AI to quickly assess whether the task and related UI are compatible with Autorun. When compatible, it actively uses navigation, UIState, and asynchronous assertions for self-tests and structured presentation reviews; otherwise it reports a brief concrete reason. The `gen-nav` argument generates or updates the navigation map and reads a compact dynamic contract for the connected MCP version through `get_nav_map_guidance`.
 
 1. Make sure the `unity-autorun` MCP server is installed and connected.
-2. Prefer selecting a `.codex` or `.claude` directory under `MCP > Install` in `Window > Auto Run Window`, then press `Install Skill`. A Codex target installs to `.agents/skills/unity-autorun` beside the selected `.codex` directory; a Claude target installs to `.claude/skills/unity-autorun`.
+2. Prefer selecting a `.codex` directory or a Claude Code project `.claude` directory under `MCP > Install` in `Window > Auto Run Window`, then press `Install Skill`. A Codex target installs to `.agents/skills/unity-autorun` beside the selected `.codex` directory; a Claude Code target installs to `.claude/skills/unity-autorun`.
 3. Alternatively, use `$skill-installer` in a Codex conversation to install the current development branch from its GitHub folder:
 
    ```text
@@ -72,7 +74,7 @@ $unity-autorun gen-nav
 $unity-autorun gen-nav Update the shop module
 ```
 
-For a manual install, copy the complete `unity-autorun` folder to the personal `$HOME/.agents/skills/` directory or the repository-level `$REPO_ROOT/.agents/skills/` directory.
+For a manual install, Codex users should copy the complete `unity-autorun` folder to `$HOME/.agents/skills/` or `$REPO_ROOT/.agents/skills/`; Claude Code users should copy it to `$HOME/.claude/skills/` or `$REPO_ROOT/.claude/skills/`.
 
 The skill requires an installed and connected `unity-autorun` MCP server; it does not replace MCP installation.
 
@@ -152,8 +154,8 @@ The `MCP` panel in `Window > Auto Run Window` groups bridge controls, detected M
 - `Processes` reports the MCP server binary version currently loaded by each AI client.
 - `Start` / `Stop` controls the local Unity bridge.
 - `Publish MCP` stops MCP child processes that point at the current published DLL, waits for the file to unlock, runs `dotnet publish`, and checks whether AI clients reconnect automatically.
-- `Install MCP` updates a selected `.codex/config.toml` or `.claude/.mcp.json`.
-- `Install Skill` copies the bundled Skill and changes between Install, Update, Reinstall, and Repair according to the detected version.
+- `Install MCP` updates a selected `.codex/config.toml`. For a Claude Code project `.claude` directory, it updates the sibling project-root `.mcp.json`. For a Claude Desktop config directory containing `claude_desktop_config.json`, it preserves other servers and merges `unity-autorun`. A legacy file incorrectly written to `.claude/.mcp.json` is left unchanged with a migration notice, but Claude Code no longer reads project MCP servers from that location.
+- `Install Skill` copies the bundled Skill into a Codex or Claude Code Skill directory and changes between Install, Update, Reinstall, and Repair according to the detected version. Claude Desktop does not load Claude Code filesystem Skills, so the button is disabled for a Desktop config target.
 - `Open Root` opens this tool folder.
 - `Preview Nav Map` uses the bundled Viz.js / Graphviz layout engine to render `Gen/ui-nav-map.json` as an interactive `Gen/ui-nav-map.preview.html`.
 
@@ -437,7 +439,7 @@ This keeps local presets out of normal project version control. The tool creates
 
 ## Troubleshooting
 
-- If `Install MCP` fails, press `Publish MCP` first and confirm the selected folder is named `.codex` or `.claude`.
+- If `Install MCP` fails, press `Publish MCP` first and confirm the selected target is `.codex`, a Claude Code project `.claude` directory, or a Claude Desktop config directory containing `claude_desktop_config.json`.
 - If the Skill version is `unknown`, press `Repair Skill` to restore its version manifest and complete contents.
 - If CLI bridge calls fail, start the bridge in Unity and use `bridge-port` or the MCP tool `get_unity_bridge_port` to inspect the current endpoint.
 - If a UGUI button is not found, check the runtime GameObject name, normalized name, and optional text field.

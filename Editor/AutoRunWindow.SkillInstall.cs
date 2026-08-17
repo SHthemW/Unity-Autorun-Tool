@@ -50,7 +50,8 @@ public partial class AutoRunWindow
                 ? "Copy the bundled Unity Autorun Skill to " + status.InstallDirectory
                 : status.Error;
         }
-        using (new EditorGUI.DisabledScope(status.IsInstalledNewer))
+        using (new EditorGUI.DisabledScope(
+            !status.IsTargetValid || status.IsInstalledNewer))
         {
             if (!GUILayout.Button(
                     new GUIContent(label, tooltip),

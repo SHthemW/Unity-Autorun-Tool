@@ -29,7 +29,10 @@ public partial class AutoRunWindow
 
         if (GUILayout.Button("Select", GUILayout.Width(70)))
         {
-            string selected = EditorUtility.OpenFolderPanel("Select .codex or .claude folder", _mcpInstallTargetPath, "");
+            string selected = EditorUtility.OpenFolderPanel(
+                "Select .codex, project .claude, or Claude Desktop config folder",
+                _mcpInstallTargetPath,
+                "");
             if (!string.IsNullOrEmpty(selected))
             {
                 _mcpInstallTargetPath = selected;
@@ -60,7 +63,7 @@ public partial class AutoRunWindow
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
         GUILayout.Label(
-            "Select a .codex or .claude folder, then install MCP and the bundled Skill.",
+            "Select .codex or a project .claude folder for MCP + Skill; a Claude Desktop config folder supports MCP only.",
             GetSqueezedStyle(EditorStyles.label),
             GUILayout.MinWidth(0),
             GUILayout.ExpandWidth(true)

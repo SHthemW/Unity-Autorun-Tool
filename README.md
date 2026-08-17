@@ -34,7 +34,7 @@ https://github.com/SHthemW/Unity-Autorun-Tool.git
 
 1. 确认本机已安装 [.NET 8 SDK](https://dotnet.microsoft.com/zh-cn/download/dotnet/8.0)，并打开 `Window > Auto Run Window`。
 2. 在截图上方的 `MCP` 区域点击 `Publish MCP`，生成当前版本的 MCP Server。
-3. 点击 `Select`，选择项目的 `.codex` 文件夹或 `.claude` 文件夹，再依次点击 `Install MCP` 和 `Install Skill`。
+3. 点击 `Select`，选择项目的 `.codex` 文件夹或 Claude Code 项目的 `.claude` 文件夹，再依次点击 `Install MCP` 和 `Install Skill`。
 4. 重新连接对应的 AI 客户端。`Bridge` 显示 `Running`，并且 `Processes` 中出现对应客户端进程时，表示连接已经建立。
 5. 首次使用时，让 AI 生成完整导航图：
 
@@ -44,12 +44,14 @@ $unity-autorun gen-nav
 
 AI 会通过 MCP 扫描源码、审核导航候选并生成 `Gen/ui-nav-map.json`。只有最终化检查通过的导航图才会用于自动运行。
 
+Claude Desktop 只支持通过此面板安装 MCP：选择包含 `claude_desktop_config.json` 的配置目录并点击 `Install MCP`。本地文件系统 Skill 属于 Claude Code 能力，因此 Desktop 目标不会启用 `Install Skill`。
+
 ### 安装 Unity Autorun Skill
 
 仓库在 [`skill~/unity-autorun/`](./skill~/unity-autorun/) 提供可安装的 Skill 源码。默认模式会让 AI 先快速判断任务及相关 UI 是否兼容 Autorun；兼容时主动使用导航、UIState 和异步断言完成自测与结构化表现审核，不兼容时简要说明具体原因。`gen-nav` 参数用于生成或更新导航图，并通过 `get_nav_map_guidance` 读取与当前 MCP 版本匹配的精简动态契约。
 
 1. 确保 `unity-autorun` MCP Server 已安装并连接。
-2. 推荐在 `Window > Auto Run Window` 的 `MCP > Install` 中选择 `.codex` 或 `.claude` 目录，再点击 `Install Skill`。Codex 目标会安装到所选 `.codex` 同级的 `.agents/skills/unity-autorun`，Claude 目标会安装到 `.claude/skills/unity-autorun`。
+2. 推荐在 `Window > Auto Run Window` 的 `MCP > Install` 中选择 `.codex` 或 Claude Code 项目的 `.claude` 目录，再点击 `Install Skill`。Codex 目标会安装到所选 `.codex` 同级的 `.agents/skills/unity-autorun`，Claude Code 目标会安装到 `.claude/skills/unity-autorun`。
 3. 也可以在 Codex 对话中使用 `$skill-installer` 从 GitHub 文件夹安装当前开发分支：
 
    ```text
@@ -72,7 +74,7 @@ $unity-autorun gen-nav
 $unity-autorun gen-nav 更新商店模块
 ```
 
-如需手动安装，请将整个 `unity-autorun` 文件夹复制到个人目录 `$HOME/.agents/skills/`，或项目目录 `$REPO_ROOT/.agents/skills/`。
+如需手动安装，Codex 请将整个 `unity-autorun` 文件夹复制到个人目录 `$HOME/.agents/skills/` 或项目目录 `$REPO_ROOT/.agents/skills/`；Claude Code 请复制到 `$HOME/.claude/skills/` 或 `$REPO_ROOT/.claude/skills/`。
 
 Skill 依赖已经安装并连接的 `unity-autorun` MCP Server，不会代替 MCP 安装。
 
@@ -152,8 +154,8 @@ Window > Auto Run Window
 - `Processes` 表格会显示每个 AI 客户端当前加载的 MCP 服务端二进制版本。
 - `Start` / `Stop` 控制本地 Unity Bridge。
 - `Publish MCP` 会先终止指向当前发布 DLL 的 MCP 子进程，等待文件解锁后执行 `dotnet publish`，并检测 AI 客户端是否自动重连。
-- `Install MCP` 会更新选中的 `.codex/config.toml` 或 `.claude/.mcp.json`。
-- `Install Skill` 会复制包内 Skill，并根据已安装版本自动显示 Install、Update、Reinstall 或 Repair 状态。
+- `Install MCP` 会更新选中的 `.codex/config.toml`；选择 Claude Code 项目的 `.claude` 时，会更新其同级项目根目录 `.mcp.json`；选择包含 `claude_desktop_config.json` 的 Claude Desktop 配置目录时，会保留其他服务并合并 `unity-autorun`。旧版本误写到 `.claude/.mcp.json` 的文件会保持不变并显示迁移提示，但 Claude Code 不会再从该位置读取项目 MCP。
+- `Install Skill` 会将包内 Skill 复制到 Codex 或 Claude Code 的 Skill 目录，并根据已安装版本自动显示 Install、Update、Reinstall 或 Repair 状态。Claude Desktop 不读取 Claude Code 的文件系统 Skill，因此选择 Desktop 配置目录时该按钮会禁用。
 - `Open Root` 打开当前工具目录。
 - `Preview Nav Map` 使用内置的 Viz.js / Graphviz 自动布局，将 `Gen/ui-nav-map.json` 渲染为可交互的 `Gen/ui-nav-map.preview.html`。
 
@@ -437,7 +439,7 @@ AutorunToolData/config.xml
 
 ## 排障
 
-- 如果 `Install MCP` 失败，先点击 `Publish MCP`，并确认选择的文件夹名称是 `.codex` 或 `.claude`。
+- 如果 `Install MCP` 失败，先点击 `Publish MCP`，并确认选择的是 `.codex`、Claude Code 项目的 `.claude`，或包含 `claude_desktop_config.json` 的 Claude Desktop 配置目录。
 - 如果 Skill 版本显示 `unknown`，点击 `Repair Skill` 即可补齐版本清单并重新安装完整内容。
 - 如果 CLI Bridge 调用失败，先在 Unity 中启动 Bridge，再通过 `bridge-port` 或 MCP 工具 `get_unity_bridge_port` 检查当前端点。
 - 如果找不到 UGUI 按钮，检查运行时 GameObject 名称、归一化后的名称，以及可选 `text` 字段。

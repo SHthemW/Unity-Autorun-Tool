@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\UnityAutorun.Mcp\UnityAutorun.Mcp.csproj" />
+    <Compile Include="..\..\Editor\McpInstall\JsonObjectUpdater.cs" Link="src\EditorInstall\JsonObjectUpdater.cs" />
+    <Compile Include="..\..\Editor\McpInstall\McpInstallService.cs" Link="src\EditorInstall\McpInstallService.cs" />
   </ItemGroup>
 
   <PropertyGroup>

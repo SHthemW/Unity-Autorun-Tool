@@ -222,7 +222,7 @@ public static class SkillInstallService
         if (string.IsNullOrWhiteSpace(targetFolder)
             || !Directory.Exists(targetFolder))
         {
-            error = "Select an existing .codex or .claude folder first.";
+            error = "Select an existing .codex folder or Claude Code project .claude folder first.";
             return false;
         }
 
@@ -246,7 +246,7 @@ public static class SkillInstallService
 
         if (string.Equals(target.Name, ".claude", StringComparison.OrdinalIgnoreCase))
         {
-            clientName = "Claude";
+            clientName = "Claude Code";
             installDirectory = Path.Combine(
                 target.FullName,
                 "skills",
@@ -254,7 +254,13 @@ public static class SkillInstallService
             return true;
         }
 
-        error = "Target folder must be named .codex or .claude.";
+        if (File.Exists(Path.Combine(target.FullName, "claude_desktop_config.json")))
+        {
+            error = "Claude Desktop supports MCP installation here, but it does not load Claude Code filesystem Skills. Select a Claude Code project .claude folder to install the Skill.";
+            return false;
+        }
+
+        error = "Target folder must be named .codex or be a Claude Code project .claude folder.";
         return false;
     }
 

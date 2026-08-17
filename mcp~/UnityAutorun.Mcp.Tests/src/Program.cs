@@ -16,7 +16,9 @@ namespace UnityAutorun.Mcp.Tests
                 ("incremental merge is idempotent and preserves fields", TestIncrementalMerge),
                 ("full map save is creation-only", TestCreationOnlySave),
                 ("candidate identity ignores source line movement", TestCandidateIdentityStability),
-                ("finalization and no-op patches are byte-stable", TestFinalizationIdempotence)
+                ("finalization and no-op patches are byte-stable", TestFinalizationIdempotence),
+                ("Claude Code MCP installs at the project root", TestClaudeCodeMcpInstall),
+                ("Claude Desktop MCP preserves existing servers", TestClaudeDesktopMcpInstall)
             };
 
         private static int Main()
@@ -246,6 +248,128 @@ namespace UnityAutorun.Mcp.Tests
                 AssertFalse(Boolean(noOp, "writePerformed"), "No-op transition patch rewrote the map.");
                 AssertEqual(finalizedBytes, File.ReadAllText(mapPath), "No-op transition patch changed file bytes.");
             });
+        }
+
+        private static void TestClaudeCodeMcpInstall()
+        {
+            WithTemporaryDirectory(root =>
+            {
+                string projectRoot = Path.Combine(root, "Project");
+                string claudeFolder = Path.Combine(projectRoot, ".claude");
+                Directory.CreateDirectory(claudeFolder);
+                string publishedDll = CreatePublishedDll(root);
+                string projectConfig = Path.Combine(projectRoot, ".mcp.json");
+                File.WriteAllText(
+                    projectConfig,
+                    "{\n  \"mcpServers\": {\n    \"existing\": {\"command\":\"existing\"}\n  }\n}\n");
+                string legacyWrongConfig = Path.Combine(claudeFolder, ".mcp.json");
+                File.WriteAllText(legacyWrongConfig, "legacy-location-must-not-change");
+
+                WithMcpInstallConfig(publishedDll, () =>
+                {
+                    bool installed = McpInstallService.Install(
+                        claudeFolder,
+                        out string message);
+                    AssertTrue(installed, "Claude Code MCP installation failed: " + message);
+                    AssertTrue(
+                        message.Contains("Claude Code"),
+                        "Claude Code install message did not identify the client.");
+                    AssertTrue(
+                        message.Contains("legacy config"),
+                        "Claude Code install message did not report the legacy config.");
+                    AssertClaudeServerAndExistingEntry(projectConfig);
+                    AssertEqual(
+                        "legacy-location-must-not-change",
+                        File.ReadAllText(legacyWrongConfig),
+                        "Installer rewrote the legacy .claude/.mcp.json location.");
+
+                    string firstInstall = File.ReadAllText(projectConfig);
+                    installed = McpInstallService.Install(claudeFolder, out message);
+                    AssertTrue(installed, "Repeated Claude Code MCP installation failed: " + message);
+                    AssertEqual(
+                        firstInstall,
+                        File.ReadAllText(projectConfig),
+                        "Repeated Claude Code installation changed an already-current config.");
+                });
+            });
+        }
+
+        private static void TestClaudeDesktopMcpInstall()
+        {
+            WithTemporaryDirectory(root =>
+            {
+                string configFolder = Path.Combine(root, "Claude");
+                Directory.CreateDirectory(configFolder);
+                string desktopConfig = Path.Combine(
+                    configFolder,
+                    "claude_desktop_config.json");
+                File.WriteAllText(
+                    desktopConfig,
+                    "{\n  \"mcpServers\": {\n    \"existing\": {\"command\":\"existing\"}\n  }\n}\n");
+                string publishedDll = CreatePublishedDll(root);
+
+                WithMcpInstallConfig(publishedDll, () =>
+                {
+                    bool installed = McpInstallService.Install(
+                        configFolder,
+                        out string message);
+                    AssertTrue(installed, "Claude Desktop MCP installation failed: " + message);
+                    AssertTrue(
+                        message.Contains("Claude Desktop"),
+                        "Claude Desktop install message did not identify the client.");
+                    AssertClaudeServerAndExistingEntry(desktopConfig);
+                    AssertFalse(
+                        File.Exists(Path.Combine(configFolder, ".mcp.json")),
+                        "Claude Desktop installation created a Claude Code config file.");
+                });
+            });
+        }
+
+        private static string CreatePublishedDll(string root)
+        {
+            string publishedDll = Path.Combine(
+                root,
+                "publish",
+                "UnityAutorun.Mcp.dll");
+            Directory.CreateDirectory(Path.GetDirectoryName(publishedDll));
+            File.WriteAllText(publishedDll, "test");
+            return publishedDll;
+        }
+
+        private static void WithMcpInstallConfig(
+            string publishedDll,
+            Action action)
+        {
+            McpInstallConfig previous = McpInstallConfig.TestInstance;
+            try
+            {
+                McpInstallConfig.TestInstance = new McpInstallConfig
+                {
+                    PublishedDllPath = publishedDll,
+                    ClaudeServerJson = "{\"command\":\"dotnet\",\"args\":[\"UnityAutorun.Mcp.dll\",\"mcp\"],\"env\":{\"UNITY_AUTORUN_TOOL_ROOT\":\"tool\"}}"
+                };
+                action();
+            }
+            finally
+            {
+                McpInstallConfig.TestInstance = previous;
+            }
+        }
+
+        private static void AssertClaudeServerAndExistingEntry(string configPath)
+        {
+            JsonObject document = ParseObject(File.ReadAllText(configPath));
+            JsonObject servers = document["mcpServers"]?.AsObject();
+            AssertTrue(servers != null, "MCP config has no mcpServers object.");
+            AssertTrue(
+                servers.ContainsKey("existing"),
+                "MCP installation removed an existing server.");
+            JsonObject installed = servers[McpInstallConfig.ServerName]?.AsObject();
+            AssertTrue(installed != null, "MCP config has no unity-autorun server.");
+            AssertEqual(
+                "dotnet",
+                Text(installed, "command"),
+                "MCP server command was not installed correctly.");
         }
 
         private static JsonObject TraceCandidate(
