@@ -16,6 +16,8 @@ Use this reference to select a compact, reliable MCP workflow. Tool schemas retu
 
 ## Mode routing
 
+Apply this routing only after the user explicitly invokes `$unity-autorun`. For ordinary Unity requests without that invocation, do not call Autorun tools, run compatibility probes, mention the skill, or suggest opting in; use the normal workflow.
+
 | Invocation | Mode | Behavior |
 | --- | --- | --- |
 | `$unity-autorun <runtime goal>` | Runtime | Quickly judge compatibility, then navigate, inspect, interact, and self-test when supported. |

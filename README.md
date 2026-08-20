@@ -48,7 +48,7 @@ Claude Desktop 只支持通过此面板安装 MCP：选择包含 `claude_desktop
 
 ### 安装 Unity Autorun Skill
 
-仓库在 [`skill~/unity-autorun/`](./skill~/unity-autorun/) 提供可安装的 Skill 源码。默认模式会让 AI 先快速判断任务及相关 UI 是否兼容 Autorun；兼容时主动使用导航、UIState 和异步断言完成自测与结构化表现审核，不兼容时简要说明具体原因。`gen-nav` 参数用于生成或更新导航图，并通过 `get_nav_map_guidance` 读取与当前 MCP 版本匹配的精简动态契约。
+仓库在 [`skill~/unity-autorun/`](./skill~/unity-autorun/) 提供可安装的 Skill 源码。该 Skill 仅在用户显式调用 `$unity-autorun` 时启用，不会因普通 Unity UI 请求自动介入。进入默认运行时模式后，AI 会先快速判断任务及相关 UI 是否兼容 Autorun；兼容时主动使用导航、UIState 和异步断言完成自测与结构化表现审核，不兼容时简要说明具体原因。`gen-nav` 参数用于生成或更新导航图，并通过 `get_nav_map_guidance` 读取与当前 MCP 版本匹配的精简动态契约。
 
 1. 确保 `unity-autorun` MCP Server 已安装并连接。
 2. 推荐在 `Window > Auto Run Window` 的 `MCP > Install` 中选择 `.codex` 或 Claude Code 项目的 `.claude` 目录，再点击 `Install Skill`。Codex 目标会安装到所选 `.codex` 同级的 `.agents/skills/unity-autorun`，Claude Code 目标会安装到 `.claude/skills/unity-autorun`。
@@ -59,7 +59,7 @@ Claude Desktop 只支持通过此面板安装 MCP：选择包含 `claude_desktop
    ```
 
 4. Codex 通常会自动发现新 Skill；如果未出现，请重新启动 Codex。
-5. 通过 `$unity-autorun` 显式调用，或让其在 Unity UI 导航、读取和自测任务中自动触发。
+5. 通过 `$unity-autorun` 显式调用；未显式调用时，Skill 不会介入常规 Unity 工作流。
 
 运行时导航、自测和表现审核示例：
 
@@ -98,7 +98,7 @@ AI 会发起一次异步导航任务，并持续查询任务状态，直到 Unit
 - 支持跨 Play Mode 恢复的异步 UI 导航任务与紧凑状态轮询。
 - 导航图工具覆盖 guidance、源码扫描、patch 校验、merge、summary、subgraph 和 HTML 预览。
 - .NET 8 CLI 与 MCP Server，可供 Codex、Claude 或其他 MCP 客户端调用。
-- 提供可从编辑器一键安装或通过 `$skill-installer` 下载的 Unity Autorun Skill，默认负责兼容性判断、导航和 UIState 自测，并通过 `gen-nav` 参数生成或更新导航图。
+- 提供可从编辑器一键安装或通过 `$skill-installer` 下载的 Unity Autorun Skill，仅在显式调用后负责兼容性判断、导航和 UIState 自测，并通过 `gen-nav` 参数生成或更新导航图。
 - 本地 HTTP Bridge，默认监听 `127.0.0.1:17331`。
 - 支持按 GameObject 名称或按钮文本发现并点击 UGUI 按钮。
 - 支持读取和断言运行时 UGUI、TextMeshPro 控件的当前值。

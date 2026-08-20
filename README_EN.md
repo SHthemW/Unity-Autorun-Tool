@@ -48,7 +48,7 @@ Claude Desktop supports MCP-only installation through this panel: select the con
 
 ### Install the Unity Autorun Skill
 
-The repository provides installable skill sources under [`skill~/unity-autorun/`](./skill~/unity-autorun/). In its default mode, the skill tells the AI to quickly assess whether the task and related UI are compatible with Autorun. When compatible, it actively uses navigation, UIState, and asynchronous assertions for self-tests and structured presentation reviews; otherwise it reports a brief concrete reason. The `gen-nav` argument generates or updates the navigation map and reads a compact dynamic contract for the connected MCP version through `get_nav_map_guidance`.
+The repository provides installable skill sources under [`skill~/unity-autorun/`](./skill~/unity-autorun/). The skill activates only when the user explicitly invokes `$unity-autorun`; ordinary Unity UI requests do not trigger it. In runtime mode, it tells the AI to quickly assess whether the task and related UI are compatible with Autorun. When compatible, it actively uses navigation, UIState, and asynchronous assertions for self-tests and structured presentation reviews; otherwise it reports a brief concrete reason. The `gen-nav` argument generates or updates the navigation map and reads a compact dynamic contract for the connected MCP version through `get_nav_map_guidance`.
 
 1. Make sure the `unity-autorun` MCP server is installed and connected.
 2. Prefer selecting a `.codex` directory or a Claude Code project `.claude` directory under `MCP > Install` in `Window > Auto Run Window`, then press `Install Skill`. A Codex target installs to `.agents/skills/unity-autorun` beside the selected `.codex` directory; a Claude Code target installs to `.claude/skills/unity-autorun`.
@@ -59,7 +59,7 @@ The repository provides installable skill sources under [`skill~/unity-autorun/`
    ```
 
 4. Codex normally detects the new skill automatically; restart Codex if it does not appear.
-5. Invoke it explicitly with `$unity-autorun` or let it trigger for Unity UI navigation, inspection, and self-test requests.
+5. Invoke it explicitly with `$unity-autorun`. Without that invocation, the skill does not enter ordinary Unity workflows.
 
 Runtime navigation, self-test, and presentation-review example:
 
@@ -98,7 +98,7 @@ For direct editor operation, type a query in the lower `Navigation AutoRun` area
 - Asynchronous tracked UI navigation that survives Play Mode transitions and exposes compact progress polling.
 - Navigation map tools for guidance, source scanning, patch validation, merging, summaries, subgraphs, and HTML preview.
 - .NET 8 CLI and MCP server for Codex, Claude, or other MCP-capable clients.
-- Editor-installable or GitHub-downloadable Unity Autorun Skill with default compatibility checks, navigation and UIState self-tests, plus a `gen-nav` mode for map generation and updates.
+- Editor-installable or GitHub-downloadable Unity Autorun Skill that performs compatibility checks, navigation, and UIState self-tests only after explicit invocation, plus a `gen-nav` mode for map generation and updates.
 - Local HTTP bridge on `127.0.0.1:17331` for external tooling.
 - UGUI button discovery and clicking by GameObject name or button text.
 - Runtime uGUI and TextMeshPro value inspection and assertions.

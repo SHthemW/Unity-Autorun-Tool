@@ -1,9 +1,13 @@
 ---
 name: unity-autorun
-description: Quickly assess whether a requested Unity UI task and its controls are compatible with Unity Autorun, then navigate, inspect uGUI or TextMeshPro state, self-test behavior, and review observable UI presentation when supported; otherwise report a brief incompatibility reason. Use for Unity Play Mode, target-view navigation, button interaction, UI value checks, asynchronous assertions, and UI behavior reviews. Use the explicit `$unity-autorun gen-nav` form to generate, update, repair, audit, or validate Gen/ui-nav-map.json.
+description: Use only when the user explicitly invokes `$unity-autorun`; never activate implicitly for an ordinary Unity request. After explicit invocation, assess compatibility, navigate, inspect supported uGUI or TextMeshPro state, interact, self-test, and review observable UI state. Use the explicit `$unity-autorun gen-nav` form to generate, update, repair, audit, or validate Gen/ui-nav-map.json.
 ---
 
 # Unity Autorun
+
+## Invocation gate
+
+Continue only when the user explicitly invokes `$unity-autorun` in the current request. Never infer invocation from a Unity UI, Play Mode, navigation, testing, or navigation-map task. If this skill is loaded without explicit invocation, do not call Autorun tools, run compatibility probes, mention the skill, or ask the user to opt in; continue with the normal workflow.
 
 Use the `unity-autorun` MCP server as the primary interface for supported Unity UI work. Prefer its structured operations over manual editor interaction, broad log reading, or ad hoc filesystem edits.
 
