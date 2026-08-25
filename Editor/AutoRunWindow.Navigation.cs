@@ -58,11 +58,16 @@ public partial class AutoRunWindow
                 RefreshNavigationTargetFilter();
             }
 
-            GUILayout.BeginHorizontal();
+            ResponsiveRow targetRow = BeginResponsiveRow();
+            targetRow.Add(180f);
             if (_navigationTargetNames.Length > 0)
             {
                 _navigationTargetIndex = Mathf.Clamp(_navigationTargetIndex, 0, _navigationTargetNames.Length - 1);
-                int nextIndex = EditorGUILayout.Popup(_navigationTargetIndex, _navigationTargetNames);
+                int nextIndex = EditorGUILayout.Popup(
+                    _navigationTargetIndex,
+                    _navigationTargetNames,
+                    GUILayout.MinWidth(0),
+                    GUILayout.ExpandWidth(true));
                 if (nextIndex != _navigationTargetIndex)
                 {
                     SelectNavigationTarget(nextIndex);
@@ -73,11 +78,12 @@ public partial class AutoRunWindow
                 GUILayout.Label("No navigable UI found.");
             }
 
+            targetRow.Add(80f);
             if (GUILayout.Button("Refresh", GUILayout.Width(80)))
             {
                 EnsureNavigationTargetsLoaded(true);
             }
-            GUILayout.EndHorizontal();
+            targetRow.End();
 
             if (GUILayout.Button("Go!", GUILayout.Height(40)))
             {
@@ -198,7 +204,11 @@ public partial class AutoRunWindow
         }
 
         string status = string.IsNullOrEmpty(_navigationStatusText) ? "Navigation AutoRun is running." : _navigationStatusText;
-        GUILayout.Label(status, EditorStyles.miniLabel);
+        GUILayout.Label(
+            status,
+            GetWrappedStyle(EditorStyles.miniLabel),
+            GUILayout.MinWidth(0),
+            GUILayout.ExpandWidth(true));
     }
 
     private void RenderNavigationTargetStatus()
@@ -212,7 +222,9 @@ public partial class AutoRunWindow
             "Current target: " + currentText
             + " | Saved: " + savedText
             + " | Pending: " + pendingText,
-            EditorStyles.helpBox);
+            GetWrappedStyle(EditorStyles.helpBox),
+            GUILayout.MinWidth(0),
+            GUILayout.ExpandWidth(true));
     }
 
     private void CancelNavigationAutoRun()

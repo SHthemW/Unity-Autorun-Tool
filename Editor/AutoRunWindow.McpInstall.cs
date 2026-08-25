@@ -12,7 +12,8 @@ public partial class AutoRunWindow
     {
         LoadMcpInstallTargetPath();
 
-        GUILayout.BeginHorizontal();
+        ResponsiveRow targetRow = BeginResponsiveRow();
+        targetRow.Add(180f);
         string nextTargetPath = GUILayout.TextField(
             _mcpInstallTargetPath,
             GUILayout.MinWidth(0),
@@ -27,6 +28,7 @@ public partial class AutoRunWindow
             InvalidateSkillInstallStatus();
         }
 
+        targetRow.Add(70f);
         if (GUILayout.Button("Select", GUILayout.Width(70)))
         {
             string selected = EditorUtility.OpenFolderPanel(
@@ -41,8 +43,10 @@ public partial class AutoRunWindow
             }
         }
 
-        GUILayout.EndHorizontal();
-        GUILayout.BeginHorizontal();
+        targetRow.End();
+
+        ResponsiveRow installActions = BeginResponsiveRow();
+        installActions.Add(100f);
 
         if (GUILayout.Button("Install MCP", GUILayout.Width(100)))
         {
@@ -59,12 +63,12 @@ public partial class AutoRunWindow
             }
         }
 
+        installActions.Add(105f);
         RenderSkillInstallButton();
-        GUILayout.FlexibleSpace();
-        GUILayout.EndHorizontal();
+        installActions.End();
         GUILayout.Label(
             "Select .codex or a project .claude folder for MCP + Skill; a Claude Desktop config folder supports MCP only.",
-            GetSqueezedStyle(EditorStyles.label),
+            GetWrappedStyle(EditorStyles.label),
             GUILayout.MinWidth(0),
             GUILayout.ExpandWidth(true)
         );
@@ -82,8 +86,9 @@ public partial class AutoRunWindow
 
     private void RenderMcpTools()
     {
-        GUILayout.BeginHorizontal();
+        ResponsiveRow row = BeginResponsiveRow();
 
+        row.Add(110f);
         if (GUILayout.Button(
                 new GUIContent(
                     "Publish MCP",
@@ -114,6 +119,7 @@ public partial class AutoRunWindow
             }
         }
 
+        row.Add(95f);
         if (GUILayout.Button("Open Root", GUILayout.Width(95)))
         {
             string message;
@@ -128,6 +134,7 @@ public partial class AutoRunWindow
             }
         }
 
+        row.Add(130f);
         if (GUILayout.Button("Preview Nav Map", GUILayout.Width(130)))
         {
             string message;
@@ -142,13 +149,14 @@ public partial class AutoRunWindow
             }
         }
 
+        row.Add(260f);
         GUILayout.Label(
             "Publish the MCP server, open its root folder, or render Gen/ui-nav-map.json as an HTML graph.",
-            GetSqueezedStyle(EditorStyles.label),
+            GetWrappedStyle(EditorStyles.label),
             GUILayout.MinWidth(0),
             GUILayout.ExpandWidth(true)
         );
-        GUILayout.EndHorizontal();
+        row.End();
     }
 
     private static bool OpenToolRootDirectory(out string message)
@@ -176,17 +184,22 @@ public partial class AutoRunWindow
     private void RenderMcpPanel()
     {
         BeginPanel("MCP");
-        GUILayout.BeginHorizontal();
+        ResponsiveRow header = BeginResponsiveRow();
+        header.Add(170f);
         GUILayout.Label(
             new GUIContent(
                 "Unity AutoRun MCP + Skill",
                 "The package version is read from package.json."),
-            EditorStyles.miniLabel);
+            EditorStyles.miniLabel,
+            GUILayout.MinWidth(0),
+            GUILayout.ExpandWidth(true));
+        header.Add(95f);
         GUILayout.FlexibleSpace();
         GUILayout.Label(
             "package v" + McpInstallConfig.GetToolVersion(),
-            EditorStyles.miniBoldLabel);
-        GUILayout.EndHorizontal();
+            EditorStyles.miniBoldLabel,
+            GUILayout.Width(95f));
+        header.End();
         GUILayout.Space(2);
 
         if (EditorApplication.timeSinceStartup - _mcpProcessLastRefreshAt > 2)

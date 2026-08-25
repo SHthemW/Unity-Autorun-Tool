@@ -15,7 +15,8 @@ public partial class AutoRunWindow : EditorWindow
     private const float ConsoleScrollbarWidth = 16f;
     private const float WindowVerticalScrollbarWidth = 18f;
     private const float WindowContentPadding = 10f;
-    private const float MinimumWindowContentWidth = 260f;
+    private const float ResponsiveLayoutHorizontalInset = 20f;
+    private const float ResponsiveLayoutItemSpacing = 4f;
 
     private readonly Queue<AutoRunConsoleEntry> _consoleEntries = new Queue<AutoRunConsoleEntry>();
     private readonly List<AutoRunConsoleEntry> _visibleConsoleEntries = new List<AutoRunConsoleEntry>();
@@ -30,6 +31,7 @@ public partial class AutoRunWindow : EditorWindow
     private const string WindowScrollYKey = "UnityAutorunTool.Window.ScrollY";
     private static readonly Dictionary<AutoRunLogLevel, GUIStyle> ConsoleEntryStyles = new Dictionary<AutoRunLogLevel, GUIStyle>();
     private static readonly Dictionary<GUIStyle, GUIStyle> SqueezedStyles = new Dictionary<GUIStyle, GUIStyle>();
+    private static readonly Dictionary<GUIStyle, GUIStyle> WrappedStyles = new Dictionary<GUIStyle, GUIStyle>();
     private Vector2 _windowScrollPosition;
     private Vector2 _actionScrollPosition;
     private Vector2 _consoleScrollPosition;
@@ -118,7 +120,19 @@ public partial class AutoRunWindow : EditorWindow
 
     private float GetWindowContentWidth()
     {
-        return Mathf.Max(MinimumWindowContentWidth, position.width - WindowVerticalScrollbarWidth - WindowContentPadding);
+        return Mathf.Max(1f, position.width - WindowVerticalScrollbarWidth - WindowContentPadding);
+    }
+
+    private float GetResponsiveContentWidth(float additionalInset = 0f)
+    {
+        return Mathf.Max(
+            1f,
+            GetWindowContentWidth() - ResponsiveLayoutHorizontalInset - additionalInset);
+    }
+
+    private ResponsiveRow BeginResponsiveRow(float additionalInset = 0f)
+    {
+        return new ResponsiveRow(GetResponsiveContentWidth(additionalInset));
     }
 
     private static GUIStyle GetSqueezedStyle(GUIStyle baseStyle)
@@ -135,6 +149,81 @@ public partial class AutoRunWindow : EditorWindow
         };
         SqueezedStyles[baseStyle] = style;
         return style;
+    }
+
+    private static GUIStyle GetWrappedStyle(GUIStyle baseStyle)
+    {
+        if (WrappedStyles.TryGetValue(baseStyle, out GUIStyle style))
+        {
+            return style;
+        }
+
+        style = new GUIStyle(baseStyle)
+        {
+            clipping = TextClipping.Clip,
+            wordWrap = true,
+        };
+        WrappedStyles[baseStyle] = style;
+        return style;
+    }
+
+    private struct ResponsiveRow
+    {
+        private readonly float _availableWidth;
+        private float _usedWidth;
+        private bool _isOpen;
+        private bool _hasItems;
+
+        public ResponsiveRow(float availableWidth)
+        {
+            _availableWidth = Mathf.Max(1f, availableWidth);
+            _usedWidth = 0f;
+            _isOpen = false;
+            _hasItems = false;
+        }
+
+        public void Add(float minimumWidth)
+        {
+            float itemWidth = Mathf.Min(Mathf.Max(0f, minimumWidth), _availableWidth);
+            if (!_isOpen)
+            {
+                BeginLine();
+            }
+            else if (_hasItems
+                && _usedWidth + ResponsiveLayoutItemSpacing + itemWidth > _availableWidth)
+            {
+                GUILayout.EndHorizontal();
+                BeginLine();
+            }
+
+            if (_hasItems)
+            {
+                _usedWidth += ResponsiveLayoutItemSpacing;
+            }
+
+            _usedWidth += itemWidth;
+            _hasItems = true;
+        }
+
+        public void End()
+        {
+            if (!_isOpen)
+            {
+                return;
+            }
+
+            GUILayout.EndHorizontal();
+            _isOpen = false;
+            _hasItems = false;
+        }
+
+        private void BeginLine()
+        {
+            GUILayout.BeginHorizontal();
+            _usedWidth = 0f;
+            _isOpen = true;
+            _hasItems = false;
+        }
     }
 
     private void BeginPanel(string title)
@@ -269,7 +358,8 @@ public partial class AutoRunWindow : EditorWindow
         RenderConsoleLevelFilters();
 
         EnsureVisibleConsoleEntries();
-        GUILayout.BeginHorizontal();
+        ResponsiveRow actions = BeginResponsiveRow();
+        actions.Add(95f);
         using (new EditorGUI.DisabledScope(_visibleConsoleEntries.Count == 0))
         {
             if (GUILayout.Button("Copy Visible", GUILayout.Width(95)))
@@ -278,6 +368,7 @@ public partial class AutoRunWindow : EditorWindow
             }
         }
 
+        actions.Add(75f);
         using (new EditorGUI.DisabledScope(_consoleEntries.Count == 0))
         {
             if (GUILayout.Button("Copy All", GUILayout.Width(75)))
@@ -286,12 +377,13 @@ public partial class AutoRunWindow : EditorWindow
             }
         }
 
+        actions.Add(55f);
         GUILayout.FlexibleSpace();
         if (GUILayout.Button("Clear", GUILayout.Width(55)))
         {
             ClearConsoleText();
         }
-        GUILayout.EndHorizontal();
+        actions.End();
 
         Rect consoleRect = GUILayoutUtility.GetRect(
             GUIContent.none,
@@ -344,13 +436,14 @@ public partial class AutoRunWindow : EditorWindow
     private void RenderConsoleLevelFilters()
     {
         EditorGUI.BeginChangeCheck();
-        GUILayout.BeginHorizontal();
+        ResponsiveRow filters = BeginResponsiveRow();
+        filters.Add(134f);
         _showDebugLogs = GUILayout.Toggle(_showDebugLogs, "Debug", GUILayout.Width(70));
         _showInfoLogs = GUILayout.Toggle(_showInfoLogs, "Info", GUILayout.Width(60));
+        filters.Add(154f);
         _showWarningLogs = GUILayout.Toggle(_showWarningLogs, "Warning", GUILayout.Width(85));
         _showErrorLogs = GUILayout.Toggle(_showErrorLogs, "Error", GUILayout.Width(65));
-        GUILayout.FlexibleSpace();
-        GUILayout.EndHorizontal();
+        filters.End();
 
         if (EditorGUI.EndChangeCheck())
         {

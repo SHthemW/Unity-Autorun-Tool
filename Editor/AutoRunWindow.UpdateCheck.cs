@@ -39,13 +39,16 @@ public partial class AutoRunWindow
                 ? skillStatus.InstallDirectory
                 : skillStatus.Error);
 
-        GUILayout.BeginHorizontal();
+        ResponsiveRow updates = BeginResponsiveRow(8f);
+        updates.Add(52f);
         GUILayout.Label("Updates", EditorStyles.miniLabel, GUILayout.Width(52));
+        updates.Add(130f);
         GUILayout.Label(
             new GUIContent(BuildUpdateStatusText(), BuildUpdateStatusTooltip()),
-            GetSqueezedStyle(EditorStyles.miniLabel),
+            GetWrappedStyle(EditorStyles.miniLabel),
             GUILayout.MinWidth(0),
             GUILayout.ExpandWidth(true));
+        updates.Add(90f);
         using (new EditorGUI.DisabledScope(AutoRunUpdateCheckService.IsChecking))
         {
             if (GUILayout.Button("Check Now", GUILayout.Width(90)))
@@ -54,23 +57,25 @@ public partial class AutoRunWindow
             }
         }
 
-        GUILayout.EndHorizontal();
+        updates.End();
         GUILayout.EndVertical();
     }
 
-    private static void RenderVersionRow(
+    private void RenderVersionRow(
         string label,
         string value,
         string tooltip)
     {
-        GUILayout.BeginHorizontal();
+        ResponsiveRow row = BeginResponsiveRow(8f);
+        row.Add(52f);
         GUILayout.Label(label, EditorStyles.miniLabel, GUILayout.Width(52));
+        row.Add(130f);
         GUILayout.Label(
             new GUIContent(value, tooltip),
-            GetSqueezedStyle(EditorStyles.miniLabel),
+            GetWrappedStyle(EditorStyles.miniLabel),
             GUILayout.MinWidth(0),
             GUILayout.ExpandWidth(true));
-        GUILayout.EndHorizontal();
+        row.End();
     }
 
     private static string BuildMcpVersionText()

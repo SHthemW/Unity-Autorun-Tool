@@ -7,30 +7,40 @@ public partial class AutoRunWindow
     private const float McpProcessColumnGap = 12f;
     private const float McpProcessColumnPadding = 4f;
     private const float McpProcessTablePadding = 28f;
+    private const float McpProcessTableMinimumWidth = 520f;
 
     private List<McpProcessInfo> _mcpProcesses = new List<McpProcessInfo>();
     private double _mcpProcessLastRefreshAt;
 
     private void RenderMcpProcesses()
     {
-        GUILayout.BeginHorizontal();
+        ResponsiveRow summary = BeginResponsiveRow();
+        summary.Add(140f);
         if (GUILayout.Button("Refresh Processes", GUILayout.Width(140)))
         {
             RefreshMcpProcesses();
         }
 
+        summary.Add(240f);
         GUILayout.Label(
             new GUIContent(
                 "MCP stdio processes and their server versions.",
                 "MCP Version is read from the UnityAutorun.Mcp executable or DLL "
                 + "loaded by each process."),
-            GetSqueezedStyle(EditorStyles.label),
+            GetWrappedStyle(EditorStyles.label),
             GUILayout.MinWidth(0),
             GUILayout.ExpandWidth(true)
         );
-        GUILayout.EndHorizontal();
+        summary.End();
 
-        float[] widths = CalculateMcpProcessColumnWidths(GetWindowContentWidth() - McpProcessTablePadding);
+        float tableWidth = Mathf.Max(1f, GetWindowContentWidth() - McpProcessTablePadding);
+        if (tableWidth < McpProcessTableMinimumWidth)
+        {
+            RenderCompactMcpProcesses();
+            return;
+        }
+
+        float[] widths = CalculateMcpProcessColumnWidths(tableWidth);
         RenderMcpProcessRow(
             "MCP PID",
             "MCP Process",
@@ -65,6 +75,46 @@ public partial class AutoRunWindow
                 process.PublishedAt,
                 EditorStyles.miniLabel,
                 widths);
+        }
+    }
+
+    private void RenderCompactMcpProcesses()
+    {
+        if (_mcpProcesses.Count == 0)
+        {
+            GUILayout.Label(
+                "No UnityAutorun.Mcp process found.",
+                GetWrappedStyle(EditorStyles.miniLabel),
+                GUILayout.MinWidth(0),
+                GUILayout.ExpandWidth(true));
+            return;
+        }
+
+        foreach (McpProcessInfo process in _mcpProcesses)
+        {
+            ResponsiveRow row = BeginResponsiveRow();
+            row.Add(180f);
+            GUILayout.Label(
+                "MCP: " + process.ProcessId + " | " + process.ProcessName,
+                GetWrappedStyle(EditorStyles.miniBoldLabel),
+                GUILayout.MinWidth(0),
+                GUILayout.ExpandWidth(true));
+
+            row.Add(150f);
+            GUILayout.Label(
+                "AI: " + process.AiProcessId + " | " + process.AiProcessName,
+                GetWrappedStyle(EditorStyles.miniLabel),
+                GUILayout.MinWidth(0),
+                GUILayout.ExpandWidth(true));
+
+            row.Add(200f);
+            GUILayout.Label(
+                "MCP Version: " + process.McpVersion + " | Published: " + process.PublishedAt,
+                GetWrappedStyle(EditorStyles.miniLabel),
+                GUILayout.MinWidth(0),
+                GUILayout.ExpandWidth(true));
+            row.End();
+            GUILayout.Space(2f);
         }
     }
 

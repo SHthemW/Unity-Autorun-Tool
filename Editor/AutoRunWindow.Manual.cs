@@ -39,7 +39,10 @@ public partial class AutoRunWindow
               "\n"
             + "Follow the instructions on bottons to use this tool.\n"
             + "\n"
-            + "View full document on my Github:"
+            + "View full document on my Github:",
+            GetWrappedStyle(EditorStyles.label),
+            GUILayout.MinWidth(0),
+            GUILayout.ExpandWidth(true)
         );
 
         if (GUILayout.Button("more info"))
@@ -51,31 +54,35 @@ public partial class AutoRunWindow
     private void RenderManualConfigControls()
     {
         GUILayout.Label("Config");
-        GUILayout.BeginHorizontal();
         RenderPresetSelector();
-        GUILayout.EndHorizontal();
-
-        GUILayout.BeginHorizontal();
         RenderConfigFileActions();
-        GUILayout.EndHorizontal();
     }
 
     private void RenderPresetSelector()
     {
+        ResponsiveRow row = BeginResponsiveRow();
         if (HasPreset)
         {
-            _currentSelectingClassIndex = EditorGUILayout.Popup(_currentSelectingClassIndex, LoadedPresetNames);
+            row.Add(160f);
+            _currentSelectingClassIndex = EditorGUILayout.Popup(
+                _currentSelectingClassIndex,
+                LoadedPresetNames,
+                GUILayout.MinWidth(0),
+                GUILayout.ExpandWidth(true));
             _currentSelectingClassName = LoadedPresetNames[_currentSelectingClassIndex];
         }
 
         if (IsConfigFileExists)
         {
+            row.Add(HasPreset ? 20f : 220f);
             RenderAddPresetButton();
         }
         else
         {
             _currentLoadingConfig = new AutoRunParamConfig();
         }
+
+        row.End();
     }
 
     private void RenderAddPresetButton()
@@ -89,7 +96,11 @@ public partial class AutoRunWindow
             return;
         }
 
-        if (GUILayout.Button("Then, press me to create a new action preset"))
+        if (GUILayout.Button(
+                "Then, press me to create a new action preset",
+                GetWrappedStyle(GUI.skin.button),
+                GUILayout.MinWidth(0),
+                GUILayout.ExpandWidth(true)))
         {
             _currentLoadingConfig.AppendClass($"new preset {LoadedPresetNames.Length + 1} (you should save it before edit!)");
         }
@@ -97,22 +108,32 @@ public partial class AutoRunWindow
 
     private void RenderConfigFileActions()
     {
+        ResponsiveRow row = BeginResponsiveRow();
         if (IsConfigFileExists)
         {
+            row.Add(100f);
             if (GUILayout.Button("Open config"))
             {
                 XmlHelper.OpenWithDefaultEditor(ConfigPath);
             }
 
+            row.Add(100f);
             if (GUILayout.Button("Save config"))
             {
                 XmlHelper.SaveConfig(_currentLoadingConfig, ConfigPath);
                 AppendConsoleText($"Config saved. Details: {_currentLoadingConfig.Info()}");
             }
+            row.End();
             return;
         }
 
-        if (GUILayout.Button("First use? Press me to create an autorun action config :)", GUILayout.Height(30)))
+        row.Add(220f);
+        if (GUILayout.Button(
+                "First use? Press me to create an autorun action config :)",
+                GetWrappedStyle(GUI.skin.button),
+                GUILayout.MinHeight(30),
+                GUILayout.MinWidth(0),
+                GUILayout.ExpandWidth(true)))
         {
             if (!Directory.Exists(Path.GetDirectoryName(ConfigPath)))
             {
@@ -126,6 +147,7 @@ public partial class AutoRunWindow
 
             AppendConsoleText("Config is created on: " + ConfigPath);
         }
+        row.End();
     }
 
     private void RenderManualActions()
@@ -143,25 +165,25 @@ public partial class AutoRunWindow
 
     private void RenderActionList(string title, System.Collections.Generic.List<AutoRunParam> actionParams, HandlerStatus status)
     {
-        GUILayout.BeginHorizontal();
+        ResponsiveRow header = BeginResponsiveRow(WindowVerticalScrollbarWidth);
+        header.Add(100f);
         GUILayout.Label(title);
 
         if (HasPreset)
         {
+            header.Add(20f);
             if (GUILayout.Button("+", GUILayout.MaxWidth(20)))
             {
                 _currentLoadingConfig.AppendAction(_currentSelectingClassName, new AutoRunParam(), status);
             }
         }
 
-        GUILayout.EndHorizontal();
+        header.End();
 
         for (int i = 0; i < actionParams.Count; i++)
         {
             int index = i;
-            GUILayout.BeginHorizontal();
             RenderActionParam(actionParams[index], () => actionParams.RemoveAt(index));
-            GUILayout.EndHorizontal();
         }
     }
 }
