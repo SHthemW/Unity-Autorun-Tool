@@ -1,6 +1,6 @@
 ---
 name: unity-autorun
-description: Use only when the user explicitly invokes `$unity-autorun`; never activate implicitly for an ordinary Unity request. After explicit invocation, assess compatibility, navigate, inspect supported uGUI or TextMeshPro state, interact, self-test, and review observable UI state. Use the explicit `$unity-autorun gen-nav` form to generate, update, repair, audit, or validate Gen/ui-nav-map.json.
+description: Use only when the user explicitly invokes `$unity-autorun`; never activate implicitly for an ordinary Unity request. After explicit invocation, assess compatibility, navigate, inspect supported uGUI or TextMeshPro state, interact, self-test, and review observable UI state. Use the explicit `$unity-autorun gen-nav` form to generate, update, repair, audit, or validate the project navigation map.
 ---
 
 # Unity Autorun
@@ -65,7 +65,7 @@ For `$unity-autorun gen-nav [scope]`, generate or update the navigation map inst
 2. Treat the returned versions, canonical path, shapes, analysis contract, candidate-review contract, patch contract, and completion contract as authoritative for the connected MCP version.
 3. Read the current map, then use summary and source scanning to define the requested work slices while preserving unrelated valid entries.
 4. Trace relevant call chains. Treat candidates as evidence, decide graph semantics externally, keep proven reachability separate from automation support, and explicitly review repeated-control match policy against the immediate edge. Leave repeated-item enumeration and data-dependent downstream eligibility recovery to the navigation runtime.
-5. Create small patches, validate each patch, and merge it through MCP tools. `save_ui_nav_map` is creation-only and must never replace an existing map. Existing items use RFC 7396 merge semantics: omitted fields are preserved and explicit `null` removes a field. Never write `Gen/ui-nav-map.json` directly.
+5. Create small patches, validate each patch, and merge it through MCP tools. `save_ui_nav_map` is creation-only and must never replace an existing map. Existing items use RFC 7396 merge semantics: omitted fields are preserved and explicit `null` removes a field. Never write the canonical project navigation map directly.
 6. Query global candidate coverage without a filter. Reuse carried-forward decisions, review every returned backlog item, copy its exact `id` and `candidateVersion`, merge only those decisions, and restart at `offset=0` until `remaining=0`.
 7. Finalize with the same known view names used during analysis and require `completionGatePassed=true`. Treat `writePerformed=false` as the expected idempotent result when the map is already current.
 8. Validate important paths with route listing and resolution tools before reporting completion.

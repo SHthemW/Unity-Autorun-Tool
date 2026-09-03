@@ -15,6 +15,7 @@ namespace UnityAutorun.Mcp.Tests
             {
                 ("incremental merge is idempotent and preserves fields", TestIncrementalMerge),
                 ("full map save is creation-only", TestCreationOnlySave),
+                ("default map path is scoped to Unity ProjectSettings", TestProjectScopedMapPaths),
                 ("candidate identity ignores source line movement", TestCandidateIdentityStability),
                 ("finalization and no-op patches are byte-stable", TestFinalizationIdempotence),
                 ("Claude Code MCP installs at the project root", TestClaudeCodeMcpInstall),
@@ -160,11 +161,50 @@ namespace UnityAutorun.Mcp.Tests
             });
         }
 
+        private static void TestProjectScopedMapPaths()
+        {
+            WithTemporaryToolRoot((toolRoot, mapPath) =>
+            {
+                string projectRoot = UiNavMapPaths.ResolveProjectRootDirectory();
+                AssertEqual(
+                    Path.GetFullPath(Path.Combine(projectRoot, UiNavMapPaths.DefaultRelativePath)),
+                    mapPath,
+                    "The test map path is not under Unity ProjectSettings.");
+                AssertEqual(
+                    mapPath,
+                    UiNavMapPaths.ResolveDefaultMapPath(),
+                    "The default map path is not scoped to the Unity project.");
+                AssertEqual(
+                    Path.GetFullPath(Path.Combine(projectRoot, "ProjectSettings", "custom-map.json")),
+                    UiNavMapPaths.ResolveMapPath("ProjectSettings/custom-map.json"),
+                    "A relative map path was not resolved from the Unity project root.");
+                AssertEqual(
+                    Path.GetFullPath(Path.Combine(toolRoot, UiNavMapPaths.ExampleRelativePath)),
+                    UiNavMapPaths.ResolveExampleMapPath(),
+                    "The example map path is not scoped to the package root.");
+
+                try
+                {
+                    Environment.SetEnvironmentVariable(
+                        "UNITY_AUTORUN_NAV_MAP",
+                        "ProjectSettings/custom-map.json");
+                    AssertEqual(
+                        Path.GetFullPath(Path.Combine(projectRoot, "ProjectSettings", "custom-map.json")),
+                        UiNavMapPaths.ResolveDefaultMapPath(),
+                        "The navigation map environment override was not resolved from the Unity project root.");
+                }
+                finally
+                {
+                    Environment.SetEnvironmentVariable("UNITY_AUTORUN_NAV_MAP", null);
+                }
+            });
+        }
+
         private static void TestCandidateIdentityStability()
         {
             WithTemporaryToolRoot((toolRoot, mapPath) =>
             {
-                string assetsRoot = FindAssetsRoot(toolRoot);
+                string assetsRoot = FindAssetsRoot();
                 string scripts = Path.Combine(assetsRoot, "Scripts");
                 Directory.CreateDirectory(scripts);
                 string sourcePath = Path.Combine(scripts, "UIFormA.cs");
@@ -186,7 +226,7 @@ namespace UnityAutorun.Mcp.Tests
         {
             WithTemporaryToolRoot((toolRoot, mapPath) =>
             {
-                string assetsRoot = FindAssetsRoot(toolRoot);
+                string assetsRoot = FindAssetsRoot();
                 string scripts = Path.Combine(assetsRoot, "Scripts");
                 Directory.CreateDirectory(scripts);
                 File.WriteAllText(
@@ -443,26 +483,48 @@ namespace UnityAutorun.Mcp.Tests
             WithTemporaryDirectory(root =>
             {
                 string assetsRoot = Path.Combine(root, "Assets");
+                string projectSettingsRoot = Path.Combine(root, "ProjectSettings");
                 string toolRoot = Path.Combine(
-                    assetsRoot,
-                    "Editor",
-                    "Unity-Autorun-Tool");
-                Directory.CreateDirectory(Path.Combine(toolRoot, "Gen"));
+                    root,
+                    "Library",
+                    "PackageCache",
+                    "com.shthemw.unity-autorun-tool@test");
+                Directory.CreateDirectory(assetsRoot);
+                Directory.CreateDirectory(projectSettingsRoot);
+                Directory.CreateDirectory(Path.Combine(toolRoot, "Example"));
                 Directory.CreateDirectory(Path.Combine(toolRoot, "mcp~"));
+                string oldProjectRoot = Environment.GetEnvironmentVariable(
+                    "UNITY_AUTORUN_PROJECT_ROOT");
                 string oldToolRoot = Environment.GetEnvironmentVariable(
                     "UNITY_AUTORUN_TOOL_ROOT");
+                string oldMapPath = Environment.GetEnvironmentVariable(
+                    "UNITY_AUTORUN_NAV_MAP");
                 try
                 {
                     Environment.SetEnvironmentVariable(
+                        "UNITY_AUTORUN_PROJECT_ROOT",
+                        root);
+                    Environment.SetEnvironmentVariable(
                         "UNITY_AUTORUN_TOOL_ROOT",
                         toolRoot);
-                    action(toolRoot, Path.Combine(toolRoot, "Gen", "ui-nav-map.json"));
+                    Environment.SetEnvironmentVariable(
+                        "UNITY_AUTORUN_NAV_MAP",
+                        null);
+                    action(
+                        toolRoot,
+                        Path.GetFullPath(Path.Combine(root, UiNavMapPaths.DefaultRelativePath)));
                 }
                 finally
                 {
                     Environment.SetEnvironmentVariable(
+                        "UNITY_AUTORUN_PROJECT_ROOT",
+                        oldProjectRoot);
+                    Environment.SetEnvironmentVariable(
                         "UNITY_AUTORUN_TOOL_ROOT",
                         oldToolRoot);
+                    Environment.SetEnvironmentVariable(
+                        "UNITY_AUTORUN_NAV_MAP",
+                        oldMapPath);
                 }
             });
         }
@@ -486,21 +548,9 @@ namespace UnityAutorun.Mcp.Tests
             }
         }
 
-        private static string FindAssetsRoot(string toolRoot)
+        private static string FindAssetsRoot()
         {
-            DirectoryInfo directory = new DirectoryInfo(toolRoot);
-            while (directory != null
-                && !string.Equals(directory.Name, "Assets", StringComparison.OrdinalIgnoreCase))
-            {
-                directory = directory.Parent;
-            }
-
-            if (directory == null)
-            {
-                throw new InvalidOperationException("Temporary Assets root was not found.");
-            }
-
-            return directory.FullName;
+            return Path.Combine(UiNavMapPaths.ResolveProjectRootDirectory(), "Assets");
         }
 
         private static JsonObject ParseObject(string json)

@@ -1,5 +1,5 @@
 {
-  "name": "UnityAutorunTool",
+  "name": "UnityAutorunTool.Editor",
   "rootNamespace": "",
   "references": [],
   "includePlatforms": [

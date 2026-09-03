@@ -664,18 +664,15 @@ namespace UnityAutorun.Mcp
 
         private static string ResolveAssetsRoot()
         {
-            DirectoryInfo directory = new DirectoryInfo(UiNavMapPaths.ResolveToolRootDirectory());
-            while (directory != null)
+            string assetsRoot = Path.Combine(
+                UiNavMapPaths.ResolveProjectRootDirectory(),
+                "Assets");
+            if (Directory.Exists(assetsRoot))
             {
-                if (string.Equals(directory.Name, "Assets", StringComparison.OrdinalIgnoreCase))
-                {
-                    return directory.FullName;
-                }
-
-                directory = directory.Parent;
+                return assetsRoot;
             }
 
-            throw new InvalidOperationException("Cannot resolve Unity Assets root from tool root.");
+            throw new InvalidOperationException("Cannot resolve the Unity Assets directory from the project root.");
         }
 
         private static string ViewIdForName(string view)

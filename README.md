@@ -42,7 +42,7 @@ https://github.com/SHthemW/Unity-Autorun-Tool.git
 $unity-autorun gen-nav
 ```
 
-AI 会通过 MCP 扫描源码、审核导航候选并生成 `Gen/ui-nav-map.json`。只有最终化检查通过的导航图才会用于自动运行。
+AI 会通过 MCP 扫描源码、审核导航候选并生成 `ProjectSettings/Packages/com.shthemw.unity-autorun-tool/ui-nav-map.json`。只有最终化检查通过的导航图才会用于自动运行。
 
 Claude Desktop 只支持通过此面板安装 MCP：选择包含 `claude_desktop_config.json` 的配置目录并点击 `Install MCP`。本地文件系统 Skill 属于 Claude Code 能力，因此 Desktop 目标不会启用 `Install Skill`。
 
@@ -93,7 +93,7 @@ AI 会发起一次异步导航任务，并持续查询任务状态，直到 Unit
 ## 功能特性
 
 - 支持 AI 客户端直接启动 Unity 并导航到指定 UI 界面。
-- 通过 `Gen/ui-nav-map.json` 支持 UI 导航图。
+- 通过项目级 `ProjectSettings/Packages/com.shthemw.unity-autorun-tool/ui-nav-map.json` 支持 UI 导航图。
 - 支持对 click / wait 类型 UI 路由进行解析和执行。
 - 支持跨 Play Mode 恢复的异步 UI 导航任务与紧凑状态轮询。
 - 导航图工具覆盖 guidance、源码扫描、patch 校验、merge、summary、subgraph 和 HTML 预览。
@@ -130,7 +130,7 @@ https://github.com/SHthemW/Unity-Autorun-Tool.git
 为了保证安装版本可复现，建议使用版本 tag：
 
 ```text
-https://github.com/SHthemW/Unity-Autorun-Tool.git#v0.1.0
+https://github.com/SHthemW/Unity-Autorun-Tool.git#v0.2.5
 ```
 
 也可以手动安装。将本仓库复制或克隆到 Unity 项目的：
@@ -157,7 +157,7 @@ Window > Auto Run Window
 - `Install MCP` 会更新选中的 `.codex/config.toml`；选择 Claude Code 项目的 `.claude` 时，会更新其同级项目根目录 `.mcp.json`；选择包含 `claude_desktop_config.json` 的 Claude Desktop 配置目录时，会保留其他服务并合并 `unity-autorun`。旧版本误写到 `.claude/.mcp.json` 的文件会保持不变并显示迁移提示，但 Claude Code 不会再从该位置读取项目 MCP。
 - `Install Skill` 会将包内 Skill 复制到 Codex 或 Claude Code 的 Skill 目录，并根据已安装版本自动显示 Install、Update、Reinstall 或 Repair 状态。Claude Desktop 不读取 Claude Code 的文件系统 Skill，因此选择 Desktop 配置目录时该按钮会禁用。
 - `Open Root` 打开当前工具目录。
-- `Preview Nav Map` 使用内置的 Viz.js / Graphviz 自动布局，将 `Gen/ui-nav-map.json` 渲染为可交互的 `Gen/ui-nav-map.preview.html`。
+- `Preview Nav Map` 使用内置的 Viz.js / Graphviz 自动布局，将项目导航图渲染为可交互的 `Library/UnityAutorunTool/ui-nav-map.preview.html`。
 
 也可以通过独立菜单启动或停止 Bridge：
 
@@ -192,16 +192,16 @@ dotnet run --project mcp~/UnityAutorun.Mcp -- wait-ui-state --query MusicToggle 
 dotnet run --project mcp~/UnityAutorun.Mcp -- click --name StartButton --framework ugui
 dotnet run --project mcp~/UnityAutorun.Mcp -- run-sequence --json-file sequence.json
 dotnet run --project mcp~/UnityAutorun.Mcp -- nav-guidance
-dotnet run --project mcp~/UnityAutorun.Mcp -- scan-nav-sources --map Gen/ui-nav-map.json
-dotnet run --project mcp~/UnityAutorun.Mcp -- trace-nav-calls --map Gen/ui-nav-map.json
-dotnet run --project mcp~/UnityAutorun.Mcp -- backfill-nav-map --map Gen/ui-nav-map.json --preview true
-dotnet run --project mcp~/UnityAutorun.Mcp -- nav-map-summary --map Gen/ui-nav-map.json
-dotnet run --project mcp~/UnityAutorun.Mcp -- nav-candidate-coverage --map Gen/ui-nav-map.json
-dotnet run --project mcp~/UnityAutorun.Mcp -- finalize-nav-map --map Gen/ui-nav-map.json
-dotnet run --project mcp~/UnityAutorun.Mcp -- routes --map Gen/ui-nav-map.example.json
-dotnet run --project mcp~/UnityAutorun.Mcp -- route --map Gen/ui-nav-map.example.json --from A --to C
-dotnet run --project mcp~/UnityAutorun.Mcp -- run-route --map Gen/ui-nav-map.example.json --from A --to C
-dotnet run --project mcp~/UnityAutorun.Mcp -- navigate-ui --map Gen/ui-nav-map.json --to TargetView
+dotnet run --project mcp~/UnityAutorun.Mcp -- scan-nav-sources
+dotnet run --project mcp~/UnityAutorun.Mcp -- trace-nav-calls
+dotnet run --project mcp~/UnityAutorun.Mcp -- backfill-nav-map --preview true
+dotnet run --project mcp~/UnityAutorun.Mcp -- nav-map-summary
+dotnet run --project mcp~/UnityAutorun.Mcp -- nav-candidate-coverage
+dotnet run --project mcp~/UnityAutorun.Mcp -- finalize-nav-map
+dotnet run --project mcp~/UnityAutorun.Mcp -- routes
+dotnet run --project mcp~/UnityAutorun.Mcp -- route --from A --to C
+dotnet run --project mcp~/UnityAutorun.Mcp -- run-route --from A --to C
+dotnet run --project mcp~/UnityAutorun.Mcp -- navigate-ui --to TargetView
 dotnet run --project mcp~/UnityAutorun.Mcp -- mock-bridge
 ```
 
@@ -346,7 +346,7 @@ Bridge 命令包括：
 
 ## UI 导航图
 
-导航系统使用 `Gen/ui-nav-map.json`。如果该文件不存在，编辑器会回退读取 `Gen/ui-nav-map.example.json`。
+导航系统使用项目级 `ProjectSettings/Packages/com.shthemw.unity-autorun-tool/ui-nav-map.json`。如果该文件不存在，编辑器会回退读取包内的 `Example/ui-nav-map.example.json`。可以通过 `UNITY_AUTORUN_NAV_MAP` 指定其他绝对路径或项目相对路径。
 
 导航图描述：
 
@@ -432,7 +432,7 @@ AutorunToolData/config.xml
 |-- Editor/                      # Unity Editor 窗口、菜单、MCP 安装、进程检测、导航 AutoRun UI
 |-- Services/                    # 按钮、活动视图与 UGUI/TMP 运行时状态服务
 |-- Util/                        # XML 与可选 FairyGUI helper
-|-- Gen/                         # 生成的导航图文件及受版本控制的示例导航图
+|-- Example/                     # 受版本控制的示例导航图
 |-- mcp~/UnityAutorun.Mcp/       # .NET 8 CLI 与 MCP Server 源码
 |-- skill~/unity-autorun/        # 可分发的 AI Skill 源码与工作流提示词
 ```
@@ -444,4 +444,4 @@ AutorunToolData/config.xml
 - 如果 CLI Bridge 调用失败，先在 Unity 中启动 Bridge，再通过 `bridge-port` 或 MCP 工具 `get_unity_bridge_port` 检查当前端点。
 - 如果找不到 UGUI 按钮，检查运行时 GameObject 名称、归一化后的名称，以及可选 `text` 字段。
 - 如果路由无法执行，用 `route`、`resolve_ui_route` 或 `get_ui_nav_subgraph` 检查是否存在 unsupported 或 unresolved transition。
-- 如果 `Navigation AutoRun` 没有目标，创建或 merge 真实的 `Gen/ui-nav-map.json`，也可以先用 example map 验证流程。
+- 如果 `Navigation AutoRun` 没有目标，创建或 merge 项目级 `ProjectSettings/Packages/com.shthemw.unity-autorun-tool/ui-nav-map.json`，也可以先用包内 example map 验证流程。

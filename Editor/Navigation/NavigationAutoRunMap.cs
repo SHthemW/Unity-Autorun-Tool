@@ -5,8 +5,6 @@ using System.Linq;
 
 public sealed partial class NavigationAutoRunMap
 {
-    private const string NavMapPath = "Gen/ui-nav-map.json";
-    private const string ExampleNavMapPath = "Gen/ui-nav-map.example.json";
     private const string SupportedSchemaVersion = "2.0";
     private const string SupportedGeneratorVersion = "2.1";
     private const string SupportedCandidateProtocolVersion = "1.3";
@@ -38,8 +36,7 @@ public sealed partial class NavigationAutoRunMap
 
     public static NavigationAutoRunMap LoadDefault()
     {
-        string root = McpInstallConfig.GetToolRootDirectory();
-        string path = ResolveMapPath(root);
+        string path = McpInstallConfig.ResolveNavigationMapPath();
         NavigationMapDocument document = ParseDocument(File.ReadAllText(path), path);
         if (document == null)
         {
@@ -53,7 +50,7 @@ public sealed partial class NavigationAutoRunMap
 
     public static string GetDefaultMapPath()
     {
-        return ResolveMapPath(McpInstallConfig.GetToolRootDirectory());
+        return McpInstallConfig.ResolveNavigationMapPath();
     }
 
     public List<NavigationAutoRunOption> ListNavigableTargets()
@@ -281,23 +278,6 @@ public sealed partial class NavigationAutoRunMap
         return firstStep.mode == "click"
             && firstStep.action != null
             && AutoRunButtonService.HasButton(firstStep.action);
-    }
-
-    private static string ResolveMapPath(string root)
-    {
-        string mapPath = System.IO.Path.Combine(root, NavMapPath);
-        if (File.Exists(mapPath))
-        {
-            return mapPath;
-        }
-
-        string examplePath = System.IO.Path.Combine(root, ExampleNavMapPath);
-        if (File.Exists(examplePath))
-        {
-            return examplePath;
-        }
-
-        throw new FileNotFoundException("Cannot find Gen/ui-nav-map.json or Gen/ui-nav-map.example.json.");
     }
 
     private static void ValidateMapVersion(NavigationMapDocument document, string path)

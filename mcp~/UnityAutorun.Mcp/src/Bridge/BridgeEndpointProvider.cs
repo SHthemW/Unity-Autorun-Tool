@@ -8,8 +8,6 @@ namespace UnityAutorun.Mcp
 {
     public sealed class BridgeEndpointProvider
     {
-        private const string ProjectRootEnvironmentVariable = "UNITY_AUTORUN_PROJECT_ROOT";
-        private const string ToolRootEnvironmentVariable = "UNITY_AUTORUN_TOOL_ROOT";
         private const string StateDirectoryName = "UnityAutorunTool";
         private const string StateFileName = "bridge-endpoint.json";
 
@@ -177,33 +175,7 @@ namespace UnityAutorun.Mcp
 
         private static string ResolveProjectRoot()
         {
-            string configured = Environment.GetEnvironmentVariable(ProjectRootEnvironmentVariable);
-            if (!string.IsNullOrWhiteSpace(configured))
-            {
-                return Path.GetFullPath(configured);
-            }
-
-            string startPath = Environment.GetEnvironmentVariable(ToolRootEnvironmentVariable);
-            if (string.IsNullOrWhiteSpace(startPath))
-            {
-                startPath = Environment.CurrentDirectory;
-            }
-
-            var directory = new DirectoryInfo(Path.GetFullPath(startPath));
-            while (directory != null)
-            {
-                if (Directory.Exists(Path.Combine(directory.FullName, "Assets"))
-                    && Directory.Exists(Path.Combine(directory.FullName, "ProjectSettings")))
-                {
-                    return directory.FullName;
-                }
-
-                directory = directory.Parent;
-            }
-
-            throw new InvalidOperationException(
-                $"Cannot resolve the Unity project root. Set {ProjectRootEnvironmentVariable} or run from inside a Unity project."
-            );
+            return UiNavMapPaths.ResolveProjectRootDirectory();
         }
     }
 

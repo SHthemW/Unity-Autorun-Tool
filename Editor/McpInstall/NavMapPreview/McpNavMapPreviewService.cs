@@ -5,9 +5,6 @@ using UnityEngine;
 
 public static class McpNavMapPreviewService
 {
-    private const string NavMapPath = "Gen/ui-nav-map.json";
-    private const string ExampleNavMapPath = "Gen/ui-nav-map.example.json";
-    private const string PreviewPath = "Gen/ui-nav-map.preview.html";
     private const string PreviewStylesPath =
         "Editor/McpInstall/NavMapPreview/Web~/nav-map-preview.css";
     private const string VizScriptPath =
@@ -34,12 +31,12 @@ public static class McpNavMapPreviewService
     internal static string GeneratePreviewFile()
     {
         string root = McpInstallConfig.GetToolRootDirectory();
-        string mapPath = ResolveMapPath(root);
+        string mapPath = McpInstallConfig.ResolveNavigationMapPath();
         string previewStylesPath = ResolvePreviewAsset(root, PreviewStylesPath);
         string vizScriptPath = ResolvePreviewAsset(root, VizScriptPath);
         string previewScriptPath = ResolvePreviewAsset(root, PreviewScriptPath);
         NavMapGraph graph = NavMapParser.Parse(File.ReadAllText(mapPath));
-        string htmlPath = Path.Combine(root, PreviewPath);
+        string htmlPath = McpInstallConfig.GetNavigationPreviewPath();
         string htmlDirectory = Path.GetDirectoryName(htmlPath);
         if (!string.IsNullOrEmpty(htmlDirectory))
         {
@@ -54,23 +51,6 @@ public static class McpNavMapPreviewService
             MakeRelativeUrl(htmlPath, previewScriptPath));
         File.WriteAllText(htmlPath, html, Encoding.UTF8);
         return htmlPath;
-    }
-
-    private static string ResolveMapPath(string root)
-    {
-        string mapPath = Path.Combine(root, NavMapPath);
-        if (File.Exists(mapPath))
-        {
-            return mapPath;
-        }
-
-        string examplePath = Path.Combine(root, ExampleNavMapPath);
-        if (File.Exists(examplePath))
-        {
-            return examplePath;
-        }
-
-        throw new FileNotFoundException("Cannot find Gen/ui-nav-map.json or Gen/ui-nav-map.example.json.");
     }
 
     private static string ResolvePreviewAsset(string root, string relativePath)

@@ -151,7 +151,7 @@ public partial class AutoRunWindow
 
         row.Add(260f);
         GUILayout.Label(
-            "Publish the MCP server, open its root folder, or render Gen/ui-nav-map.json as an HTML graph.",
+            "Publish the MCP server, open its root folder, or render the project navigation map as an HTML graph.",
             GetWrappedStyle(EditorStyles.label),
             GUILayout.MinWidth(0),
             GUILayout.ExpandWidth(true)

@@ -1,6 +1,6 @@
 {
   "name": "com.shthemw.unity-autorun-tool",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "displayName": "Unity Autorun Tool",
   "description": "Unity Editor automation tool for UI AutoRun, MCP bridge, and navigation map workflows.",
   "unity": "2021.3",

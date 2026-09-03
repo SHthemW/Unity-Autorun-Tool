@@ -42,7 +42,7 @@ For a pinned version or manual installation, see the [full installation instruct
 $unity-autorun gen-nav
 ```
 
-The AI uses the MCP tools to scan source code, review candidates, and create `Gen/ui-nav-map.json`. AutoRun only accepts a map after its finalization checks pass.
+The AI uses the MCP tools to scan source code, review candidates, and create `ProjectSettings/Packages/com.shthemw.unity-autorun-tool/ui-nav-map.json`. AutoRun only accepts a map after its finalization checks pass.
 
 Claude Desktop supports MCP-only installation through this panel: select the config directory containing `claude_desktop_config.json`, then press `Install MCP`. Local filesystem Skills are a Claude Code capability, so `Install Skill` is disabled for a Desktop target.
 
@@ -93,7 +93,7 @@ For direct editor operation, type a query in the lower `Navigation AutoRun` area
 ## Features
 
 - Direct AI-driven Unity startup and navigation to a requested UI view.
-- UI navigation map support through `Gen/ui-nav-map.json`.
+- UI navigation map support through the project-scoped `ProjectSettings/Packages/com.shthemw.unity-autorun-tool/ui-nav-map.json`.
 - Route resolution and execution for click and wait based UI transitions.
 - Asynchronous tracked UI navigation that survives Play Mode transitions and exposes compact progress polling.
 - Navigation map tools for guidance, source scanning, patch validation, merging, summaries, subgraphs, and HTML preview.
@@ -130,7 +130,7 @@ https://github.com/SHthemW/Unity-Autorun-Tool.git
 For reproducible installs, use a version tag:
 
 ```text
-https://github.com/SHthemW/Unity-Autorun-Tool.git#v0.1.0
+https://github.com/SHthemW/Unity-Autorun-Tool.git#v0.2.5
 ```
 
 Manual installation is also supported. Copy or clone this repository into a Unity project under:
@@ -157,7 +157,7 @@ The `MCP` panel in `Window > Auto Run Window` groups bridge controls, detected M
 - `Install MCP` updates a selected `.codex/config.toml`. For a Claude Code project `.claude` directory, it updates the sibling project-root `.mcp.json`. For a Claude Desktop config directory containing `claude_desktop_config.json`, it preserves other servers and merges `unity-autorun`. A legacy file incorrectly written to `.claude/.mcp.json` is left unchanged with a migration notice, but Claude Code no longer reads project MCP servers from that location.
 - `Install Skill` copies the bundled Skill into a Codex or Claude Code Skill directory and changes between Install, Update, Reinstall, and Repair according to the detected version. Claude Desktop does not load Claude Code filesystem Skills, so the button is disabled for a Desktop config target.
 - `Open Root` opens this tool folder.
-- `Preview Nav Map` uses the bundled Viz.js / Graphviz layout engine to render `Gen/ui-nav-map.json` as an interactive `Gen/ui-nav-map.preview.html`.
+- `Preview Nav Map` uses the bundled Viz.js / Graphviz layout engine to render the project navigation map as `Library/UnityAutorunTool/ui-nav-map.preview.html`.
 
 You can also start or stop the bridge from:
 
@@ -192,16 +192,16 @@ dotnet run --project mcp~/UnityAutorun.Mcp -- wait-ui-state --query MusicToggle 
 dotnet run --project mcp~/UnityAutorun.Mcp -- click --name StartButton --framework ugui
 dotnet run --project mcp~/UnityAutorun.Mcp -- run-sequence --json-file sequence.json
 dotnet run --project mcp~/UnityAutorun.Mcp -- nav-guidance
-dotnet run --project mcp~/UnityAutorun.Mcp -- scan-nav-sources --map Gen/ui-nav-map.json
-dotnet run --project mcp~/UnityAutorun.Mcp -- trace-nav-calls --map Gen/ui-nav-map.json
-dotnet run --project mcp~/UnityAutorun.Mcp -- backfill-nav-map --map Gen/ui-nav-map.json --preview true
-dotnet run --project mcp~/UnityAutorun.Mcp -- nav-map-summary --map Gen/ui-nav-map.json
-dotnet run --project mcp~/UnityAutorun.Mcp -- nav-candidate-coverage --map Gen/ui-nav-map.json
-dotnet run --project mcp~/UnityAutorun.Mcp -- finalize-nav-map --map Gen/ui-nav-map.json
-dotnet run --project mcp~/UnityAutorun.Mcp -- routes --map Gen/ui-nav-map.example.json
-dotnet run --project mcp~/UnityAutorun.Mcp -- route --map Gen/ui-nav-map.example.json --from A --to C
-dotnet run --project mcp~/UnityAutorun.Mcp -- run-route --map Gen/ui-nav-map.example.json --from A --to C
-dotnet run --project mcp~/UnityAutorun.Mcp -- navigate-ui --map Gen/ui-nav-map.json --to TargetView
+dotnet run --project mcp~/UnityAutorun.Mcp -- scan-nav-sources
+dotnet run --project mcp~/UnityAutorun.Mcp -- trace-nav-calls
+dotnet run --project mcp~/UnityAutorun.Mcp -- backfill-nav-map --preview true
+dotnet run --project mcp~/UnityAutorun.Mcp -- nav-map-summary
+dotnet run --project mcp~/UnityAutorun.Mcp -- nav-candidate-coverage
+dotnet run --project mcp~/UnityAutorun.Mcp -- finalize-nav-map
+dotnet run --project mcp~/UnityAutorun.Mcp -- routes
+dotnet run --project mcp~/UnityAutorun.Mcp -- route --from A --to C
+dotnet run --project mcp~/UnityAutorun.Mcp -- run-route --from A --to C
+dotnet run --project mcp~/UnityAutorun.Mcp -- navigate-ui --to TargetView
 dotnet run --project mcp~/UnityAutorun.Mcp -- mock-bridge
 ```
 
@@ -346,7 +346,7 @@ Properties use a uniform `{name, valueType, value}` shape. Each component's `pri
 
 ## UI Navigation Map
 
-The navigation system uses `Gen/ui-nav-map.json`. If that file does not exist, the editor falls back to `Gen/ui-nav-map.example.json`.
+The navigation system uses the project-scoped `ProjectSettings/Packages/com.shthemw.unity-autorun-tool/ui-nav-map.json`. If that file does not exist, the editor falls back to the package's `Example/ui-nav-map.example.json`. Set `UNITY_AUTORUN_NAV_MAP` to use another absolute or project-relative path.
 
 The map describes:
 
@@ -432,7 +432,7 @@ This keeps local presets out of normal project version control. The tool creates
 |-- Editor/                      # Unity Editor window, menus, MCP install, processes, nav AutoRun UI
 |-- Services/                    # Button, active-view, and uGUI/TMP runtime-state services
 |-- Util/                        # XML and optional FairyGUI helpers
-|-- Gen/                         # Generated nav-map files and the tracked example map
+|-- Example/                     # Tracked example navigation map
 |-- mcp~/UnityAutorun.Mcp/       # .NET 8 CLI and MCP server source
 |-- skill~/unity-autorun/        # Distributable AI Skill source and workflow prompts
 ```
@@ -444,4 +444,4 @@ This keeps local presets out of normal project version control. The tool creates
 - If CLI bridge calls fail, start the bridge in Unity and use `bridge-port` or the MCP tool `get_unity_bridge_port` to inspect the current endpoint.
 - If a UGUI button is not found, check the runtime GameObject name, normalized name, and optional text field.
 - If a route cannot run, inspect it with `route`, `resolve_ui_route`, or `get_ui_nav_subgraph` and check unsupported or unresolved transitions.
-- If `Navigation AutoRun` shows no targets, create or merge a real `Gen/ui-nav-map.json`, or start from the example map to verify the workflow.
+- If `Navigation AutoRun` shows no targets, create or merge the project-scoped `ProjectSettings/Packages/com.shthemw.unity-autorun-tool/ui-nav-map.json`, or start from the package example map to verify the workflow.
