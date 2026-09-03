@@ -7,6 +7,7 @@ public sealed class McpInstallConfig
     public static McpInstallConfig TestInstance;
 
     public string PublishedDllPath = "";
+    public string ProjectRoot = "";
     public string ClaudeServerJson = "{}";
 
     public static McpInstallConfig Create()
@@ -20,9 +21,19 @@ public sealed class McpInstallConfig
         return TestInstance;
     }
 
-    public string ToCodexTomlBlock()
+    public string ToCodexTomlBlock(string projectRoot)
     {
-        return "[mcp_servers.unity_autorun]";
+        return "[mcp_servers.unity_autorun]\n"
+            + "command = \"dotnet\"\n\n"
+            + "[mcp_servers.unity_autorun.env]\n"
+            + "UNITY_AUTORUN_PROJECT_ROOT = \"" + projectRoot + "\"";
+    }
+
+    public string ToProjectClaudeServerJson(string projectRoot)
+    {
+        return "{\"command\":\"dotnet\",\"env\":{\"UNITY_AUTORUN_PROJECT_ROOT\":\""
+            + projectRoot
+            + "\"}}";
     }
 
     public string ToClaudeServerJson()

@@ -46,14 +46,14 @@ namespace UnityAutorun.Mcp
             string configured = Environment.GetEnvironmentVariable(ProjectRootEnvironmentVariable);
             if (!string.IsNullOrWhiteSpace(configured))
             {
-                string configuredPath = Path.GetFullPath(configured);
-                if (IsProjectRoot(configuredPath))
+                string configuredPath = ResolveConfiguredProjectRoot(configured);
+                if (!string.IsNullOrEmpty(configuredPath))
                 {
                     return configuredPath;
                 }
 
                 throw new InvalidOperationException(
-                    $"{ProjectRootEnvironmentVariable} does not point to a Unity project: {configuredPath}");
+                    $"{ProjectRootEnvironmentVariable} does not resolve to a Unity project: {configured}");
             }
 
             string fromToolRoot = FindProjectRoot(
@@ -77,6 +77,29 @@ namespace UnityAutorun.Mcp
 
             throw new InvalidOperationException(
                 $"Cannot resolve the Unity project root. Set {ProjectRootEnvironmentVariable} or run from inside a Unity project.");
+        }
+
+        private static string ResolveConfiguredProjectRoot(string configured)
+        {
+            if (Path.IsPathRooted(configured))
+            {
+                string absolutePath = Path.GetFullPath(configured);
+                return IsProjectRoot(absolutePath) ? absolutePath : null;
+            }
+
+            DirectoryInfo directory = new DirectoryInfo(Path.GetFullPath(Environment.CurrentDirectory));
+            while (directory != null)
+            {
+                string candidate = Path.GetFullPath(Path.Combine(directory.FullName, configured));
+                if (IsProjectRoot(candidate))
+                {
+                    return candidate;
+                }
+
+                directory = directory.Parent;
+            }
+
+            return null;
         }
 
         public static string ResolveToolRootDirectory()

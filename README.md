@@ -130,7 +130,7 @@ https://github.com/SHW2002/Unity-Autorun-MCP.git
 为了保证安装版本可复现，建议使用版本 tag：
 
 ```text
-https://github.com/SHW2002/Unity-Autorun-MCP.git#v0.2.5
+https://github.com/SHW2002/Unity-Autorun-MCP.git#v0.2.6
 ```
 
 也可以手动安装。将本仓库复制或克隆到 Unity 项目的：
@@ -209,8 +209,8 @@ dotnet run --project mcp~/UnityAutorun.Mcp -- mock-bridge
 
 | 变量 | 默认值 | 含义 |
 | --- | --- | --- |
-| `UNITY_AUTORUN_PROJECT_ROOT` | 安装时自动检测 | 使用其动态 Bridge 端点的 Unity 项目根目录。 |
-| `UNITY_AUTORUN_TOOL_ROOT` | 安装时自动检测 | MCP 导航图操作使用的工具根目录。 |
+| `UNITY_AUTORUN_PROJECT_ROOT` | 项目级安装写入相对路径 | 使用其动态 Bridge 端点的 Unity 项目根目录；相对路径会从当前工作目录及其祖先解析。 |
+| `UNITY_AUTORUN_TOOL_ROOT` | 通常无需设置 | 仅在 MCP 无法从自身二进制位置定位工具根目录时显式覆盖。 |
 
 ## MCP Server
 

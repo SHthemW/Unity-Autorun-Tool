@@ -16,8 +16,10 @@ namespace UnityAutorun.Mcp.Tests
                 ("incremental merge is idempotent and preserves fields", TestIncrementalMerge),
                 ("full map save is creation-only", TestCreationOnlySave),
                 ("default map path is scoped to Unity ProjectSettings", TestProjectScopedMapPaths),
+                ("relative project root resolves from nested workspaces", TestRelativeProjectRootResolution),
                 ("candidate identity ignores source line movement", TestCandidateIdentityStability),
                 ("finalization and no-op patches are byte-stable", TestFinalizationIdempotence),
+                ("Codex MCP installs with a portable project root", TestCodexMcpInstall),
                 ("Claude Code MCP installs at the project root", TestClaudeCodeMcpInstall),
                 ("Claude Desktop MCP preserves existing servers", TestClaudeDesktopMcpInstall)
             };
@@ -200,6 +202,58 @@ namespace UnityAutorun.Mcp.Tests
             });
         }
 
+        private static void TestRelativeProjectRootResolution()
+        {
+            WithTemporaryDirectory(root =>
+            {
+                string workspaceRoot = Path.Combine(root, "Repository");
+                string projectRoot = Path.Combine(workspaceRoot, "Unity");
+                string nestedDirectory = Path.Combine(workspaceRoot, "Source", "Nested");
+                Directory.CreateDirectory(Path.Combine(projectRoot, "Assets"));
+                Directory.CreateDirectory(Path.Combine(projectRoot, "ProjectSettings"));
+                Directory.CreateDirectory(nestedDirectory);
+
+                string oldCurrentDirectory = Environment.CurrentDirectory;
+                string oldProjectRoot = Environment.GetEnvironmentVariable(
+                    "UNITY_AUTORUN_PROJECT_ROOT");
+                string oldToolRoot = Environment.GetEnvironmentVariable(
+                    "UNITY_AUTORUN_TOOL_ROOT");
+                try
+                {
+                    Environment.CurrentDirectory = nestedDirectory;
+                    Environment.SetEnvironmentVariable(
+                        "UNITY_AUTORUN_PROJECT_ROOT",
+                        "Unity");
+                    Environment.SetEnvironmentVariable(
+                        "UNITY_AUTORUN_TOOL_ROOT",
+                        null);
+                    AssertEqual(
+                        Path.GetFullPath(projectRoot),
+                        UiNavMapPaths.ResolveProjectRootDirectory(),
+                        "A relative Unity project root was not resolved from a workspace ancestor.");
+
+                    Environment.CurrentDirectory = Path.Combine(projectRoot, "Assets");
+                    Environment.SetEnvironmentVariable(
+                        "UNITY_AUTORUN_PROJECT_ROOT",
+                        ".");
+                    AssertEqual(
+                        Path.GetFullPath(projectRoot),
+                        UiNavMapPaths.ResolveProjectRootDirectory(),
+                        "A dot project root was not resolved from inside the Unity project.");
+                }
+                finally
+                {
+                    Environment.CurrentDirectory = oldCurrentDirectory;
+                    Environment.SetEnvironmentVariable(
+                        "UNITY_AUTORUN_PROJECT_ROOT",
+                        oldProjectRoot);
+                    Environment.SetEnvironmentVariable(
+                        "UNITY_AUTORUN_TOOL_ROOT",
+                        oldToolRoot);
+                }
+            });
+        }
+
         private static void TestCandidateIdentityStability()
         {
             WithTemporaryToolRoot((toolRoot, mapPath) =>
@@ -290,6 +344,50 @@ namespace UnityAutorun.Mcp.Tests
             });
         }
 
+        private static void TestCodexMcpInstall()
+        {
+            WithTemporaryDirectory(root =>
+            {
+                string repositoryRoot = Path.Combine(root, "Repository");
+                string codexFolder = Path.Combine(repositoryRoot, ".codex");
+                string unityProjectRoot = Path.Combine(repositoryRoot, "Unity");
+                Directory.CreateDirectory(codexFolder);
+                Directory.CreateDirectory(unityProjectRoot);
+                string configPath = Path.Combine(codexFolder, "config.toml");
+                File.WriteAllText(configPath, "model = \"existing\"\n");
+                string publishedDll = CreatePublishedDll(root);
+
+                WithMcpInstallConfig(publishedDll, () =>
+                {
+                    bool installed = McpInstallService.Install(
+                        codexFolder,
+                        out string message);
+                    AssertTrue(installed, "Codex MCP installation failed: " + message);
+                    string installedConfig = File.ReadAllText(configPath);
+                    AssertTrue(
+                        installedConfig.Contains("model = \"existing\""),
+                        "Codex installation removed existing config.");
+                    AssertTrue(
+                        installedConfig.Contains("UNITY_AUTORUN_PROJECT_ROOT = \"Unity\""),
+                        "Codex installation did not use a portable Unity project root.");
+                    AssertFalse(
+                        installedConfig.Contains("cwd ="),
+                        "Codex installation hard-coded an MCP working directory.");
+                    AssertFalse(
+                        installedConfig.Contains("UNITY_AUTORUN_TOOL_ROOT"),
+                        "Codex installation wrote a redundant absolute tool root.");
+
+                    string firstInstall = installedConfig;
+                    installed = McpInstallService.Install(codexFolder, out message);
+                    AssertTrue(installed, "Repeated Codex MCP installation failed: " + message);
+                    AssertEqual(
+                        firstInstall,
+                        File.ReadAllText(configPath),
+                        "Repeated Codex installation changed an already-current config.");
+                }, unityProjectRoot);
+            });
+        }
+
         private static void TestClaudeCodeMcpInstall()
         {
             WithTemporaryDirectory(root =>
@@ -305,6 +403,8 @@ namespace UnityAutorun.Mcp.Tests
                 string legacyWrongConfig = Path.Combine(claudeFolder, ".mcp.json");
                 File.WriteAllText(legacyWrongConfig, "legacy-location-must-not-change");
 
+                string unityProjectRoot = Path.Combine(projectRoot, "Unity");
+                Directory.CreateDirectory(unityProjectRoot);
                 WithMcpInstallConfig(publishedDll, () =>
                 {
                     bool installed = McpInstallService.Install(
@@ -318,6 +418,15 @@ namespace UnityAutorun.Mcp.Tests
                         message.Contains("legacy config"),
                         "Claude Code install message did not report the legacy config.");
                     AssertClaudeServerAndExistingEntry(projectConfig);
+                    JsonObject installedServer = ParseObject(
+                        File.ReadAllText(projectConfig))["mcpServers"]?[McpInstallConfig.ServerName]?.AsObject();
+                    AssertEqual(
+                        "Unity",
+                        Text(installedServer?["env"]?.AsObject(), "UNITY_AUTORUN_PROJECT_ROOT"),
+                        "Claude Code installation did not use a portable Unity project root.");
+                    AssertFalse(
+                        installedServer?["env"]?.AsObject().ContainsKey("UNITY_AUTORUN_TOOL_ROOT") == true,
+                        "Claude Code installation wrote a redundant absolute tool root.");
                     AssertEqual(
                         "legacy-location-must-not-change",
                         File.ReadAllText(legacyWrongConfig),
@@ -330,7 +439,7 @@ namespace UnityAutorun.Mcp.Tests
                         firstInstall,
                         File.ReadAllText(projectConfig),
                         "Repeated Claude Code installation changed an already-current config.");
-                });
+                }, unityProjectRoot);
             });
         }
 
@@ -378,7 +487,8 @@ namespace UnityAutorun.Mcp.Tests
 
         private static void WithMcpInstallConfig(
             string publishedDll,
-            Action action)
+            Action action,
+            string projectRoot = null)
         {
             McpInstallConfig previous = McpInstallConfig.TestInstance;
             try
@@ -386,6 +496,7 @@ namespace UnityAutorun.Mcp.Tests
                 McpInstallConfig.TestInstance = new McpInstallConfig
                 {
                     PublishedDllPath = publishedDll,
+                    ProjectRoot = projectRoot ?? "",
                     ClaudeServerJson = "{\"command\":\"dotnet\",\"args\":[\"UnityAutorun.Mcp.dll\",\"mcp\"],\"env\":{\"UNITY_AUTORUN_TOOL_ROOT\":\"tool\"}}"
                 };
                 action();

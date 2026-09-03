@@ -72,10 +72,20 @@ public static class McpInstallService
 
     private static string InstallCodex(string codexFolder, McpInstallConfig config)
     {
+        var directory = new DirectoryInfo(Path.GetFullPath(codexFolder));
+        if (directory.Parent == null)
+        {
+            throw new InvalidOperationException(
+                "Cannot resolve the Codex project root for: " + codexFolder);
+        }
+
         string path = Path.Combine(codexFolder, "config.toml");
         string existing = File.Exists(path) ? File.ReadAllText(path) : "";
+        string projectRoot = GetRelativeProjectRoot(
+            directory.Parent.FullName,
+            config.ProjectRoot);
         string block = BeginMarker + Environment.NewLine
-            + config.ToCodexTomlBlock() + Environment.NewLine
+            + config.ToCodexTomlBlock(projectRoot) + Environment.NewLine
             + EndMarker;
         string updated = ReplaceMarkedBlock(existing, block);
         File.WriteAllText(path, updated);
@@ -110,8 +120,11 @@ public static class McpInstallService
                 "The user-level .claude folder cannot hold a project-scoped .mcp.json. Select the current Claude Code project's .claude folder instead.");
         }
 
+        string projectRoot = GetRelativeProjectRoot(
+            directory.Parent.FullName,
+            config.ProjectRoot);
         string path = Path.Combine(directory.Parent.FullName, ".mcp.json");
-        return InstallClaudeJson(path, config);
+        return InstallClaudeJson(path, config.ToProjectClaudeServerJson(projectRoot));
     }
 
     private static string InstallClaudeDesktop(
@@ -119,12 +132,12 @@ public static class McpInstallService
         McpInstallConfig config)
     {
         string path = Path.Combine(configFolder, ClaudeDesktopConfigFileName);
-        return InstallClaudeJson(path, config);
+        return InstallClaudeJson(path, config.ToClaudeServerJson());
     }
 
-    private static string InstallClaudeJson(string path, McpInstallConfig config)
+    private static string InstallClaudeJson(string path, string serverConfigJson)
     {
-        string serverJson = "\"" + McpInstallConfig.ServerName + "\":" + config.ToClaudeServerJson();
+        string serverJson = "\"" + McpInstallConfig.ServerName + "\":" + serverConfigJson;
         string updated;
 
         if (!File.Exists(path) || string.IsNullOrWhiteSpace(File.ReadAllText(path)))
@@ -139,6 +152,27 @@ public static class McpInstallService
 
         File.WriteAllText(path, updated);
         return path;
+    }
+
+    internal static string GetRelativeProjectRoot(
+        string configurationRoot,
+        string unityProjectRoot)
+    {
+        string relativePath = Path.GetRelativePath(
+            Path.GetFullPath(configurationRoot),
+            Path.GetFullPath(unityProjectRoot)).Replace('\\', '/');
+        if (string.IsNullOrEmpty(relativePath))
+        {
+            return ".";
+        }
+
+        if (relativePath == ".." || relativePath.StartsWith("../", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "The selected project config directory must contain the current Unity project.");
+        }
+
+        return relativePath;
     }
 
     private static string ReplaceMarkedBlock(string existing, string block)

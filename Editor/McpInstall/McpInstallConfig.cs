@@ -26,7 +26,6 @@ public sealed class McpInstallConfig
 
     public string Command;
     public List<string> Args;
-    public string Cwd;
     public string ProjectRoot;
     public string ToolRoot;
     public string PublishedDllPath;
@@ -40,7 +39,6 @@ public sealed class McpInstallConfig
         {
             Command = "dotnet",
             Args = new List<string> { publishedDllPath, "mcp" },
-            Cwd = toolRoot,
             ProjectRoot = GetProjectRootDirectory(),
             ToolRoot = toolRoot,
             PublishedDllPath = publishedDllPath
@@ -225,32 +223,43 @@ public sealed class McpInstallConfig
         return _publishedDllPath;
     }
 
-    public string ToCodexTomlBlock()
+    public string ToCodexTomlBlock(string projectRoot)
     {
         var builder = new StringBuilder();
         builder.AppendLine("[mcp_servers.unity_autorun]");
         builder.AppendLine("command = " + TomlString(Command));
         builder.AppendLine("args = [" + TomlStringList(Args) + "]");
-        builder.AppendLine("cwd = " + TomlString(Cwd));
         builder.AppendLine("startup_timeout_sec = 20");
         builder.AppendLine("tool_timeout_sec = 60");
         builder.AppendLine("enabled = true");
         builder.AppendLine();
         builder.AppendLine("[mcp_servers.unity_autorun.env]");
-        builder.AppendLine("UNITY_AUTORUN_PROJECT_ROOT = " + TomlString(ProjectRoot));
-        builder.AppendLine("UNITY_AUTORUN_TOOL_ROOT = " + TomlString(ToolRoot));
+        builder.AppendLine("UNITY_AUTORUN_PROJECT_ROOT = " + TomlString(projectRoot));
         return builder.ToString().TrimEnd();
     }
 
+    public string ToProjectClaudeServerJson(string projectRoot)
+    {
+        return BuildClaudeServerJson(projectRoot, false);
+    }
+
     public string ToClaudeServerJson()
+    {
+        return BuildClaudeServerJson(ProjectRoot, true);
+    }
+
+    private string BuildClaudeServerJson(string projectRoot, bool includeToolRoot)
     {
         var builder = new StringBuilder();
         builder.Append("{");
         builder.Append("\"command\":\"").Append(JsonEscape(Command)).Append("\",");
         builder.Append("\"args\":").Append(JsonStringArray(Args)).Append(",");
         builder.Append("\"env\":{");
-        builder.Append("\"UNITY_AUTORUN_PROJECT_ROOT\":\"").Append(JsonEscape(ProjectRoot)).Append("\",");
-        builder.Append("\"UNITY_AUTORUN_TOOL_ROOT\":\"").Append(JsonEscape(ToolRoot)).Append("\"");
+        builder.Append("\"UNITY_AUTORUN_PROJECT_ROOT\":\"").Append(JsonEscape(projectRoot)).Append("\"");
+        if (includeToolRoot)
+        {
+            builder.Append(",\"UNITY_AUTORUN_TOOL_ROOT\":\"").Append(JsonEscape(ToolRoot)).Append("\"");
+        }
         builder.Append("}");
         builder.Append("}");
         return builder.ToString();

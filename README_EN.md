@@ -130,7 +130,7 @@ https://github.com/SHW2002/Unity-Autorun-MCP.git
 For reproducible installs, use a version tag:
 
 ```text
-https://github.com/SHW2002/Unity-Autorun-MCP.git#v0.2.5
+https://github.com/SHW2002/Unity-Autorun-MCP.git#v0.2.6
 ```
 
 Manual installation is also supported. Copy or clone this repository into a Unity project under:
@@ -209,8 +209,8 @@ Environment variables:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `UNITY_AUTORUN_PROJECT_ROOT` | auto-detected by install | Project whose dynamically published bridge endpoint is used. |
-| `UNITY_AUTORUN_TOOL_ROOT` | auto-detected by install | Tool root used by MCP nav-map operations. |
+| `UNITY_AUTORUN_PROJECT_ROOT` | relative for project-scoped installs | Unity project whose dynamic bridge endpoint is used; relative paths resolve from the current working directory and its ancestors. |
+| `UNITY_AUTORUN_TOOL_ROOT` | normally unset | Explicit override used only when the MCP cannot locate its tool root from the server binary. |
 
 ## MCP Server
 
