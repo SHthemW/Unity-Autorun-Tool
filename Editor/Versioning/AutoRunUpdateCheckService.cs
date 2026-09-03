@@ -7,9 +7,9 @@ using UnityEngine.Networking;
 public static class AutoRunUpdateCheckService
 {
     public const string RepositoryUrl =
-        "https://github.com/SHthemW/Unity-Autorun-Tool";
+        "https://github.com/SHW2002/Unity-Autorun-MCP";
     public const string LatestPackageUrl =
-        "https://raw.githubusercontent.com/SHthemW/Unity-Autorun-Tool/master/package.json";
+        "https://raw.githubusercontent.com/SHW2002/Unity-Autorun-MCP/master/package.json";
 
     private const double SuccessIntervalHours = 24d;
     private const double FailureRetryIntervalHours = 1d;

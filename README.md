@@ -23,7 +23,7 @@ Unity Autorun Tool 是一个 Unity Editor 扩展，用于自动化 UI 启动流�
 3. 输入以下 Git URL，然后点击 `Add`：
 
 ```text
-https://github.com/SHthemW/Unity-Autorun-Tool.git
+https://github.com/SHW2002/Unity-Autorun-MCP.git
 ```
 
 4. 等待安装和脚本编译完成，再打开 `Window > Auto Run Window`。
@@ -124,13 +124,13 @@ AI 会发起一次异步导航任务，并持续查询任务状态，直到 Unit
 4. 输入：
 
 ```text
-https://github.com/SHthemW/Unity-Autorun-Tool.git
+https://github.com/SHW2002/Unity-Autorun-MCP.git
 ```
 
 为了保证安装版本可复现，建议使用版本 tag：
 
 ```text
-https://github.com/SHthemW/Unity-Autorun-Tool.git#v0.2.5
+https://github.com/SHW2002/Unity-Autorun-MCP.git#v0.2.5
 ```
 
 也可以手动安装。将本仓库复制或克隆到 Unity 项目的：

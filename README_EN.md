@@ -23,7 +23,7 @@ The recommended method is [Unity Package Manager with a Git URL](https://docs.un
 3. Enter the following Git URL, then press `Add`:
 
 ```text
-https://github.com/SHthemW/Unity-Autorun-Tool.git
+https://github.com/SHW2002/Unity-Autorun-MCP.git
 ```
 
 4. Wait for installation and script compilation to finish, then open `Window > Auto Run Window`.
@@ -124,13 +124,13 @@ The recommended installation method is [Unity Package Manager with a Git URL](ht
 4. Enter:
 
 ```text
-https://github.com/SHthemW/Unity-Autorun-Tool.git
+https://github.com/SHW2002/Unity-Autorun-MCP.git
 ```
 
 For reproducible installs, use a version tag:
 
 ```text
-https://github.com/SHthemW/Unity-Autorun-Tool.git#v0.2.5
+https://github.com/SHW2002/Unity-Autorun-MCP.git#v0.2.5
 ```
 
 Manual installation is also supported. Copy or clone this repository into a Unity project under:

@@ -47,7 +47,7 @@ public partial class AutoRunWindow
 
         if (GUILayout.Button("more info"))
         {
-            Application.OpenURL("https://github.com/SHthemW/Unity-Autorun-Tool");
+            Application.OpenURL("https://github.com/SHW2002/Unity-Autorun-MCP");
         }
     }
 
